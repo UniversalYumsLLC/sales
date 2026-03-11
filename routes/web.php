@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActiveCustomersController;
 use App\Http\Controllers\AccountsReceivableController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Foundation\Application;
@@ -11,6 +12,14 @@ use Inertia\Inertia;
 // Active Customers (home page)
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [ActiveCustomersController::class, 'index'])->name('customers.index');
+
+    // Customer Management (create route must come before {id} wildcard)
+    Route::get('/customers/create', [CustomerController::class, 'create'])->name('customers.create');
+    Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
+    Route::put('/customers/{id}', [CustomerController::class, 'update'])->name('customers.update');
+    Route::get('/api/customers/form-options', [CustomerController::class, 'formOptions'])->name('customers.form-options');
+
+    // Customer detail page (must come after /customers/create)
     Route::get('/customers/{id}', [ActiveCustomersController::class, 'show'])->name('customers.show');
 
     // Accounts Receivable

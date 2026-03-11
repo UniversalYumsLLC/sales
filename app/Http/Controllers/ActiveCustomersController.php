@@ -117,6 +117,10 @@ class ActiveCustomersController extends Controller
             'upcomingOrders' => $upcomingOrders,
             'outstandingInvoices' => $outstandingInvoices,
             'lastUpdated' => now()->toIso8601String(),
+            // Form options for editing
+            'priceLists' => $this->fulfil->getAllPriceLists($bustCache),
+            'paymentTerms' => $this->fulfil->getAllPaymentTerms($bustCache),
+            'shippingTerms' => $this->fulfil->getShippingTermsCategories($bustCache),
         ]);
     }
 
