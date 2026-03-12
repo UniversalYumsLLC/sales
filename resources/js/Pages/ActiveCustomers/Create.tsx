@@ -29,6 +29,11 @@ interface APContact {
     value: string;
 }
 
+interface BrokerContact {
+    name: string;
+    email: string;
+}
+
 interface Props {
     priceLists: PriceList[];
     paymentTerms: PaymentTerm[];
@@ -64,6 +69,10 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         shipping_terms_category_id: '',
         shelf_life_requirement: '',
         vendor_guide: '',
+        broker: '',  // "true", "false", or "" for unselected
+        broker_company_name: '',
+        broker_commission: '',
+        broker_contacts: [] as BrokerContact[],
         buyers: [{ name: '', email: '' }] as Contact[],
         accounts_payable: [] as APContact[],
         logistics: [] as Contact[],
@@ -123,6 +132,49 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         // Vendor guide URL validation (optional, but must be valid URL if provided)
         if (touched.vendor_guide && data.vendor_guide && !isValidUrl(data.vendor_guide)) {
             errors.vendor_guide = 'Must be a valid URL (https://...)';
+        }
+
+        // Broker validation
+        if (touched.broker && !data.broker) {
+            errors.broker = 'Please select whether this customer uses a broker';
+        }
+
+        // If broker is TRUE, validate required broker fields
+        if (data.broker === 'true') {
+            if (touched.broker_company_name && !data.broker_company_name) {
+                errors.broker_company_name = 'Broker company name is required';
+            }
+            if (touched.broker_commission) {
+                if (!data.broker_commission) {
+                    errors.broker_commission = 'Broker commission is required';
+                } else {
+                    const commission = parseFloat(data.broker_commission);
+                    if (isNaN(commission) || commission < 0 || commission > 100) {
+                        errors.broker_commission = 'Commission must be between 0 and 100';
+                    }
+                }
+            }
+            // At least one broker contact required
+            if (data.broker_contacts.length === 0 && touched.broker_contacts) {
+                errors.broker_contacts = 'At least one broker contact is required';
+            }
+            // Validate each broker contact
+            data.broker_contacts.forEach((contact, idx) => {
+                if (touched[`broker_contacts.${idx}.name`]) {
+                    if (!contact.name) {
+                        errors[`broker_contacts.${idx}.name`] = 'Name is required';
+                    } else if (contact.name.length < 2) {
+                        errors[`broker_contacts.${idx}.name`] = 'Name must be at least 2 characters';
+                    }
+                }
+                if (touched[`broker_contacts.${idx}.email`]) {
+                    if (!contact.email) {
+                        errors[`broker_contacts.${idx}.email`] = 'Email is required';
+                    } else if (!isValidEmail(contact.email)) {
+                        errors[`broker_contacts.${idx}.email`] = 'Must be a valid email';
+                    }
+                }
+            });
         }
 
         // Buyer validation
@@ -287,6 +339,27 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         markTouched(`logistics.${index}.${field}`);
     };
 
+    const addBrokerContact = () => {
+        setData('broker_contacts', [...data.broker_contacts, { name: '', email: '' }]);
+    };
+
+    const removeBrokerContact = (index: number) => {
+        setData('broker_contacts', data.broker_contacts.filter((_, i) => i !== index));
+        setTouched(prev => {
+            const newTouched = { ...prev };
+            delete newTouched[`broker_contacts.${index}.name`];
+            delete newTouched[`broker_contacts.${index}.email`];
+            return newTouched;
+        });
+    };
+
+    const updateBrokerContact = (index: number, field: 'name' | 'email', value: string) => {
+        const updated = [...data.broker_contacts];
+        updated[index][field] = value;
+        setData('broker_contacts', updated);
+        markTouched(`broker_contacts.${index}.${field}`);
+    };
+
     // Check if form is valid for submission
     const isFormValid = () => {
         // Required fields must be filled
@@ -301,6 +374,22 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
 
         // Vendor guide: optional but must be valid URL if provided
         if (data.vendor_guide && !isValidUrl(data.vendor_guide)) return false;
+
+        // Broker is required
+        if (!data.broker) return false;
+
+        // If broker is TRUE, validate broker fields
+        if (data.broker === 'true') {
+            if (!data.broker_company_name) return false;
+            const commission = parseFloat(data.broker_commission);
+            if (!data.broker_commission || isNaN(commission) || commission < 0 || commission > 100) return false;
+            // At least one valid broker contact
+            if (data.broker_contacts.length === 0) return false;
+            const hasInvalidBrokerContact = data.broker_contacts.some(c =>
+                !c.name || c.name.length < 2 || !isValidEmail(c.email)
+            );
+            if (hasInvalidBrokerContact) return false;
+        }
 
         // At least one valid buyer
         if (data.buyers.length === 0) return false;
@@ -333,7 +422,15 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
             shipping_terms_category_id: true,
             shelf_life_requirement: true,
             vendor_guide: true,
+            broker: true,
+            broker_company_name: true,
+            broker_commission: true,
+            broker_contacts: true,
         };
+        data.broker_contacts.forEach((_, idx) => {
+            allTouched[`broker_contacts.${idx}.name`] = true;
+            allTouched[`broker_contacts.${idx}.email`] = true;
+        });
         data.buyers.forEach((_, idx) => {
             allTouched[`buyers.${idx}.name`] = true;
             allTouched[`buyers.${idx}.email`] = true;
@@ -535,6 +632,155 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                         />
                                         {getError('vendor_guide') && <p className="mt-1 text-sm text-red-600">{getError('vendor_guide')}</p>}
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Broker Section */}
+                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6">
+                                <h3 className="mb-4 text-lg font-medium text-gray-900">Broker Information</h3>
+
+                                <div className="space-y-4">
+                                    <div className="max-w-xs">
+                                        <label htmlFor="broker" className="block text-sm font-medium text-gray-700">
+                                            Uses Broker <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            id="broker"
+                                            value={data.broker}
+                                            onChange={(e) => {
+                                                const newValue = e.target.value;
+                                                markTouched('broker');
+                                                // If switching to TRUE and no broker contacts, add one in a single update
+                                                if (newValue === 'true' && data.broker_contacts.length === 0) {
+                                                    setData({
+                                                        ...data,
+                                                        broker: newValue,
+                                                        broker_contacts: [{ name: '', email: '' }],
+                                                    });
+                                                } else {
+                                                    setData('broker', newValue);
+                                                }
+                                            }}
+                                            onBlur={() => markTouched('broker')}
+                                            className={getSelectClass('broker', data.broker)}
+                                        >
+                                            <option value="">Select...</option>
+                                            <option value="true">TRUE</option>
+                                            <option value="false">FALSE</option>
+                                        </select>
+                                        {getError('broker') && <p className="mt-1 text-sm text-red-600">{getError('broker')}</p>}
+                                    </div>
+
+                                    {/* Conditional broker fields - only shown when broker=TRUE */}
+                                    {data.broker === 'true' && (
+                                        <>
+                                            <div className="mt-4 border-t border-gray-200 pt-4">
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                    <div>
+                                                        <label htmlFor="broker_company_name" className="block text-sm font-medium text-gray-700">
+                                                            Broker Company Name <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            id="broker_company_name"
+                                                            value={data.broker_company_name}
+                                                            onChange={(e) => {
+                                                                setData('broker_company_name', e.target.value);
+                                                                markTouched('broker_company_name');
+                                                            }}
+                                                            onBlur={() => markTouched('broker_company_name')}
+                                                            className={getInputClass('broker_company_name', data.broker_company_name)}
+                                                            placeholder="e.g., HRG Brokers"
+                                                        />
+                                                        {getError('broker_company_name') && <p className="mt-1 text-sm text-red-600">{getError('broker_company_name')}</p>}
+                                                    </div>
+
+                                                    <div>
+                                                        <label htmlFor="broker_commission" className="block text-sm font-medium text-gray-700">
+                                                            Commission (%) <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            id="broker_commission"
+                                                            value={data.broker_commission}
+                                                            onChange={(e) => {
+                                                                setData('broker_commission', e.target.value);
+                                                                markTouched('broker_commission');
+                                                            }}
+                                                            onBlur={() => markTouched('broker_commission')}
+                                                            className={getInputClass('broker_commission', data.broker_commission)}
+                                                            placeholder="0-100"
+                                                            min="0"
+                                                            max="100"
+                                                            step="0.1"
+                                                        />
+                                                        {getError('broker_commission') && <p className="mt-1 text-sm text-red-600">{getError('broker_commission')}</p>}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4">
+                                                <div className="mb-2 flex items-center justify-between">
+                                                    <h4 className="text-sm font-medium text-gray-700">
+                                                        Broker Contacts <span className="text-red-500">*</span>
+                                                    </h4>
+                                                    <button
+                                                        type="button"
+                                                        onClick={addBrokerContact}
+                                                        className="text-sm text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        + Add Another
+                                                    </button>
+                                                </div>
+                                                {getError('broker_contacts') && <p className="mb-2 text-sm text-red-600">{getError('broker_contacts')}</p>}
+                                                <div className="space-y-4">
+                                                    {data.broker_contacts.map((contact, index) => (
+                                                        <div key={index} className="flex gap-4">
+                                                            <div className="flex-1">
+                                                                <input
+                                                                    type="text"
+                                                                    value={contact.name}
+                                                                    onChange={(e) => updateBrokerContact(index, 'name', e.target.value)}
+                                                                    onBlur={() => markTouched(`broker_contacts.${index}.name`)}
+                                                                    className={getInputClass(`broker_contacts.${index}.name`, contact.name)}
+                                                                    placeholder="Contact name"
+                                                                />
+                                                                {getError(`broker_contacts.${index}.name`) && (
+                                                                    <p className="mt-1 text-sm text-red-600">{getError(`broker_contacts.${index}.name`)}</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <input
+                                                                    type="email"
+                                                                    value={contact.email}
+                                                                    onChange={(e) => updateBrokerContact(index, 'email', e.target.value)}
+                                                                    onBlur={() => markTouched(`broker_contacts.${index}.email`)}
+                                                                    className={getInputClass(`broker_contacts.${index}.email`, contact.email, isValidEmail(contact.email))}
+                                                                    placeholder="Email address"
+                                                                />
+                                                                {getError(`broker_contacts.${index}.email`) && (
+                                                                    <p className="mt-1 text-sm text-red-600">{getError(`broker_contacts.${index}.email`)}</p>
+                                                                )}
+                                                            </div>
+                                                            {data.broker_contacts.length > 1 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeBrokerContact(index)}
+                                                                    className="text-red-500 hover:text-red-700"
+                                                                >
+                                                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                    </svg>
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

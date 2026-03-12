@@ -24,6 +24,9 @@ Route::middleware(['auth'])->group(function () {
     // Customer detail page (must come after /customers/create)
     Route::get('/customers/{id}', [ActiveCustomersController::class, 'show'])->name('customers.show');
     Route::put('/customers/{id}/company-urls', [ActiveCustomersController::class, 'updateCompanyUrls'])->name('customers.update-company-urls');
+    // Customer emails
+    Route::get('/customers/{id}/emails', [ActiveCustomersController::class, 'getEmails'])->name('customers.emails');
+    Route::get('/customers/{customerId}/emails/{emailId}', [ActiveCustomersController::class, 'getEmail'])->name('customers.emails.show');
     // Local contact management for customers
     Route::post('/customers/{id}/contacts', [ActiveCustomersController::class, 'createLocalContact'])->name('customers.contacts.create');
     Route::put('/customers/{customerId}/contacts/{contactId}', [ActiveCustomersController::class, 'updateLocalContact'])->name('customers.contacts.update');
@@ -43,6 +46,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/prospects/{id}', [ProspectController::class, 'show'])->name('prospects.show');
     Route::put('/prospects/{id}', [ProspectController::class, 'update'])->name('prospects.update');
     Route::patch('/prospects/{prospectId}/contacts/{contactId}/categorize', [ProspectController::class, 'categorizeContact'])->name('prospects.contacts.categorize');
+    Route::post('/prospects/{id}/promote', [ProspectController::class, 'promote'])->name('prospects.promote');
+    // Prospect emails
+    Route::get('/prospects/{id}/emails', [ProspectController::class, 'getEmails'])->name('prospects.emails');
+    Route::get('/prospects/{prospectId}/emails/{emailId}', [ProspectController::class, 'getEmail'])->name('prospects.emails.show');
 
     // Accounts Receivable
     Route::get('/accounts-receivable', [AccountsReceivableController::class, 'index'])->name('ar.index');

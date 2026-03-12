@@ -44,7 +44,7 @@ class FulfilService
         $lastException = null;
 
         for ($attempt = 1; $attempt <= $this->maxRetries; $attempt++) {
-            $response = Http::timeout(30)
+            $response = Http::timeout(60)
                 ->withHeaders([
                     'X-API-KEY' => $this->token,
                     'Content-Type' => 'application/json',
@@ -93,8 +93,20 @@ class FulfilService
                 'attempt' => $attempt,
             ]);
 
-            // For non-429 errors, don't retry
-            if ($response->status() !== 429) {
+            // Retry on 500 errors (server errors are often transient)
+            if ($response->status() === 500 && $attempt < $this->maxRetries) {
+                $delaySeconds = $this->calculateBackoff($attempt);
+                Log::warning('Fulfil API server error, retrying', [
+                    'url' => $url,
+                    'attempt' => $attempt,
+                    'delay_seconds' => $delaySeconds,
+                ]);
+                sleep($delaySeconds);
+                continue;
+            }
+
+            // For non-retryable errors, throw immediately
+            if ($response->status() !== 429 && $response->status() !== 500) {
                 throw $lastException;
             }
         }

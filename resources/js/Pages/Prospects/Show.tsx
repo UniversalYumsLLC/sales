@@ -1,4 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import EmailActivityPanel from '@/Components/EmailActivityPanel';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 
@@ -95,7 +96,7 @@ interface DetailsForm {
     shelf_life_requirement: string;
     vendor_guide: string;
     company_urls: string[];
-    broker: boolean;
+    broker: string;  // "true", "false", or "" for unselected
     broker_commission: string;
     broker_company_name: string;
 }
@@ -184,7 +185,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         shelf_life_requirement: prospect.shelf_life_requirement?.toString() || '',
         vendor_guide: prospect.vendor_guide || '',
         company_urls: prospect.company_urls || [],
-        broker: prospect.broker || false,
+        broker: prospect.broker === true ? 'true' : prospect.broker === false ? 'false' : '',
         broker_commission: prospect.broker_commission?.toString() || '',
         broker_company_name: prospect.broker_company_name || '',
     });
@@ -197,6 +198,10 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         broker_contacts: prospect.broker_contacts?.length > 0 ? [...prospect.broker_contacts] : [],
     });
     const [brokerContactsErrors, setBrokerContactsErrors] = useState<ValidationErrors>({});
+
+    // Promotion state
+    const [promoting, setPromoting] = useState(false);
+    const [promotionErrors, setPromotionErrors] = useState<ValidationErrors>({});
 
     const [contactsForm, setContactsForm] = useState<ContactsForm>({
         buyers: prospect.buyers?.length > 0 ? [...prospect.buyers] : [],
@@ -296,7 +301,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             shelf_life_requirement: prospect.shelf_life_requirement?.toString() || '',
             vendor_guide: prospect.vendor_guide || '',
             company_urls: prospect.company_urls || [],
-            broker: prospect.broker || false,
+            broker: prospect.broker === true ? 'true' : prospect.broker === false ? 'false' : '',
             broker_commission: prospect.broker_commission?.toString() || '',
             broker_company_name: prospect.broker_company_name || '',
         });
@@ -351,6 +356,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     shelf_life_requirement: detailsForm.shelf_life_requirement ? parseInt(detailsForm.shelf_life_requirement) : null,
                     vendor_guide: detailsForm.vendor_guide || null,
                     company_urls: detailsForm.company_urls,
+                    broker: detailsForm.broker === 'true',
                 }),
             });
 
@@ -595,7 +601,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 body: JSON.stringify({
-                    broker: detailsForm.broker,
+                    broker: detailsForm.broker === 'true',
                     broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
                     broker_company_name: detailsForm.broker_company_name || null,
                     broker_contacts: cleanContacts(brokerContactsForm.broker_contacts),
@@ -634,6 +640,39 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
 
     const brokerContactsValid = Object.keys(brokerContactsErrors).length === 0;
 
+    // Handle prospect promotion to active customer
+    const handlePromote = async () => {
+        setPromoting(true);
+        setPromotionErrors({});
+
+        router.post(route('prospects.promote', prospect.id), {}, {
+            onSuccess: () => {
+                // Redirect handled by Inertia
+                setPromoting(false);
+            },
+            onError: (errors) => {
+                // Validation errors - enable edit mode and show errors
+                setPromotionErrors(errors as ValidationErrors);
+                const errorKeys = Object.keys(errors);
+                const hasDetailErrors = errorKeys.some(k =>
+                    ['company_name', 'discount_percent', 'payment_terms', 'shipping_terms', 'shelf_life_requirement', 'vendor_guide'].includes(k)
+                );
+                const hasContactErrors = errorKeys.some(k =>
+                    k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('logistics')
+                );
+                const hasBrokerErrors = errorKeys.some(k => k.startsWith('broker_contacts'));
+
+                if (hasDetailErrors) setEditingDetails(true);
+                if (hasContactErrors) setEditingContacts(true);
+                if (hasBrokerErrors) setEditingBroker(true);
+                setPromoting(false);
+            },
+            onFinish: () => {
+                setPromoting(false);
+            },
+        });
+    };
+
     // Product management
     const addProduct = (productId: number) => {
         if (!productsForm.product_ids.includes(productId)) {
@@ -664,23 +703,98 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     const detailsValid = Object.keys(detailsErrors).length === 0;
     const contactsValid = Object.keys(contactsErrors).length === 0;
 
+    // Merge promotion errors with form errors for highlighting
+    const allDetailsErrors = { ...detailsErrors, ...Object.fromEntries(
+        Object.entries(promotionErrors).filter(([k]) =>
+            ['company_name', 'discount_percent', 'payment_terms', 'shipping_terms', 'shelf_life_requirement', 'vendor_guide'].includes(k)
+        )
+    )};
+    const allContactsErrors = { ...contactsErrors, ...Object.fromEntries(
+        Object.entries(promotionErrors).filter(([k]) =>
+            k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('logistics')
+        )
+    )};
+    const allBrokerErrors = { ...brokerContactsErrors, ...Object.fromEntries(
+        Object.entries(promotionErrors).filter(([k]) => k.startsWith('broker_contacts'))
+    )};
+
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center gap-4">
-                    <Link
-                        href={route('prospects.index')}
-                        className="text-gray-500 hover:text-gray-700"
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Link
+                            href={route('prospects.index')}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            &larr; Back
+                        </Link>
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                            {prospect.company_name}
+                        </h2>
+                    </div>
+                    <button
+                        onClick={handlePromote}
+                        disabled={promoting || saving}
+                        className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        &larr; Back
-                    </Link>
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        {prospect.company_name}
-                    </h2>
+                        {promoting ? 'Promoting...' : 'Promote to Active Customer'}
+                    </button>
                 </div>
             }
         >
             <Head title={prospect.company_name} />
+
+            {/* Promotion loading overlay */}
+            {promoting && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50">
+                    <div className="rounded-lg bg-white p-6 shadow-xl">
+                        <div className="flex items-center gap-3">
+                            <svg className="h-6 w-6 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            <span className="text-lg font-medium text-gray-900">Promoting to Active Customer...</span>
+                        </div>
+                        <p className="mt-2 text-sm text-gray-500">Creating customer in Fulfil and migrating data...</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Promotion errors banner */}
+            {Object.keys(promotionErrors).length > 0 && (
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+                    <div className="rounded-md bg-red-50 p-4">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">
+                                    Cannot promote to active customer - please fix the following issues:
+                                </h3>
+                                <div className="mt-2 text-sm text-red-700">
+                                    <ul className="list-disc space-y-1 pl-5">
+                                        {Object.entries(promotionErrors).map(([key, message]) => (
+                                            <li key={key}>{message}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="ml-auto pl-3">
+                                <button
+                                    onClick={() => setPromotionErrors({})}
+                                    className="inline-flex rounded-md bg-red-50 p-1.5 text-red-500 hover:bg-red-100"
+                                >
+                                    <XIcon className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
@@ -800,9 +914,9 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             type="text"
                                             value={detailsForm.company_name}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, company_name: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.company_name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.company_name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                         />
-                                        {detailsErrors.company_name && <p className="mt-1 text-xs text-red-600">{detailsErrors.company_name}</p>}
+                                        {allDetailsErrors.company_name && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.company_name}</p>}
                                     </div>
 
                                     <div className="relative">
@@ -831,58 +945,61 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Discount Level</label>
+                                        <label className="block text-sm font-medium text-gray-700">Discount Level <span className="text-red-500">*</span></label>
                                         <select
                                             value={detailsForm.discount_percent}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, discount_percent: e.target.value }))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.discount_percent ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                         >
                                             <option value="">Select...</option>
                                             {priceLists.map((pl) => (
                                                 <option key={pl.id} value={pl.id}>{pl.discount_percent}% Discount</option>
                                             ))}
                                         </select>
+                                        {allDetailsErrors.discount_percent && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.discount_percent}</p>}
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Payment Terms</label>
+                                        <label className="block text-sm font-medium text-gray-700">Payment Terms <span className="text-red-500">*</span></label>
                                         <select
                                             value={detailsForm.payment_terms}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, payment_terms: e.target.value }))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.payment_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                         >
                                             <option value="">Select...</option>
                                             {paymentTerms.map((pt) => (
                                                 <option key={pt.id} value={pt.id}>{pt.name}</option>
                                             ))}
                                         </select>
+                                        {allDetailsErrors.payment_terms && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.payment_terms}</p>}
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Shipping Terms</label>
+                                        <label className="block text-sm font-medium text-gray-700">Shipping Terms <span className="text-red-500">*</span></label>
                                         <select
                                             value={detailsForm.shipping_terms}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, shipping_terms: e.target.value }))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shipping_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                         >
                                             <option value="">Select...</option>
                                             {shippingTerms.map((st) => (
                                                 <option key={st.id} value={st.id}>{st.name}</option>
                                             ))}
                                         </select>
+                                        {allDetailsErrors.shipping_terms && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.shipping_terms}</p>}
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Shelf Life Requirement (days)</label>
+                                        <label className="block text-sm font-medium text-gray-700">Shelf Life Requirement (days) <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={detailsForm.shelf_life_requirement}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, shelf_life_requirement: e.target.value }))}
                                             min="1"
                                             placeholder="e.g., 90"
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                         />
-                                        {detailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{detailsErrors.shelf_life_requirement}</p>}
+                                        {allDetailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.shelf_life_requirement}</p>}
                                     </div>
 
                                     <div className="sm:col-span-2 lg:col-span-3">
@@ -892,9 +1009,9 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             value={detailsForm.vendor_guide}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, vendor_guide: e.target.value }))}
                                             placeholder="https://..."
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                         />
-                                        {detailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{detailsErrors.vendor_guide}</p>}
+                                        {allDetailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.vendor_guide}</p>}
                                     </div>
 
                                     <div className="sm:col-span-2 lg:col-span-3">
@@ -964,16 +1081,18 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-4">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={detailsForm.broker}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, broker: e.target.checked }))}
-                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <span className="text-sm font-medium text-gray-700">Uses Broker</span>
-                                        </label>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Uses Broker <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={detailsForm.broker}
+                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, broker: e.target.value }))}
+                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.broker ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                        >
+                                            <option value="">Select...</option>
+                                            <option value="false">No</option>
+                                            <option value="true">Yes</option>
+                                        </select>
+                                        {allDetailsErrors.broker && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.broker}</p>}
                                     </div>
                                 </div>
                             )}
@@ -981,7 +1100,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     </div>
 
                     {/* Broker Section - Only visible when broker=true */}
-                    {(prospect.broker || detailsForm.broker) && (
+                    {(prospect.broker || detailsForm.broker === 'true') && (
                         <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-400">
                             <div className="p-6">
                                 <div className="mb-4 flex items-center justify-between">
@@ -1133,10 +1252,15 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     )}
 
                     {/* Contacts */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className={`overflow-hidden bg-white shadow-sm sm:rounded-lg ${allContactsErrors.buyers ? 'ring-2 ring-red-500' : ''}`}>
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
-                                <h3 className="text-lg font-medium text-gray-900">Contacts</h3>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-lg font-medium text-gray-900">Contacts</h3>
+                                    {allContactsErrors.buyers && (
+                                        <span className="text-sm text-red-600">({allContactsErrors.buyers})</span>
+                                    )}
+                                </div>
                                 {!editingContacts ? (
                                     <button
                                         onClick={() => setEditingContacts(true)}
@@ -1498,6 +1622,12 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                             )}
                         </div>
                     </div>
+
+                    {/* Email Activity */}
+                    <EmailActivityPanel
+                        entityType="prospect"
+                        entityId={prospect.id}
+                    />
 
                     {/* Products of Interest */}
                     <div className="bg-white shadow-sm sm:rounded-lg">

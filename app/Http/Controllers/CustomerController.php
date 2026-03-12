@@ -98,8 +98,15 @@ class CustomerController extends Controller
                 'customer' => $customer,
             ]);
         } catch (\Exception $e) {
+            \Log::error('Failed to update customer', [
+                'customer_id' => $id,
+                'data' => $data,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
-                'message' => 'Failed to update customer',
+                'message' => 'Failed to update customer: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -122,6 +129,14 @@ class CustomerController extends Controller
             // Custom data
             'shelf_life_requirement' => [$isCreate ? 'required' : 'sometimes', 'integer', 'min:30', 'max:365'],
             'vendor_guide' => ['nullable', 'url', 'max:500'],
+
+            // Broker information
+            'broker' => [$isCreate ? 'required' : 'sometimes', 'boolean'],
+            'broker_company_name' => ['nullable', 'string', 'max:255'],
+            'broker_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'broker_contacts' => ['nullable', 'array'],
+            'broker_contacts.*.name' => ['required_with:broker_contacts', 'string', 'min:2', 'max:100'],
+            'broker_contacts.*.email' => ['required_with:broker_contacts', 'email', 'max:255'],
 
             // Buyers (required for create, at least 1)
             'buyers' => [$isCreate ? 'required' : 'sometimes', 'array', $isCreate ? 'min:1' : 'min:0'],
@@ -156,12 +171,22 @@ class CustomerController extends Controller
             'accounts_payable.*.value.required_with' => 'Accounts payable contact value (email or URL) is required.',
             'logistics.*.email.email' => 'Logistics email must be a valid email address.',
             'vendor_guide.url' => 'Vendor guide must be a valid URL.',
+            'broker.required' => 'Please select whether this customer uses a broker.',
+            'broker_company_name.required' => 'Broker company name is required when using a broker.',
+            'broker_commission.required' => 'Broker commission is required when using a broker.',
+            'broker_commission.min' => 'Broker commission must be at least 0%.',
+            'broker_commission.max' => 'Broker commission cannot exceed 100%.',
+            'broker_contacts.required' => 'At least one broker contact is required when using a broker.',
+            'broker_contacts.min' => 'At least one broker contact is required when using a broker.',
+            'broker_contacts.*.name.required_with' => 'Broker contact name is required.',
+            'broker_contacts.*.email.required_with' => 'Broker contact email is required.',
+            'broker_contacts.*.email.email' => 'Broker contact email must be a valid email address.',
         ];
 
         $validator = Validator::make($data, $rules, $messages);
 
         // Custom validation for accounts_payable value (must be email or URL)
-        $validator->after(function ($validator) use ($data) {
+        $validator->after(function ($validator) use ($data, $isCreate) {
             if (!empty($data['accounts_payable'])) {
                 foreach ($data['accounts_payable'] as $index => $ap) {
                     $value = $ap['value'] ?? '';
@@ -174,6 +199,25 @@ class CustomerController extends Controller
                             'Accounts payable contact must be a valid email address or URL.'
                         );
                     }
+                }
+            }
+
+            // Conditional broker validation - when broker is true
+            $broker = $data['broker'] ?? false;
+            if ($broker === true || $broker === 'true' || $broker === '1' || $broker === 1) {
+                // Broker company name required
+                if (empty($data['broker_company_name'])) {
+                    $validator->errors()->add('broker_company_name', 'Broker company name is required when using a broker.');
+                }
+
+                // Broker commission required
+                if (!isset($data['broker_commission']) || $data['broker_commission'] === '' || $data['broker_commission'] === null) {
+                    $validator->errors()->add('broker_commission', 'Broker commission is required when using a broker.');
+                }
+
+                // At least one broker contact required
+                if (empty($data['broker_contacts']) || count($data['broker_contacts']) === 0) {
+                    $validator->errors()->add('broker_contacts', 'At least one broker contact is required when using a broker.');
                 }
             }
         });
@@ -191,6 +235,7 @@ class CustomerController extends Controller
             'buyers' => [],
             'accounts_payable' => [],
             'logistics' => [],
+            'broker_contacts' => [],
         ], $validated);
 
         // Cast IDs to integers for Fulfil API
@@ -205,6 +250,16 @@ class CustomerController extends Controller
         }
         if (isset($data['shelf_life_requirement'])) {
             $data['shelf_life_requirement'] = (int) $data['shelf_life_requirement'];
+        }
+
+        // Cast broker to boolean
+        if (isset($data['broker'])) {
+            $data['broker'] = filter_var($data['broker'], FILTER_VALIDATE_BOOLEAN);
+        }
+
+        // Cast broker_commission to float
+        if (isset($data['broker_commission']) && $data['broker_commission'] !== '') {
+            $data['broker_commission'] = (float) $data['broker_commission'];
         }
 
         return $data;

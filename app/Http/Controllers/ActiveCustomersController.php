@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Email;
 use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
 use App\Models\FulfilCustomerMetadata;
@@ -832,5 +833,125 @@ class ActiveCustomersController extends Controller
         return response()->json([
             'message' => 'Broker contact deleted successfully',
         ]);
+    }
+
+    /**
+     * Get emails for a customer.
+     */
+    public function getEmails(Request $request, int $id): JsonResponse
+    {
+        // Verify customer exists
+        $customers = $this->fulfil->getActiveCustomers();
+        $customer = collect($customers)->firstWhere('id', $id);
+
+        if (!$customer) {
+            abort(404, 'Customer not found');
+        }
+
+        $perPage = min($request->integer('per_page', 10), 50);
+
+        $emails = Email::where('fulfil_party_id', $id)
+            ->orderBy('email_date', 'desc')
+            ->paginate($perPage);
+
+        return response()->json([
+            'emails' => $emails->map(function ($email) {
+                return [
+                    'id' => $email->id,
+                    'gmail_message_id' => $email->gmail_message_id,
+                    'gmail_thread_id' => $email->gmail_thread_id,
+                    'direction' => $email->direction,
+                    'from_email' => $email->from_email,
+                    'from_name' => $email->from_name,
+                    'to_emails' => $email->to_emails,
+                    'cc_emails' => $email->cc_emails,
+                    'subject' => $email->subject,
+                    'snippet' => $this->getEmailSnippet($email->body_text, 100),
+                    'email_date' => $email->email_date->toIso8601String(),
+                    'has_attachments' => $email->has_attachments,
+                    'contact_name' => $email->from_name,
+                ];
+            }),
+            'pagination' => [
+                'current_page' => $emails->currentPage(),
+                'last_page' => $emails->lastPage(),
+                'per_page' => $emails->perPage(),
+                'total' => $emails->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get a single email with thread context.
+     */
+    public function getEmail(int $customerId, int $emailId): JsonResponse
+    {
+        $email = Email::where('fulfil_party_id', $customerId)
+            ->where('id', $emailId)
+            ->firstOrFail();
+
+        // Get thread emails if this email is part of a thread
+        $threadEmails = [];
+        if ($email->gmail_thread_id) {
+            $threadEmails = Email::where('gmail_thread_id', $email->gmail_thread_id)
+                ->where('fulfil_party_id', $customerId)
+                ->orderBy('email_date', 'asc')
+                ->get()
+                ->map(function ($threadEmail) {
+                    return [
+                        'id' => $threadEmail->id,
+                        'direction' => $threadEmail->direction,
+                        'from_email' => $threadEmail->from_email,
+                        'from_name' => $threadEmail->from_name,
+                        'to_emails' => $threadEmail->to_emails,
+                        'cc_emails' => $threadEmail->cc_emails,
+                        'subject' => $threadEmail->subject,
+                        'body_html' => $threadEmail->body_html,
+                        'body_text' => $threadEmail->body_text,
+                        'email_date' => $threadEmail->email_date->toIso8601String(),
+                        'has_attachments' => $threadEmail->has_attachments,
+                        'attachment_info' => $threadEmail->attachment_info,
+                    ];
+                });
+        }
+
+        return response()->json([
+            'email' => [
+                'id' => $email->id,
+                'gmail_message_id' => $email->gmail_message_id,
+                'gmail_thread_id' => $email->gmail_thread_id,
+                'direction' => $email->direction,
+                'from_email' => $email->from_email,
+                'from_name' => $email->from_name,
+                'to_emails' => $email->to_emails,
+                'cc_emails' => $email->cc_emails,
+                'subject' => $email->subject,
+                'body_html' => $email->body_html,
+                'body_text' => $email->body_text,
+                'email_date' => $email->email_date->toIso8601String(),
+                'has_attachments' => $email->has_attachments,
+                'attachment_info' => $email->attachment_info,
+            ],
+            'thread' => $threadEmails,
+        ]);
+    }
+
+    /**
+     * Get a snippet from email body text.
+     */
+    protected function getEmailSnippet(?string $bodyText, int $length = 100): string
+    {
+        if (!$bodyText) {
+            return '';
+        }
+
+        // Remove extra whitespace and newlines
+        $text = preg_replace('/\s+/', ' ', trim($bodyText));
+
+        if (strlen($text) <= $length) {
+            return $text;
+        }
+
+        return substr($text, 0, $length) . '...';
     }
 }

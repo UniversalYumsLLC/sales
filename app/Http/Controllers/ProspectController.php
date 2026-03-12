@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Email;
+use App\Models\FulfilBrokerContact;
+use App\Models\FulfilCustomerMetadata;
+use App\Models\FulfilUncategorizedContact;
 use App\Models\Prospect;
 use App\Models\ProspectContact;
 use App\Models\ProspectProduct;
@@ -552,5 +556,351 @@ class ProspectController extends Controller
                 'type' => $contact->type,
             ],
         ]);
+    }
+
+    /**
+     * Get emails for a prospect.
+     */
+    public function getEmails(Request $request, int $id): JsonResponse
+    {
+        $prospect = Prospect::findOrFail($id);
+
+        $perPage = min($request->integer('per_page', 10), 50);
+
+        $emails = Email::where('prospect_id', $id)
+            ->with('contact:id,name,value')
+            ->orderBy('email_date', 'desc')
+            ->paginate($perPage);
+
+        return response()->json([
+            'emails' => $emails->map(function ($email) {
+                return [
+                    'id' => $email->id,
+                    'gmail_message_id' => $email->gmail_message_id,
+                    'gmail_thread_id' => $email->gmail_thread_id,
+                    'direction' => $email->direction,
+                    'from_email' => $email->from_email,
+                    'from_name' => $email->from_name,
+                    'to_emails' => $email->to_emails,
+                    'cc_emails' => $email->cc_emails,
+                    'subject' => $email->subject,
+                    'snippet' => $this->getEmailSnippet($email->body_text, 100),
+                    'email_date' => $email->email_date->toIso8601String(),
+                    'has_attachments' => $email->has_attachments,
+                    'contact_name' => $email->contact?->name,
+                ];
+            }),
+            'pagination' => [
+                'current_page' => $emails->currentPage(),
+                'last_page' => $emails->lastPage(),
+                'per_page' => $emails->perPage(),
+                'total' => $emails->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get a single email with thread context.
+     */
+    public function getEmail(int $prospectId, int $emailId): JsonResponse
+    {
+        $prospect = Prospect::findOrFail($prospectId);
+
+        $email = Email::where('prospect_id', $prospectId)
+            ->where('id', $emailId)
+            ->with('contact:id,name,value')
+            ->firstOrFail();
+
+        // Get thread emails if this email is part of a thread
+        $threadEmails = [];
+        if ($email->gmail_thread_id) {
+            $threadEmails = Email::where('gmail_thread_id', $email->gmail_thread_id)
+                ->where('prospect_id', $prospectId)
+                ->with('contact:id,name,value')
+                ->orderBy('email_date', 'asc')
+                ->get()
+                ->map(function ($threadEmail) {
+                    return [
+                        'id' => $threadEmail->id,
+                        'direction' => $threadEmail->direction,
+                        'from_email' => $threadEmail->from_email,
+                        'from_name' => $threadEmail->from_name,
+                        'to_emails' => $threadEmail->to_emails,
+                        'cc_emails' => $threadEmail->cc_emails,
+                        'subject' => $threadEmail->subject,
+                        'body_html' => $threadEmail->body_html,
+                        'body_text' => $threadEmail->body_text,
+                        'email_date' => $threadEmail->email_date->toIso8601String(),
+                        'has_attachments' => $threadEmail->has_attachments,
+                        'attachment_info' => $threadEmail->attachment_info,
+                        'contact_name' => $threadEmail->contact?->name,
+                    ];
+                });
+        }
+
+        return response()->json([
+            'email' => [
+                'id' => $email->id,
+                'gmail_message_id' => $email->gmail_message_id,
+                'gmail_thread_id' => $email->gmail_thread_id,
+                'direction' => $email->direction,
+                'from_email' => $email->from_email,
+                'from_name' => $email->from_name,
+                'to_emails' => $email->to_emails,
+                'cc_emails' => $email->cc_emails,
+                'subject' => $email->subject,
+                'body_html' => $email->body_html,
+                'body_text' => $email->body_text,
+                'email_date' => $email->email_date->toIso8601String(),
+                'has_attachments' => $email->has_attachments,
+                'attachment_info' => $email->attachment_info,
+                'contact_name' => $email->contact?->name,
+            ],
+            'thread' => $threadEmails,
+        ]);
+    }
+
+    /**
+     * Get a snippet from email body text.
+     */
+    protected function getEmailSnippet(?string $bodyText, int $length = 100): string
+    {
+        if (!$bodyText) {
+            return '';
+        }
+
+        // Remove extra whitespace and newlines
+        $text = preg_replace('/\s+/', ' ', trim($bodyText));
+
+        if (strlen($text) <= $length) {
+            return $text;
+        }
+
+        return substr($text, 0, $length) . '...';
+    }
+
+    /**
+     * Promote a prospect to an active customer.
+     */
+    public function promote(int $id): JsonResponse|RedirectResponse
+    {
+        $prospect = Prospect::with(['buyers', 'accountsPayable', 'logistics', 'brokerContacts', 'uncategorized'])
+            ->findOrFail($id);
+
+        // Get form options for validation
+        $priceLists = $this->fulfil->getAllPriceLists();
+        $paymentTerms = $this->fulfil->getAllPaymentTerms();
+        $shippingTerms = $this->fulfil->getShippingTermsCategories();
+
+        // Build validation errors
+        $errors = [];
+
+        // Validate company_name
+        if (empty($prospect->company_name) || strlen($prospect->company_name) < 2) {
+            $errors['company_name'] = 'Company name must be at least 2 characters';
+        }
+
+        // Validate discount_percent (must map to a valid price list)
+        $priceListId = null;
+        if ($prospect->discount_percent === null) {
+            $errors['discount_percent'] = 'Discount level is required';
+        } else {
+            $matchedPriceList = collect($priceLists)->firstWhere('discount_percent', $prospect->discount_percent);
+            if (!$matchedPriceList) {
+                $errors['discount_percent'] = 'Invalid discount level';
+            } else {
+                $priceListId = $matchedPriceList['id'];
+            }
+        }
+
+        // Validate payment_terms (must map to a valid payment term)
+        $paymentTermId = null;
+        if (empty($prospect->payment_terms)) {
+            $errors['payment_terms'] = 'Payment terms is required';
+        } else {
+            $matchedPaymentTerm = collect($paymentTerms)->firstWhere('name', $prospect->payment_terms);
+            if (!$matchedPaymentTerm) {
+                $errors['payment_terms'] = 'Invalid payment terms';
+            } else {
+                $paymentTermId = $matchedPaymentTerm['id'];
+            }
+        }
+
+        // Validate shipping_terms (must map to a valid shipping term)
+        $shippingTermId = null;
+        if (empty($prospect->shipping_terms)) {
+            $errors['shipping_terms'] = 'Shipping terms is required';
+        } else {
+            $matchedShippingTerm = collect($shippingTerms)->firstWhere('name', $prospect->shipping_terms);
+            if (!$matchedShippingTerm) {
+                $errors['shipping_terms'] = 'Invalid shipping terms';
+            } else {
+                $shippingTermId = $matchedShippingTerm['id'];
+            }
+        }
+
+        // Validate shelf_life_requirement
+        if ($prospect->shelf_life_requirement === null) {
+            $errors['shelf_life_requirement'] = 'Shelf life requirement is required';
+        } elseif ($prospect->shelf_life_requirement < 30 || $prospect->shelf_life_requirement > 365) {
+            $errors['shelf_life_requirement'] = 'Shelf life requirement must be between 30 and 365 days';
+        }
+
+        // Validate vendor_guide (if set, must be valid URL)
+        if (!empty($prospect->vendor_guide) && !filter_var($prospect->vendor_guide, FILTER_VALIDATE_URL)) {
+            $errors['vendor_guide'] = 'Vendor guide must be a valid URL';
+        }
+
+        // Validate buyers (at least 1 required)
+        $buyers = $prospect->buyers;
+        if ($buyers->isEmpty()) {
+            $errors['buyers'] = 'At least one buyer contact is required';
+        } else {
+            foreach ($buyers as $index => $buyer) {
+                if (empty($buyer->name) || strlen($buyer->name) < 2) {
+                    $errors["buyers.{$index}.name"] = 'Buyer name must be at least 2 characters';
+                }
+                if (empty($buyer->value) || !filter_var($buyer->value, FILTER_VALIDATE_EMAIL)) {
+                    $errors["buyers.{$index}.value"] = 'Buyer email is required and must be valid';
+                }
+            }
+        }
+
+        // Validate AP contacts (optional, but if present must be valid)
+        foreach ($prospect->accountsPayable as $index => $ap) {
+            if (empty($ap->name) || strlen($ap->name) < 2) {
+                $errors["accounts_payable.{$index}.name"] = 'AP contact name must be at least 2 characters';
+            }
+        }
+
+        // Validate logistics contacts (optional, but if present must be valid)
+        foreach ($prospect->logistics as $index => $logistics) {
+            if (empty($logistics->name) || strlen($logistics->name) < 2) {
+                $errors["logistics.{$index}.name"] = 'Logistics contact name must be at least 2 characters';
+            }
+        }
+
+        // Validate broker field is set (required)
+        if ($prospect->broker === null) {
+            $errors['broker'] = 'Broker selection is required';
+        }
+
+        // If broker is TRUE, validate broker fields
+        if ($prospect->broker === true) {
+            // Broker company name required
+            if (empty($prospect->broker_company_name)) {
+                $errors['broker_company_name'] = 'Broker company name is required when using a broker';
+            }
+
+            // Broker commission required
+            if ($prospect->broker_commission === null) {
+                $errors['broker_commission'] = 'Broker commission is required when using a broker';
+            }
+
+            // At least one broker contact required
+            if ($prospect->brokerContacts->isEmpty()) {
+                $errors['broker_contacts'] = 'At least one broker contact is required when using a broker';
+            } else {
+                foreach ($prospect->brokerContacts as $index => $brokerContact) {
+                    if (empty($brokerContact->name) || strlen($brokerContact->name) < 2) {
+                        $errors["broker_contacts.{$index}.name"] = 'Broker contact name must be at least 2 characters';
+                    }
+                    if (empty($brokerContact->value) || !filter_var($brokerContact->value, FILTER_VALIDATE_EMAIL)) {
+                        $errors["broker_contacts.{$index}.value"] = 'Broker contact email is required and must be valid';
+                    }
+                }
+            }
+        }
+
+        // If there are validation errors, return them for Inertia
+        if (!empty($errors)) {
+            return back()->withErrors($errors);
+        }
+
+        // Transform data for customer creation
+        $customerData = [
+            'name' => $prospect->company_name,
+            'sale_price_list' => $priceListId,
+            'customer_payment_term' => $paymentTermId,
+            'shipping_terms_category_id' => $shippingTermId,
+            'shelf_life_requirement' => $prospect->shelf_life_requirement,
+            'vendor_guide' => $prospect->vendor_guide,
+            'broker' => $prospect->broker ?? false,
+            'broker_company_name' => $prospect->broker_company_name,
+            'broker_commission' => $prospect->broker_commission,
+            'buyers' => $buyers->map(fn($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
+            'accounts_payable' => $prospect->accountsPayable->map(fn($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
+            'logistics' => $prospect->logistics->map(fn($l) => ['name' => $l->name, 'email' => $l->value])->toArray(),
+        ];
+
+        // Add broker contacts if broker is enabled
+        if ($prospect->broker && $prospect->brokerContacts->isNotEmpty()) {
+            $customerData['broker_contacts'] = $prospect->brokerContacts->map(fn($bc) => [
+                'name' => $bc->name,
+                'email' => $bc->value,
+            ])->toArray();
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Create customer in Fulfil
+            $result = $this->fulfil->createCustomer($customerData);
+            $partyId = $result['id'];
+
+            // Create local metadata
+            $metadata = FulfilCustomerMetadata::create([
+                'fulfil_party_id' => $partyId,
+                'company_urls' => $prospect->company_urls ?? [],
+                'broker' => $prospect->broker ?? false,
+                'broker_commission' => $prospect->broker_commission,
+                'broker_company_name' => $prospect->broker_company_name,
+            ]);
+
+            // Create broker contact records for email tracking
+            if ($prospect->broker) {
+                foreach ($prospect->brokerContacts as $brokerContact) {
+                    if (!empty($brokerContact->value)) {
+                        FulfilBrokerContact::create([
+                            'fulfil_party_id' => $partyId,
+                            'name' => $brokerContact->name,
+                            'email' => strtolower($brokerContact->value),
+                            'last_emailed_at' => $brokerContact->last_emailed_at,
+                            'last_received_at' => $brokerContact->last_received_at,
+                        ]);
+                    }
+                }
+            }
+
+            // Migrate uncategorized contacts
+            foreach ($prospect->uncategorized as $uncategorized) {
+                if (!empty($uncategorized->value)) {
+                    FulfilUncategorizedContact::create([
+                        'fulfil_party_id' => $partyId,
+                        'name' => $uncategorized->name,
+                        'email' => strtolower($uncategorized->value),
+                        'last_emailed_at' => $uncategorized->last_emailed_at,
+                        'last_received_at' => $uncategorized->last_received_at,
+                    ]);
+                }
+            }
+
+            // Delete the prospect (cascades to contacts and products)
+            $prospect->delete();
+
+            DB::commit();
+
+            // Redirect to the new customer page with success message
+            return redirect()
+                ->route('customers.show', $partyId)
+                ->with('success', "Successfully promoted \"{$customerData['name']}\" to active customer!");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->withErrors([
+                'general' => 'Failed to promote prospect to customer: ' . $e->getMessage(),
+            ]);
+        }
     }
 }

@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import EmailActivityPanel from '@/Components/EmailActivityPanel';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 
 interface Contact {
@@ -113,6 +114,11 @@ interface OutstandingInvoice {
     days_overdue: number;
 }
 
+interface Flash {
+    success?: string;
+    error?: string;
+}
+
 interface Props {
     customer: Customer;
     buyerContacts: BuyerContact[];
@@ -138,7 +144,7 @@ interface CustomerDetailsForm {
     shipping_terms_category_id: string;
     shelf_life_requirement: string;
     vendor_guide: string;
-    broker: boolean;
+    broker: string;  // "true", "false", or "" for unselected
     broker_commission: string;
     broker_company_name: string;
 }
@@ -259,6 +265,20 @@ export default function Show({
     paymentTerms,
     shippingTerms,
 }: Props) {
+    // Flash messages
+    const { props } = usePage();
+    const flash = (props as { flash?: Flash }).flash;
+    const [showSuccessBanner, setShowSuccessBanner] = useState(!!flash?.success);
+
+    // Auto-dismiss success banner after 5 seconds
+    useEffect(() => {
+        if (flash?.success) {
+            setShowSuccessBanner(true);
+            const timer = setTimeout(() => setShowSuccessBanner(false), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [flash?.success]);
+
     // Edit mode states
     const [editingDetails, setEditingDetails] = useState(false);
     const [editingContacts, setEditingContacts] = useState(false);
@@ -281,7 +301,7 @@ export default function Show({
         shipping_terms_category_id: shippingTerms.find(st => st.name === customer.shipping_terms)?.id.toString() || '',
         shelf_life_requirement: customer.shelf_life_requirement || '',
         vendor_guide: customer.vendor_guide || '',
-        broker: customer.broker || false,
+        broker: customer.broker === true ? 'true' : customer.broker === false ? 'false' : '',
         broker_commission: customer.broker_commission?.toString() || '',
         broker_company_name: customer.broker_company_name || '',
     });
@@ -405,7 +425,7 @@ export default function Show({
             shipping_terms_category_id: shippingTerms.find(st => st.name === customer.shipping_terms)?.id.toString() || '',
             shelf_life_requirement: customer.shelf_life_requirement || '',
             vendor_guide: customer.vendor_guide || '',
-            broker: customer.broker || false,
+            broker: customer.broker === true ? 'true' : customer.broker === false ? 'false' : '',
             broker_commission: customer.broker_commission?.toString() || '',
             broker_company_name: customer.broker_company_name || '',
         });
@@ -441,8 +461,7 @@ export default function Show({
                     shipping_terms_category_id: parseInt(detailsForm.shipping_terms_category_id),
                     shelf_life_requirement: parseInt(detailsForm.shelf_life_requirement),
                     vendor_guide: detailsForm.vendor_guide || null,
-                    broker: detailsForm.broker,
-                    broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
+                    // Note: broker is updated via the broker section, not here
                 }),
             });
 
@@ -610,7 +629,46 @@ export default function Show({
     // Broker contact management
     const cancelBrokerEdit = () => {
         setBrokerContactsForm(brokerContacts?.map(c => ({ name: c.name, email: c.email })) || []);
+        setDetailsForm(prev => ({
+            ...prev,
+            broker: customer.broker === true ? 'true' : customer.broker === false ? 'false' : '',
+            broker_commission: customer.broker_commission?.toString() || '',
+            broker_company_name: customer.broker_company_name || '',
+        }));
         setEditingBroker(false);
+    };
+
+    // Validate broker section - when broker=true, requires company name, commission, and at least 1 contact with name+email
+    const isBrokerValid = (): boolean => {
+        // If broker is false, no validation needed
+        if (detailsForm.broker !== 'true') {
+            return true;
+        }
+
+        // Broker company name required
+        if (!detailsForm.broker_company_name || detailsForm.broker_company_name.trim().length === 0) {
+            return false;
+        }
+
+        // Commission required and must be valid number
+        if (!detailsForm.broker_commission || detailsForm.broker_commission.trim() === '') {
+            return false;
+        }
+        const commission = parseFloat(detailsForm.broker_commission);
+        if (isNaN(commission) || commission < 0 || commission > 100) {
+            return false;
+        }
+
+        // At least one broker contact with both name and valid email
+        const validContacts = brokerContactsForm.filter(c =>
+            c.name && c.name.trim().length >= 2 &&
+            c.email && isValidEmail(c.email)
+        );
+        if (validContacts.length === 0) {
+            return false;
+        }
+
+        return true;
     };
 
     const addBrokerContactForm = () => {
@@ -636,7 +694,7 @@ export default function Show({
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 body: JSON.stringify({
-                    broker: detailsForm.broker,
+                    broker: detailsForm.broker === 'true',
                     broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
                     broker_company_name: detailsForm.broker_company_name || null,
                     broker_contacts: brokerContactsForm.filter(c => c.name.trim()),
@@ -755,6 +813,34 @@ export default function Show({
             }
         >
             <Head title={customer.name} />
+
+            {/* Success banner */}
+            {showSuccessBanner && flash?.success && (
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+                    <div className="rounded-md bg-green-50 p-4">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm font-medium text-green-800">{flash.success}</p>
+                            </div>
+                            <div className="ml-auto pl-3">
+                                <button
+                                    onClick={() => setShowSuccessBanner(false)}
+                                    className="inline-flex rounded-md bg-green-50 p-1.5 text-green-500 hover:bg-green-100"
+                                >
+                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
@@ -921,33 +1007,23 @@ export default function Show({
                                         {detailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{detailsErrors.vendor_guide}</p>}
                                     </div>
 
-                                    <div className="flex items-center gap-4">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={detailsForm.broker}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, broker: e.target.checked }))}
-                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <span className="text-sm font-medium text-gray-700">Uses Broker</span>
-                                        </label>
-                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Broker Section - Only visible when broker=true */}
-                    {(customer.broker || detailsForm.broker) && (
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-400">
-                            <div className="p-6">
-                                <div className="mb-4 flex items-center justify-between">
-                                    <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                                        Broker
+                    {/* Broker Section */}
+                    <div className={`overflow-hidden bg-white shadow-sm sm:rounded-lg ${customer.broker ? 'border-l-4 border-purple-400' : ''}`}>
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                                    Broker
+                                    {customer.broker && (
                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
-                                            Commission: {customer.broker_commission ?? detailsForm.broker_commission ?? 0}%
+                                            Commission: {customer.broker_commission ?? 0}%
                                         </span>
-                                    </h3>
+                                    )}
+                                </h3>
                                     {!editingBroker ? (
                                         <button
                                             onClick={() => setEditingBroker(true)}
@@ -966,7 +1042,7 @@ export default function Show({
                                             </button>
                                             <button
                                                 onClick={saveBroker}
-                                                disabled={saving}
+                                                disabled={saving || !isBrokerValid()}
                                                 className="rounded bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
                                             >
                                                 {saving ? 'Saving...' : 'Save'}
@@ -976,80 +1052,125 @@ export default function Show({
                                 </div>
 
                                 {!editingBroker ? (
-                                    <div>
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
-                                            <div>
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Company</h4>
-                                                <p className="text-sm text-gray-900">{customer.broker_company_name || '-'}</p>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Commission</h4>
-                                                <p className="text-sm text-gray-900">{customer.broker_commission ?? 0}%</p>
-                                            </div>
-                                        </div>
+                                    customer.broker ? (
                                         <div>
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Contacts</h4>
-                                            {brokerContacts && brokerContacts.length > 0 ? (
-                                                <ul className="space-y-2">
-                                                    {brokerContacts.map((contact) => (
-                                                        <li key={contact.id} className="text-sm">
-                                                            <div className="text-gray-900">{contact.name}</div>
-                                                            {contact.email && (
-                                                                <div className="text-gray-500">{contact.email}</div>
-                                                            )}
-                                                            <div className="mt-1 flex gap-3 text-xs text-gray-400">
-                                                                <span>Sent: {formatRelativeDate(contact.last_emailed_at)}</span>
-                                                                <span>Received: {formatRelativeDate(contact.last_received_at)}</span>
-                                                            </div>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <p className="text-sm text-gray-400">No broker contacts</p>
-                                            )}
+                                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Company</h4>
+                                                    <p className="text-sm text-gray-900">{customer.broker_company_name || '-'}</p>
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Commission</h4>
+                                                    <p className="text-sm text-gray-900">{customer.broker_commission ?? 0}%</p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Contacts</h4>
+                                                {brokerContacts && brokerContacts.length > 0 ? (
+                                                    <ul className="space-y-2">
+                                                        {brokerContacts.map((contact) => (
+                                                            <li key={contact.id} className="text-sm">
+                                                                <div className="text-gray-900">{contact.name}</div>
+                                                                {contact.email && (
+                                                                    <div className="text-gray-500">{contact.email}</div>
+                                                                )}
+                                                                <div className="mt-1 flex gap-3 text-xs text-gray-400">
+                                                                    <span>Sent: {formatRelativeDate(contact.last_emailed_at)}</span>
+                                                                    <span>Received: {formatRelativeDate(contact.last_received_at)}</span>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                ) : (
+                                                    <p className="text-sm text-gray-400">No broker contacts</p>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-500">This customer does not use a broker. Click edit to enable.</p>
+                                    )
                                 ) : (
                                     <div className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Broker Company Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={detailsForm.broker_company_name}
-                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_company_name: e.target.value }))}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                    placeholder="e.g., HRG Brokers"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Commission (%)</label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.1"
-                                                    value={detailsForm.broker_commission}
-                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_commission: e.target.value }))}
-                                                    className="mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                    placeholder="0.0"
-                                                />
-                                            </div>
-                                        </div>
                                         <div>
-                                            <div className="mb-2 flex items-center justify-between">
-                                                <h4 className="text-sm font-medium text-gray-700">Broker Contacts</h4>
-                                                <button
-                                                    type="button"
-                                                    onClick={addBrokerContactForm}
-                                                    className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
-                                                >
-                                                    <PlusIcon className="h-3 w-3" /> Add
-                                                </button>
-                                            </div>
-                                            {brokerContactsForm.length === 0 ? (
-                                                <p className="text-sm text-gray-400">No broker contacts</p>
-                                            ) : (
+                                            <label className="block text-sm font-medium text-gray-700">Uses Broker</label>
+                                            <select
+                                                value={detailsForm.broker}
+                                                onChange={(e) => {
+                                                    const newValue = e.target.value;
+                                                    setDetailsForm(prev => ({ ...prev, broker: newValue }));
+                                                    // If switching to TRUE and no broker contacts, add one
+                                                    if (newValue === 'true' && brokerContactsForm.length === 0) {
+                                                        setBrokerContactsForm([{ name: '', email: '' }]);
+                                                    }
+                                                }}
+                                                className="mt-1 block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            >
+                                                <option value="false">FALSE</option>
+                                                <option value="true">TRUE</option>
+                                            </select>
+                                        </div>
+
+                                        {detailsForm.broker === 'true' && (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">
+                                                            Broker Company Name <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={detailsForm.broker_company_name}
+                                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_company_name: e.target.value }))}
+                                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${
+                                                                !detailsForm.broker_company_name?.trim()
+                                                                    ? 'border-red-300 focus:border-red-500'
+                                                                    : 'border-gray-300 focus:border-indigo-500'
+                                                            }`}
+                                                            placeholder="e.g., HRG Brokers"
+                                                        />
+                                                        {!detailsForm.broker_company_name?.trim() && (
+                                                            <p className="mt-1 text-xs text-red-600">Required</p>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">
+                                                            Commission (%) <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            step="0.1"
+                                                            value={detailsForm.broker_commission}
+                                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_commission: e.target.value }))}
+                                                            className={`mt-1 block w-32 rounded-md shadow-sm focus:ring-indigo-500 ${
+                                                                !detailsForm.broker_commission?.trim()
+                                                                    ? 'border-red-300 focus:border-red-500'
+                                                                    : 'border-gray-300 focus:border-indigo-500'
+                                                            }`}
+                                                            placeholder="0.0"
+                                                        />
+                                                        {!detailsForm.broker_commission?.trim() && (
+                                                            <p className="mt-1 text-xs text-red-600">Required</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="mb-2 flex items-center justify-between">
+                                                        <h4 className="text-sm font-medium text-gray-700">
+                                                            Broker Contacts <span className="text-red-500">*</span>
+                                                        </h4>
+                                                        <button
+                                                            type="button"
+                                                            onClick={addBrokerContactForm}
+                                                            className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                        >
+                                                            <PlusIcon className="h-3 w-3" /> Add
+                                                        </button>
+                                                    </div>
+                                                    {brokerContactsForm.length === 0 ? (
+                                                        <p className="text-sm text-red-500">At least one broker contact with name and email is required</p>
+                                                    ) : (
                                                 <div className="space-y-2">
                                                     {brokerContactsForm.map((contact, idx) => (
                                                         <div key={idx} className="flex gap-2">
@@ -1058,8 +1179,12 @@ export default function Show({
                                                                     type="text"
                                                                     value={contact.name}
                                                                     onChange={(e) => updateBrokerContactForm(idx, 'name', e.target.value)}
-                                                                    placeholder="Name"
-                                                                    className="block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300"
+                                                                    placeholder="Name *"
+                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${
+                                                                        !contact.name || contact.name.trim().length < 2
+                                                                            ? 'border-red-300 focus:border-red-500'
+                                                                            : 'border-gray-300 focus:border-indigo-500'
+                                                                    }`}
                                                                 />
                                                             </div>
                                                             <div className="flex-1">
@@ -1067,8 +1192,12 @@ export default function Show({
                                                                     type="email"
                                                                     value={contact.email}
                                                                     onChange={(e) => updateBrokerContactForm(idx, 'email', e.target.value)}
-                                                                    placeholder="Email"
-                                                                    className="block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300"
+                                                                    placeholder="Email *"
+                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${
+                                                                        !contact.email || !isValidEmail(contact.email)
+                                                                            ? 'border-red-300 focus:border-red-500'
+                                                                            : 'border-gray-300 focus:border-indigo-500'
+                                                                    }`}
                                                                 />
                                                             </div>
                                                             <button
@@ -1083,11 +1212,12 @@ export default function Show({
                                                 </div>
                                             )}
                                         </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         </div>
-                    )}
 
                     {/* Contacts */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
@@ -1526,6 +1656,12 @@ export default function Show({
                             )}
                         </div>
                     </div>
+
+                    {/* Email Activity */}
+                    <EmailActivityPanel
+                        entityType="customer"
+                        entityId={customer.id}
+                    />
 
                     {/* Revenue Chart */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
