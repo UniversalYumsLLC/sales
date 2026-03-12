@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FulfilContactMetadata;
+use App\Models\FulfilCustomerMetadata;
 use App\Services\FulfilService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class ActiveCustomersController extends Controller
@@ -98,6 +101,13 @@ class ActiveCustomersController extends Controller
             }
         }
 
+        // Merge in local metadata (company_urls for Gmail matching)
+        $localMetadata = FulfilCustomerMetadata::find($id);
+        $customer['company_urls'] = $localMetadata?->company_urls ?? [];
+
+        // Merge email tracking dates into buyer contacts
+        $buyerContacts = $this->mergeContactEmailMetadata($id, $customer['buyers'] ?? []);
+
         // Calculate T12M monthly revenue
         $monthlyRevenue = $this->calculateMonthlyRevenue($salesOrders);
 
@@ -112,6 +122,7 @@ class ActiveCustomersController extends Controller
 
         return Inertia::render('ActiveCustomers/Show', [
             'customer' => $customer,
+            'buyerContacts' => $buyerContacts,
             'monthlyRevenue' => $monthlyRevenue,
             'topProducts' => $topProducts,
             'upcomingOrders' => $upcomingOrders,
@@ -380,5 +391,74 @@ class ActiveCustomersController extends Controller
             ->sortByDesc('days_overdue')
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Merge email tracking metadata into buyer contacts
+     *
+     * Buyer contacts from Fulfil have structure: ['name' => 'John Doe', 'email' => 'john@example.com']
+     * This merges in last_emailed_at and last_received_at from local metadata.
+     */
+    protected function mergeContactEmailMetadata(int $partyId, array $contacts): array
+    {
+        if (empty($contacts)) {
+            return [];
+        }
+
+        // Get all contact metadata for this customer
+        $metadata = FulfilContactMetadata::where('fulfil_party_id', $partyId)
+            ->get()
+            ->keyBy(fn($m) => strtolower($m->email));
+
+        return array_map(function ($contact) use ($metadata) {
+            $email = strtolower($contact['email'] ?? '');
+            $contactMetadata = $metadata->get($email);
+
+            return [
+                'name' => $contact['name'] ?? '',
+                'email' => $contact['email'] ?? '',
+                'last_emailed_at' => $contactMetadata?->last_emailed_at?->toIso8601String(),
+                'last_received_at' => $contactMetadata?->last_received_at?->toIso8601String(),
+            ];
+        }, $contacts);
+    }
+
+    /**
+     * Update company URLs for Gmail domain matching
+     */
+    public function updateCompanyUrls(Request $request, int $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'company_urls' => 'required|array',
+            'company_urls.*' => 'string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator);
+        }
+
+        // Normalize URLs (extract domains, lowercase)
+        $urls = array_values(array_filter(array_map(function ($url) {
+            $url = trim($url);
+            if (empty($url)) return null;
+
+            // Extract domain from URL if it looks like a full URL
+            if (preg_match('/^https?:\/\//', $url)) {
+                $parsed = parse_url($url);
+                $url = $parsed['host'] ?? $url;
+            }
+
+            // Remove www. prefix
+            $url = preg_replace('/^www\./', '', strtolower($url));
+
+            return $url;
+        }, $request->company_urls)));
+
+        // Update or create metadata
+        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        $metadata->company_urls = $urls;
+        $metadata->save();
+
+        return back()->with('success', 'Company URLs updated successfully.');
     }
 }

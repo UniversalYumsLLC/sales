@@ -3,7 +3,9 @@
 use App\Http\Controllers\ActiveCustomersController;
 use App\Http\Controllers\AccountsReceivableController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\GmailController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProspectController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +23,15 @@ Route::middleware(['auth'])->group(function () {
 
     // Customer detail page (must come after /customers/create)
     Route::get('/customers/{id}', [ActiveCustomersController::class, 'show'])->name('customers.show');
+    Route::put('/customers/{id}/company-urls', [ActiveCustomersController::class, 'updateCompanyUrls'])->name('customers.update-company-urls');
+
+    // Prospects (create route must come before {id} wildcard)
+    Route::get('/prospects', [ProspectController::class, 'index'])->name('prospects.index');
+    Route::get('/prospects/create', [ProspectController::class, 'create'])->name('prospects.create');
+    Route::post('/prospects', [ProspectController::class, 'store'])->name('prospects.store');
+    Route::patch('/prospects/{id}/status', [ProspectController::class, 'updateStatus'])->name('prospects.update-status');
+    Route::get('/prospects/{id}', [ProspectController::class, 'show'])->name('prospects.show');
+    Route::put('/prospects/{id}', [ProspectController::class, 'update'])->name('prospects.update');
 
     // Accounts Receivable
     Route::get('/accounts-receivable', [AccountsReceivableController::class, 'index'])->name('ar.index');
@@ -33,6 +44,13 @@ Route::get('/dashboard', function () {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    // Gmail Integration (salesperson only - checked in controller)
+    Route::get('/gmail', [GmailController::class, 'index'])->name('gmail.index');
+    Route::get('/gmail/connect', [GmailController::class, 'connect'])->name('gmail.connect');
+    Route::get('/gmail/callback', [GmailController::class, 'callback'])->name('gmail.callback');
+    Route::post('/gmail/disconnect', [GmailController::class, 'disconnect'])->name('gmail.disconnect');
+    Route::post('/gmail/sync', [GmailController::class, 'sync'])->name('gmail.sync');
 });
 
 // Admin routes

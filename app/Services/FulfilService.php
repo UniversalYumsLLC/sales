@@ -671,18 +671,36 @@ class FulfilService
 
     /**
      * Fetch products from Fulfil
+     *
+     * Filters applied at API level:
+     * - active = TRUE
+     * - sellable = TRUE
+     * - template = ID of "RT Finished Goods" template
+     *
+     * Filters applied post-fetch in enrichProducts():
+     * - Class attribute in ('RT EV', 'RT SE')
      */
     protected function fetchProducts(): array
     {
+        // First, get the template ID for "RT Finished Goods"
+        $templateId = $this->getTemplateIdByName('RT Finished Goods');
+        if (!$templateId) {
+            return [];
+        }
+
         $fields = [
             'id', 'code', 'rec_name', 'template',
             'wholesale_list_price', 'active', 'attributes',
         ];
 
-        // Note: Fulfil API max page size is 500
+        // Filter by template at API level to get all matching products
         $response = $this->request('PUT', 'model/product.product/search_read', [
             'json' => [
-                'filters' => [['active', '=', true]],
+                'filters' => [
+                    ['active', '=', true],
+                    ['sellable', '=', true],
+                    ['template', '=', $templateId],
+                ],
                 'fields' => $fields,
                 'limit' => 500,
             ],
@@ -692,7 +710,32 @@ class FulfilService
     }
 
     /**
+     * Get template ID by name
+     */
+    protected function getTemplateIdByName(string $name): ?int
+    {
+        $cacheKey = 'template_id_' . md5($name);
+
+        return $this->cached($cacheKey, function () use ($name) {
+            $response = $this->request('PUT', 'model/product.template/search_read', [
+                'json' => [
+                    'filters' => [['name', '=', $name]],
+                    'fields' => ['id'],
+                    'limit' => 1,
+                ],
+            ]);
+
+            return $response[0]['id'] ?? null;
+        }, 86400); // Cache for 24 hours
+    }
+
+    /**
      * Enrich products with attributes
+     *
+     * Filters products by:
+     * - Class attribute value in ('RT EV', 'RT SE')
+     *
+     * Note: Template filtering is done at the API level in fetchProducts()
      */
     protected function enrichProducts(array $products): array
     {
@@ -716,11 +759,20 @@ class FulfilService
         $endDateAttrId = config('fulfil.attributes.end_date');
         $seasonAttrId = config('fulfil.attributes.season');
 
-        return array_map(function ($product) use ($attributesById, $classAttrId, $startDateAttrId, $endDateAttrId, $seasonAttrId) {
+        // Allowed Class values for product filtering
+        $allowedClassValues = ['RT EV', 'RT SE'];
+
+        $enrichedProducts = array_map(function ($product) use ($attributesById, $classAttrId, $startDateAttrId, $endDateAttrId, $seasonAttrId) {
+            // rec_name includes SKU prefix like "[SKU] Product Name" - strip it for clean display
+            $name = $product['rec_name'] ?? null;
+            if ($name && preg_match('/^\[[^\]]+\]\s*(.+)$/', $name, $matches)) {
+                $name = $matches[1];
+            }
+
             $parsed = [
                 'id' => $product['id'],
                 'sku' => $product['code'] ?? null,
-                'name' => $product['rec_name'] ?? null,
+                'name' => $name,
                 'template_id' => $product['template'] ?? null,
                 'wholesale_list_price' => $this->parseDecimal($product['wholesale_list_price'] ?? null),
                 'class' => null,
@@ -747,6 +799,11 @@ class FulfilService
 
             return $parsed;
         }, $products);
+
+        // Filter to only include products with Class in allowed values
+        return array_values(array_filter($enrichedProducts, function ($product) use ($allowedClassValues) {
+            return in_array($product['class'], $allowedClassValues, true);
+        }));
     }
 
     // =========================================================================
@@ -826,6 +883,13 @@ class FulfilService
         if (empty($ids)) return [];
 
         return $this->batchFetchByIds('model/product.product.attribute', $ids, 'id,attribute,value,value_selection');
+    }
+
+    protected function fetchProductTemplates(array $ids): array
+    {
+        if (empty($ids)) return [];
+
+        return $this->batchFetchByIds('model/product.template', $ids, 'id,name');
     }
 
     // =========================================================================

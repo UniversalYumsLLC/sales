@@ -7,6 +7,13 @@ interface Contact {
     email: string;
 }
 
+interface BuyerContact {
+    name: string;
+    email: string;
+    last_emailed_at: string | null;
+    last_received_at: string | null;
+}
+
 interface APContact {
     name: string;
     value: string;
@@ -26,6 +33,7 @@ interface Customer {
     vendor_guide: string | null;
     receivable: number | null;
     receivable_today: number | null;
+    company_urls: string[];
 }
 
 interface PriceList {
@@ -79,6 +87,7 @@ interface OutstandingInvoice {
 
 interface Props {
     customer: Customer;
+    buyerContacts: BuyerContact[];
     monthlyRevenue: MonthlyRevenue[];
     topProducts: TopProduct[];
     upcomingOrders: UpcomingOrder[];
@@ -194,6 +203,7 @@ function PlusIcon({ className = "h-4 w-4" }: { className?: string }) {
 
 export default function Show({
     customer,
+    buyerContacts,
     monthlyRevenue,
     topProducts,
     upcomingOrders,
@@ -206,7 +216,13 @@ export default function Show({
     // Edit mode states
     const [editingDetails, setEditingDetails] = useState(false);
     const [editingContacts, setEditingContacts] = useState(false);
+    const [editingCompanyUrls, setEditingCompanyUrls] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // Company URLs form state
+    const [companyUrlsForm, setCompanyUrlsForm] = useState<string[]>(
+        customer.company_urls?.length > 0 ? [...customer.company_urls] : ['']
+    );
 
     // Form states
     const [detailsForm, setDetailsForm] = useState<CustomerDetailsForm>({
@@ -479,6 +495,72 @@ export default function Show({
         }));
     };
 
+    // Company URL management
+    const addCompanyUrl = () => {
+        setCompanyUrlsForm(prev => [...prev, '']);
+    };
+
+    const removeCompanyUrl = (index: number) => {
+        if (companyUrlsForm.length > 1) {
+            setCompanyUrlsForm(prev => prev.filter((_, i) => i !== index));
+        } else {
+            setCompanyUrlsForm(['']);
+        }
+    };
+
+    const updateCompanyUrl = (index: number, value: string) => {
+        setCompanyUrlsForm(prev => prev.map((url, i) => i === index ? value : url));
+    };
+
+    const cancelCompanyUrlsEdit = () => {
+        setCompanyUrlsForm(customer.company_urls?.length > 0 ? [...customer.company_urls] : ['']);
+        setEditingCompanyUrls(false);
+    };
+
+    const saveCompanyUrls = async () => {
+        setSaving(true);
+        try {
+            const response = await fetch(route('customers.update-company-urls', customer.id), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
+                }),
+            });
+
+            if (response.ok) {
+                setEditingCompanyUrls(false);
+                router.reload({ only: ['customer'] });
+            } else {
+                const data = await response.json();
+                alert(data.message || 'Failed to save changes');
+            }
+        } catch (error) {
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Format relative date for email tracking
+    const formatRelativeDate = (dateStr: string | null): string => {
+        if (!dateStr) return 'Never';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays} days ago`;
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+        if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+        return `${Math.floor(diffDays / 365)} years ago`;
+    };
+
     const t12mTotal = monthlyRevenue.reduce((sum, m) => sum + m.revenue, 0);
     const priorYearTotal = monthlyRevenue.reduce((sum, m) => sum + m.prior_year_revenue, 0);
     const revenueChange = t12mTotal - priorYearTotal;
@@ -709,14 +791,22 @@ export default function Show({
                                     {/* Buyers */}
                                     <div>
                                         <h4 className="mb-2 text-sm font-medium text-gray-700">Buyers</h4>
-                                        {customer.buyers && customer.buyers.length > 0 ? (
-                                            <ul className="space-y-2">
-                                                {customer.buyers.map((contact, idx) => (
+                                        {buyerContacts && buyerContacts.length > 0 ? (
+                                            <ul className="space-y-3">
+                                                {buyerContacts.map((contact, idx) => (
                                                     <li key={idx} className="text-sm">
                                                         <div className="text-gray-900">{contact.name}</div>
                                                         {contact.email && (
                                                             <div className="text-gray-500">{contact.email}</div>
                                                         )}
+                                                        <div className="mt-1 flex gap-3 text-xs text-gray-400">
+                                                            <span title={contact.last_emailed_at ? new Date(contact.last_emailed_at).toLocaleString() : undefined}>
+                                                                Sent: {formatRelativeDate(contact.last_emailed_at)}
+                                                            </span>
+                                                            <span title={contact.last_received_at ? new Date(contact.last_received_at).toLocaleString() : undefined}>
+                                                                Received: {formatRelativeDate(contact.last_received_at)}
+                                                            </span>
+                                                        </div>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -916,6 +1006,91 @@ export default function Show({
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Company URLs (for Gmail matching) */}
+                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-medium text-gray-900">Company Domains</h3>
+                                    <p className="text-sm text-gray-500">Email domains used for Gmail sync matching</p>
+                                </div>
+                                {!editingCompanyUrls ? (
+                                    <button
+                                        onClick={() => setEditingCompanyUrls(true)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                        title="Edit"
+                                    >
+                                        <PencilIcon />
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={cancelCompanyUrlsEdit}
+                                            className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={saveCompanyUrls}
+                                            disabled={saving}
+                                            className="rounded bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+                                        >
+                                            {saving ? 'Saving...' : 'Save'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {!editingCompanyUrls ? (
+                                <div>
+                                    {customer.company_urls && customer.company_urls.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {customer.company_urls.map((url, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+                                                >
+                                                    {url}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400">No domains configured. Add domains to enable Gmail email tracking.</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {companyUrlsForm.map((url, idx) => (
+                                        <div key={idx} className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={url}
+                                                onChange={(e) => updateCompanyUrl(idx, e.target.value)}
+                                                placeholder="e.g., example.com"
+                                                className="block flex-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCompanyUrl(idx)}
+                                                className="text-red-400 hover:text-red-600"
+                                            >
+                                                <XIcon />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={addCompanyUrl}
+                                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                    >
+                                        <PlusIcon className="h-3 w-3" /> Add Domain
+                                    </button>
                                 </div>
                             )}
                         </div>
