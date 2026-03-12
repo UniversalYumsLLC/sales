@@ -13,6 +13,17 @@ class ProspectContact extends Model
     const TYPE_BUYER = 'buyer';
     const TYPE_ACCOUNTS_PAYABLE = 'accounts_payable';
     const TYPE_LOGISTICS = 'logistics';
+    const TYPE_UNCATEGORIZED = 'uncategorized';
+    const TYPE_BROKER = 'broker';
+
+    /**
+     * Contact types that can be assigned by categorization.
+     */
+    const CATEGORIZABLE_TYPES = [
+        self::TYPE_BUYER,
+        self::TYPE_ACCOUNTS_PAYABLE,
+        self::TYPE_LOGISTICS,
+    ];
 
     protected $fillable = [
         'prospect_id',

@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Email;
+use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
 use App\Models\FulfilCustomerMetadata;
+use App\Models\FulfilUncategorizedContact;
 use App\Models\GmailSyncHistory;
 use App\Models\Prospect;
 use App\Models\ProspectContact;
@@ -164,22 +166,25 @@ class GmailService
             // Get all company domains (prospects + active customers) for filtering
             $companyDomains = $this->getAllCompanyDomains();
 
-            if (empty($companyDomains)) {
-                // No companies with domains to match
+            // Get all broker emails for exact email matching
+            $brokerEmails = $this->getAllBrokerEmails();
+
+            if (empty($companyDomains) && empty($brokerEmails)) {
+                // No companies with domains or broker emails to match
                 $syncHistory->markCompleted(0, 0);
                 return $syncHistory;
             }
 
-            // Fetch emails from Gmail, filtered by company domains
+            // Fetch emails from Gmail, filtered by company domains and broker emails
             $domains = array_keys($companyDomains);
-            $messages = $this->fetchMessagesForDomains($accessToken, $from, $now, $domains);
+            $messages = $this->fetchMessagesForDomainsAndEmails($accessToken, $from, $now, $domains, array_keys($brokerEmails));
             $fetched = count($messages);
             $matched = 0;
 
             foreach ($messages as $messageId) {
                 $emailData = $this->fetchMessageDetails($accessToken, $messageId);
 
-                if ($emailData && $this->processEmail($user, $emailData, $companyDomains)) {
+                if ($emailData && $this->processEmail($user, $emailData, $companyDomains, $brokerEmails)) {
                     $matched++;
                 }
             }
@@ -198,20 +203,16 @@ class GmailService
     }
 
     /**
-     * Fetch message IDs from Gmail filtered by prospect domains.
+     * Fetch message IDs from Gmail filtered by prospect domains and broker emails.
      *
-     * Batches domains to avoid query length limits and deduplicates results.
+     * Batches domains/emails to avoid query length limits and deduplicates results.
      */
-    protected function fetchMessagesForDomains(string $accessToken, Carbon $from, Carbon $to, array $domains): array
+    protected function fetchMessagesForDomainsAndEmails(string $accessToken, Carbon $from, Carbon $to, array $domains, array $brokerEmails = []): array
     {
-        if (empty($domains)) {
+        if (empty($domains) && empty($brokerEmails)) {
             return [];
         }
 
-        // Batch domains to avoid query length limits
-        // Each domain adds ~40 chars (from:@domain.com OR to:@domain.com OR)
-        // Safe batch size: ~30 domains per query
-        $domainBatches = array_chunk($domains, 30);
         $allMessages = [];
 
         $dateQuery = sprintf(
@@ -220,26 +221,55 @@ class GmailService
             $to->copy()->addDay()->format('Y/m/d')
         );
 
-        foreach ($domainBatches as $batchDomains) {
-            $domainQueries = [];
-            foreach ($batchDomains as $domain) {
-                // Match emails from OR to this domain
-                $domainQueries[] = "from:@{$domain}";
-                $domainQueries[] = "to:@{$domain}";
+        // Batch domains to avoid query length limits
+        // Each domain adds ~40 chars (from:@domain.com OR to:@domain.com OR)
+        // Safe batch size: ~30 domains per query
+        if (!empty($domains)) {
+            $domainBatches = array_chunk($domains, 30);
+
+            foreach ($domainBatches as $batchDomains) {
+                $domainQueries = [];
+                foreach ($batchDomains as $domain) {
+                    // Match emails from OR to this domain
+                    $domainQueries[] = "from:@{$domain}";
+                    $domainQueries[] = "to:@{$domain}";
+                }
+
+                // Build query: date range AND (domain1 OR domain2 OR ...)
+                // Using {} syntax for OR grouping in Gmail
+                $domainFilter = '{' . implode(' ', $domainQueries) . '}';
+                $query = "{$dateQuery} {$domainFilter}";
+
+                Log::debug('Gmail query (domains)', ['query' => $query, 'domains_in_batch' => count($batchDomains)]);
+
+                $batchMessages = $this->fetchMessagesWithQuery($accessToken, $query);
+                $allMessages = array_merge($allMessages, $batchMessages);
             }
-
-            // Build query: date range AND (domain1 OR domain2 OR ...)
-            // Using {} syntax for OR grouping in Gmail
-            $domainFilter = '{' . implode(' ', $domainQueries) . '}';
-            $query = "{$dateQuery} {$domainFilter}";
-
-            Log::debug('Gmail query', ['query' => $query, 'domains_in_batch' => count($batchDomains)]);
-
-            $batchMessages = $this->fetchMessagesWithQuery($accessToken, $query);
-            $allMessages = array_merge($allMessages, $batchMessages);
         }
 
-        // Deduplicate message IDs (in case of overlapping domain matches)
+        // Fetch broker emails by exact email address match
+        if (!empty($brokerEmails)) {
+            $emailBatches = array_chunk($brokerEmails, 20);
+
+            foreach ($emailBatches as $batchEmails) {
+                $emailQueries = [];
+                foreach ($batchEmails as $email) {
+                    // Match emails from OR to this exact email address
+                    $emailQueries[] = "from:{$email}";
+                    $emailQueries[] = "to:{$email}";
+                }
+
+                $emailFilter = '{' . implode(' ', $emailQueries) . '}';
+                $query = "{$dateQuery} {$emailFilter}";
+
+                Log::debug('Gmail query (broker emails)', ['query' => $query, 'emails_in_batch' => count($batchEmails)]);
+
+                $batchMessages = $this->fetchMessagesWithQuery($accessToken, $query);
+                $allMessages = array_merge($allMessages, $batchMessages);
+            }
+        }
+
+        // Deduplicate message IDs (in case of overlapping matches)
         return array_unique($allMessages);
     }
 
@@ -313,9 +343,9 @@ class GmailService
     }
 
     /**
-     * Process an email and store if it matches a company domain (prospect or customer).
+     * Process an email and store if it matches a company domain (prospect or customer) or broker email.
      */
-    protected function processEmail(User $user, array $emailData, array $companyDomains): bool
+    protected function processEmail(User $user, array $emailData, array $companyDomains, array $brokerEmails = []): bool
     {
         $headers = $this->parseHeaders($emailData['payload']['headers'] ?? []);
 
@@ -326,24 +356,6 @@ class GmailService
         // Determine all email addresses involved
         $allEmails = array_merge([$fromEmail], $toEmails, $ccEmails);
         $allEmails = array_filter($allEmails);
-
-        // Check if any email matches a company domain
-        $matchedDomain = null;
-        $matchedEmail = null;
-        $matchInfo = null;
-        foreach ($allEmails as $email) {
-            $domain = strtolower(explode('@', $email)[1] ?? '');
-            if (isset($companyDomains[$domain])) {
-                $matchedDomain = $domain;
-                $matchedEmail = $email;
-                $matchInfo = $companyDomains[$domain];
-                break;
-            }
-        }
-
-        if (!$matchedDomain || !$matchInfo) {
-            return false; // No match
-        }
 
         // Determine direction
         $userEmail = $user->gmailToken->gmail_email;
@@ -360,14 +372,101 @@ class GmailService
         // Check for attachments
         $attachments = $this->parseAttachments($emailData['payload']);
 
-        // Handle based on company type (prospect or customer)
-        if ($matchInfo['type'] === 'prospect') {
-            $this->processProspectEmail($user, $emailData, $matchInfo['id'], $matchedDomain, $matchedEmail, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
-        } else {
-            $this->processCustomerEmail($user, $emailData, $matchInfo['id'], $matchedDomain, $matchedEmail, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
+        $processed = false;
+
+        // First, check for broker email matches (exact email match, takes priority)
+        foreach ($allEmails as $email) {
+            $emailLower = strtolower($email);
+            if (isset($brokerEmails[$emailLower])) {
+                $brokerInfo = $brokerEmails[$emailLower];
+                $this->processBrokerEmail($user, $emailData, $brokerInfo, $emailLower, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
+                $processed = true;
+                // Don't break - a broker email might be linked to multiple entities
+            }
         }
 
-        return true;
+        // Then check for company domain matches
+        $matchedDomain = null;
+        $matchedEmail = null;
+        $matchInfo = null;
+        foreach ($allEmails as $email) {
+            $domain = strtolower(explode('@', $email)[1] ?? '');
+            if (isset($companyDomains[$domain])) {
+                $matchedDomain = $domain;
+                $matchedEmail = $email;
+                $matchInfo = $companyDomains[$domain];
+                break;
+            }
+        }
+
+        if ($matchedDomain && $matchInfo) {
+            // Handle based on company type (prospect or customer)
+            if ($matchInfo['type'] === 'prospect') {
+                $this->processProspectEmail($user, $emailData, $matchInfo['id'], $matchedDomain, $matchedEmail, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
+            } else {
+                $this->processCustomerEmail($user, $emailData, $matchInfo['id'], $matchedDomain, $matchedEmail, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
+            }
+            $processed = true;
+        }
+
+        return $processed;
+    }
+
+    /**
+     * Process an email for a broker contact.
+     * Updates email tracking for the broker contact without creating email records
+     * (the main email record is created by processProspectEmail or processCustomerEmail).
+     */
+    protected function processBrokerEmail(
+        User $user,
+        array $emailData,
+        array $brokerInfo,
+        string $brokerEmail,
+        string $direction,
+        string $fromEmail,
+        array $toEmails,
+        array $ccEmails,
+        array $body,
+        Carbon $emailDate,
+        array $attachments,
+        array $headers
+    ): void {
+        // Update email tracking for the broker contact
+        if ($brokerInfo['type'] === 'prospect') {
+            // Find the prospect broker contact
+            $contact = ProspectContact::where('prospect_id', $brokerInfo['id'])
+                ->where('type', ProspectContact::TYPE_BROKER)
+                ->whereRaw('LOWER(value) = ?', [$brokerEmail])
+                ->first();
+
+            if ($contact) {
+                if ($direction === Email::DIRECTION_OUTBOUND) {
+                    $contact->recordEmailSent($emailDate);
+                } else {
+                    $contact->recordEmailReceived($emailDate);
+                }
+            }
+        } else {
+            // Find or create the customer broker contact
+            $contact = FulfilBrokerContact::where('fulfil_party_id', $brokerInfo['id'])
+                ->whereRaw('LOWER(email) = ?', [$brokerEmail])
+                ->first();
+
+            if ($contact) {
+                if ($direction === Email::DIRECTION_OUTBOUND) {
+                    $contact->recordEmailSent($emailDate);
+                } else {
+                    $contact->recordEmailReceived($emailDate);
+                }
+            }
+        }
+
+        Log::debug('Processed broker email', [
+            'broker_email' => $brokerEmail,
+            'type' => $brokerInfo['type'],
+            'id' => $brokerInfo['id'],
+            'direction' => $direction,
+        ]);
     }
 
     /**
@@ -422,6 +521,61 @@ class GmailService
                 $contact->recordEmailReceived($emailDate);
             }
         }
+
+        // Discover new contacts from this email
+        $this->discoverProspectContacts($prospectId, $matchedDomain, $fromEmail, $toEmails, $ccEmails, $direction, $emailDate);
+    }
+
+    /**
+     * Discover new uncategorized contacts from email addresses for a prospect.
+     */
+    protected function discoverProspectContacts(
+        int $prospectId,
+        string $matchedDomain,
+        string $fromEmail,
+        array $toEmails,
+        array $ccEmails,
+        string $direction,
+        Carbon $emailDate
+    ): void {
+        // Collect all emails that match the prospect's domain
+        $allEmails = array_merge([$fromEmail], $toEmails, $ccEmails);
+        $allEmails = array_filter($allEmails);
+        $allEmails = array_unique(array_map('strtolower', $allEmails));
+
+        foreach ($allEmails as $email) {
+            $emailDomain = strtolower(explode('@', $email)[1] ?? '');
+            if ($emailDomain !== $matchedDomain) {
+                continue; // Not from the company domain
+            }
+
+            // Check if this email already exists as a contact
+            $existingContact = ProspectContact::where('prospect_id', $prospectId)
+                ->whereRaw('LOWER(value) = ?', [$email])
+                ->first();
+
+            if (!$existingContact) {
+                // Create uncategorized contact
+                $newContact = ProspectContact::create([
+                    'prospect_id' => $prospectId,
+                    'type' => ProspectContact::TYPE_UNCATEGORIZED,
+                    'name' => $this->extractName($email) ?? '',
+                    'value' => $email,
+                ]);
+
+                // Update email tracking for the new contact
+                if ($direction === Email::DIRECTION_OUTBOUND) {
+                    $newContact->recordEmailSent($emailDate);
+                } else {
+                    $newContact->recordEmailReceived($emailDate);
+                }
+
+                Log::info('Discovered new prospect contact', [
+                    'prospect_id' => $prospectId,
+                    'email' => $email,
+                ]);
+            }
+        }
     }
 
     /**
@@ -471,6 +625,69 @@ class GmailService
         } else {
             $contactMetadata->recordEmailReceived($emailDate);
         }
+
+        // Discover new contacts from this email
+        $this->discoverCustomerContacts($fulfilPartyId, $matchedDomain, $fromEmail, $toEmails, $ccEmails, $direction, $emailDate);
+    }
+
+    /**
+     * Discover new uncategorized contacts from email addresses for a customer.
+     */
+    protected function discoverCustomerContacts(
+        int $fulfilPartyId,
+        string $matchedDomain,
+        string $fromEmail,
+        array $toEmails,
+        array $ccEmails,
+        string $direction,
+        Carbon $emailDate
+    ): void {
+        // Collect all emails that match the customer's domain
+        $allEmails = array_merge([$fromEmail], $toEmails, $ccEmails);
+        $allEmails = array_filter($allEmails);
+        $allEmails = array_unique(array_map('strtolower', $allEmails));
+
+        // Get existing contact emails from FulfilContactMetadata (tracks known contacts from Fulfil)
+        $existingContactEmails = FulfilContactMetadata::where('fulfil_party_id', $fulfilPartyId)
+            ->pluck('email')
+            ->map(fn($e) => strtolower($e))
+            ->toArray();
+
+        // Get existing uncategorized contact emails
+        $existingUncategorizedEmails = FulfilUncategorizedContact::where('fulfil_party_id', $fulfilPartyId)
+            ->pluck('email')
+            ->map(fn($e) => strtolower($e))
+            ->toArray();
+
+        $knownEmails = array_merge($existingContactEmails, $existingUncategorizedEmails);
+
+        foreach ($allEmails as $email) {
+            $emailDomain = strtolower(explode('@', $email)[1] ?? '');
+            if ($emailDomain !== $matchedDomain) {
+                continue; // Not from the company domain
+            }
+
+            if (!in_array($email, $knownEmails)) {
+                // Create uncategorized contact
+                $newContact = FulfilUncategorizedContact::create([
+                    'fulfil_party_id' => $fulfilPartyId,
+                    'name' => '',
+                    'email' => $email,
+                ]);
+
+                // Update email tracking for the new contact
+                if ($direction === Email::DIRECTION_OUTBOUND) {
+                    $newContact->recordEmailSent($emailDate);
+                } else {
+                    $newContact->recordEmailReceived($emailDate);
+                }
+
+                Log::info('Discovered new customer contact', [
+                    'fulfil_party_id' => $fulfilPartyId,
+                    'email' => $email,
+                ]);
+            }
+        }
     }
 
     /**
@@ -508,6 +725,50 @@ class GmailService
         }
 
         return $domains;
+    }
+
+    /**
+     * Get all broker email addresses mapped to their entity info.
+     *
+     * Returns: ['broker@email.com' => ['type' => 'prospect'|'customer', 'id' => int], ...]
+     *
+     * Note: We match broker emails exactly (not by domain) to avoid pulling in
+     * all emails from a broker company when they represent multiple retailers.
+     */
+    protected function getAllBrokerEmails(): array
+    {
+        $emails = [];
+
+        // Get prospect broker contacts
+        $prospectBrokerContacts = ProspectContact::where('type', ProspectContact::TYPE_BROKER)
+            ->whereNotNull('value')
+            ->with('prospect')
+            ->get();
+
+        foreach ($prospectBrokerContacts as $contact) {
+            if ($contact->prospect && filter_var($contact->value, FILTER_VALIDATE_EMAIL)) {
+                $email = strtolower($contact->value);
+                $emails[$email] = [
+                    'type' => 'prospect',
+                    'id' => $contact->prospect_id,
+                ];
+            }
+        }
+
+        // Get customer broker contacts
+        $customerBrokerContacts = FulfilBrokerContact::all();
+        foreach ($customerBrokerContacts as $contact) {
+            $email = strtolower($contact->email);
+            // Don't overwrite prospect broker emails (prospect takes priority)
+            if (!isset($emails[$email])) {
+                $emails[$email] = [
+                    'type' => 'customer',
+                    'id' => $contact->fulfil_party_id,
+                ];
+            }
+        }
+
+        return $emails;
     }
 
     /**

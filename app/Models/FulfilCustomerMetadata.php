@@ -24,12 +24,17 @@ class FulfilCustomerMetadata extends Model
     protected $fillable = [
         'fulfil_party_id',
         'company_urls',
+        'broker',
+        'broker_commission',
+        'broker_company_name',
     ];
 
     protected function casts(): array
     {
         return [
             'company_urls' => 'array',
+            'broker' => 'boolean',
+            'broker_commission' => 'decimal:2',
         ];
     }
 
@@ -97,5 +102,21 @@ class FulfilCustomerMetadata extends Model
     public function contactMetadata()
     {
         return $this->hasMany(FulfilContactMetadata::class, 'fulfil_party_id', 'fulfil_party_id');
+    }
+
+    /**
+     * Get uncategorized contacts for this customer.
+     */
+    public function uncategorizedContacts()
+    {
+        return $this->hasMany(FulfilUncategorizedContact::class, 'fulfil_party_id', 'fulfil_party_id');
+    }
+
+    /**
+     * Get broker contacts for this customer.
+     */
+    public function brokerContacts()
+    {
+        return $this->hasMany(FulfilBrokerContact::class, 'fulfil_party_id', 'fulfil_party_id');
     }
 }

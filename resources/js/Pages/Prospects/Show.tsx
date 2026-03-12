@@ -38,6 +38,22 @@ interface ShippingTerm {
     name: string;
 }
 
+interface UncategorizedContact {
+    id: number;
+    name: string;
+    value: string;
+    last_emailed_at?: string | null;
+    last_received_at?: string | null;
+}
+
+interface BrokerContact {
+    id?: number;
+    name: string;
+    value: string;
+    last_emailed_at?: string | null;
+    last_received_at?: string | null;
+}
+
 interface Prospect {
     id: number;
     company_name: string;
@@ -49,9 +65,14 @@ interface Prospect {
     shelf_life_requirement: number | null;
     vendor_guide: string | null;
     company_urls: string[];
+    broker: boolean;
+    broker_commission: number | null;
+    broker_company_name: string | null;
+    broker_contacts: BrokerContact[];
     buyers: Contact[];
     accounts_payable: Contact[];
     logistics: Contact[];
+    uncategorized: UncategorizedContact[];
     products: Product[];
     product_ids: number[];
 }
@@ -74,12 +95,20 @@ interface DetailsForm {
     shelf_life_requirement: string;
     vendor_guide: string;
     company_urls: string[];
+    broker: boolean;
+    broker_commission: string;
+    broker_company_name: string;
+}
+
+interface BrokerContactsForm {
+    broker_contacts: BrokerContact[];
 }
 
 interface ContactsForm {
     buyers: Contact[];
     accounts_payable: Contact[];
     logistics: Contact[];
+    uncategorized: Contact[];
 }
 
 interface ProductsForm {
@@ -155,15 +184,29 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         shelf_life_requirement: prospect.shelf_life_requirement?.toString() || '',
         vendor_guide: prospect.vendor_guide || '',
         company_urls: prospect.company_urls || [],
+        broker: prospect.broker || false,
+        broker_commission: prospect.broker_commission?.toString() || '',
+        broker_company_name: prospect.broker_company_name || '',
     });
 
     const [newCompanyUrl, setNewCompanyUrl] = useState('');
+
+    // Broker contacts state
+    const [editingBroker, setEditingBroker] = useState(false);
+    const [brokerContactsForm, setBrokerContactsForm] = useState<BrokerContactsForm>({
+        broker_contacts: prospect.broker_contacts?.length > 0 ? [...prospect.broker_contacts] : [],
+    });
+    const [brokerContactsErrors, setBrokerContactsErrors] = useState<ValidationErrors>({});
 
     const [contactsForm, setContactsForm] = useState<ContactsForm>({
         buyers: prospect.buyers?.length > 0 ? [...prospect.buyers] : [],
         accounts_payable: prospect.accounts_payable?.length > 0 ? [...prospect.accounts_payable] : [],
         logistics: prospect.logistics?.length > 0 ? [...prospect.logistics] : [],
+        uncategorized: prospect.uncategorized?.length > 0 ? [...prospect.uncategorized] : [],
     });
+
+    // Track contacts being categorized (contact id -> selected type)
+    const [categorizingContacts, setCategorizingContacts] = useState<Record<number, string>>({});
 
     const [productsForm, setProductsForm] = useState<ProductsForm>({
         product_ids: [...prospect.product_ids],
@@ -230,6 +273,16 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             }
         });
 
+        // Validate uncategorized
+        contactsForm.uncategorized.forEach((contact, idx) => {
+            if (!contact.name || contact.name.length < 1) {
+                errors[`uncategorized.${idx}.name`] = 'Name is required';
+            }
+            if (contact.value && !isValidEmail(contact.value)) {
+                errors[`uncategorized.${idx}.value`] = 'Invalid email address';
+            }
+        });
+
         setContactsErrors(errors);
     }, [contactsForm, editingContacts]);
 
@@ -243,6 +296,9 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             shelf_life_requirement: prospect.shelf_life_requirement?.toString() || '',
             vendor_guide: prospect.vendor_guide || '',
             company_urls: prospect.company_urls || [],
+            broker: prospect.broker || false,
+            broker_commission: prospect.broker_commission?.toString() || '',
+            broker_company_name: prospect.broker_company_name || '',
         });
         setNewCompanyUrl('');
         setEditingDetails(false);
@@ -254,9 +310,11 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             buyers: prospect.buyers?.length > 0 ? [...prospect.buyers] : [],
             accounts_payable: prospect.accounts_payable?.length > 0 ? [...prospect.accounts_payable] : [],
             logistics: prospect.logistics?.length > 0 ? [...prospect.logistics] : [],
+            uncategorized: prospect.uncategorized?.length > 0 ? [...prospect.uncategorized] : [],
         });
         setEditingContacts(false);
         setContactsErrors({});
+        setCategorizingContacts({});
     };
 
     const cancelProductsEdit = () => {
@@ -329,11 +387,13 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     buyers: cleanContacts(contactsForm.buyers),
                     accounts_payable: cleanContacts(contactsForm.accounts_payable),
                     logistics: cleanContacts(contactsForm.logistics),
+                    uncategorized: cleanContacts(contactsForm.uncategorized),
                 }),
             });
 
             if (response.ok) {
                 setEditingContacts(false);
+                setCategorizingContacts({});
                 router.reload({ only: ['prospect'] });
             } else {
                 const data = await response.json();
@@ -441,6 +501,138 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             logistics: prev.logistics.map((l, i) => i === index ? { ...l, [field]: value } : l),
         }));
     };
+
+    // Contact management - Uncategorized
+    const addUncategorized = () => {
+        setContactsForm(prev => ({
+            ...prev,
+            uncategorized: [...prev.uncategorized, { name: '', value: '' }],
+        }));
+    };
+
+    const removeUncategorized = (index: number) => {
+        setContactsForm(prev => ({
+            ...prev,
+            uncategorized: prev.uncategorized.filter((_, i) => i !== index),
+        }));
+    };
+
+    const updateUncategorized = (index: number, field: 'name' | 'value', value: string) => {
+        setContactsForm(prev => ({
+            ...prev,
+            uncategorized: prev.uncategorized.map((c, i) => i === index ? { ...c, [field]: value } : c),
+        }));
+    };
+
+    // Categorize a contact (move from uncategorized to a specific type)
+    const categorizeContact = async (contactId: number, newType: string) => {
+        if (!contactId || !newType) return;
+
+        try {
+            const response = await fetch(route('prospects.contacts.categorize', { prospectId: prospect.id, contactId }), {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ type: newType }),
+            });
+
+            if (response.ok) {
+                setCategorizingContacts({});
+                router.reload({ only: ['prospect'] });
+            } else {
+                const data = await response.json();
+                alert(data.message || 'Failed to categorize contact');
+            }
+        } catch (error) {
+            alert('Failed to categorize contact');
+        }
+    };
+
+    // Broker contact management
+    const addBrokerContact = () => {
+        setBrokerContactsForm(prev => ({
+            ...prev,
+            broker_contacts: [...prev.broker_contacts, { name: '', value: '' }],
+        }));
+    };
+
+    const removeBrokerContact = (index: number) => {
+        setBrokerContactsForm(prev => ({
+            ...prev,
+            broker_contacts: prev.broker_contacts.filter((_, i) => i !== index),
+        }));
+    };
+
+    const updateBrokerContact = (index: number, field: 'name' | 'value', value: string) => {
+        setBrokerContactsForm(prev => ({
+            ...prev,
+            broker_contacts: prev.broker_contacts.map((c, i) => i === index ? { ...c, [field]: value } : c),
+        }));
+    };
+
+    const cancelBrokerEdit = () => {
+        setBrokerContactsForm({
+            broker_contacts: prospect.broker_contacts?.length > 0 ? [...prospect.broker_contacts] : [],
+        });
+        setEditingBroker(false);
+        setBrokerContactsErrors({});
+    };
+
+    const saveBroker = async () => {
+        if (Object.keys(brokerContactsErrors).length > 0) return;
+
+        setSaving(true);
+        try {
+            const cleanContacts = (contacts: BrokerContact[]) =>
+                contacts.filter(c => c.name).map(c => ({ name: c.name, value: c.value || '' }));
+
+            const response = await fetch(route('prospects.update', prospect.id), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    broker: detailsForm.broker,
+                    broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
+                    broker_company_name: detailsForm.broker_company_name || null,
+                    broker_contacts: cleanContacts(brokerContactsForm.broker_contacts),
+                }),
+            });
+
+            if (response.ok) {
+                setEditingBroker(false);
+                router.reload({ only: ['prospect'] });
+            } else {
+                const data = await response.json();
+                alert(data.message || 'Failed to save broker settings');
+            }
+        } catch (error) {
+            alert('Failed to save broker settings');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Validate broker contacts
+    useEffect(() => {
+        if (!editingBroker) return;
+
+        const errors: ValidationErrors = {};
+        brokerContactsForm.broker_contacts.forEach((contact, idx) => {
+            if (!contact.name || contact.name.length < 1) {
+                errors[`broker_contacts.${idx}.name`] = 'Name is required';
+            }
+            if (contact.value && !isValidEmail(contact.value)) {
+                errors[`broker_contacts.${idx}.value`] = 'Invalid email address';
+            }
+        });
+        setBrokerContactsErrors(errors);
+    }, [brokerContactsForm, editingBroker]);
+
+    const brokerContactsValid = Object.keys(brokerContactsErrors).length === 0;
 
     // Product management
     const addProduct = (productId: number) => {
@@ -587,6 +779,16 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                     ))}
                                                 </div>
                                             ) : '-'}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-sm font-medium text-gray-500">Broker</dt>
+                                        <dd className="text-sm text-gray-900">
+                                            {prospect.broker ? (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
+                                                    Yes
+                                                </span>
+                                            ) : 'No'}
                                         </dd>
                                     </div>
                                 </dl>
@@ -761,10 +963,174 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             </button>
                                         </div>
                                     </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={detailsForm.broker}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, broker: e.target.checked }))}
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm font-medium text-gray-700">Uses Broker</span>
+                                        </label>
+                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
+
+                    {/* Broker Section - Only visible when broker=true */}
+                    {(prospect.broker || detailsForm.broker) && (
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-400">
+                            <div className="p-6">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                                        Broker
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
+                                            Commission: {prospect.broker_commission ?? detailsForm.broker_commission ?? 0}%
+                                        </span>
+                                    </h3>
+                                    {!editingBroker ? (
+                                        <button
+                                            onClick={() => setEditingBroker(true)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                            title="Edit"
+                                        >
+                                            <PencilIcon />
+                                        </button>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={cancelBrokerEdit}
+                                                className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={saveBroker}
+                                                disabled={!brokerContactsValid || saving}
+                                                className="rounded bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+                                            >
+                                                {saving ? 'Saving...' : 'Save'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {!editingBroker ? (
+                                    <div>
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Company</h4>
+                                                <p className="text-sm text-gray-900">{prospect.broker_company_name || '-'}</p>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Commission</h4>
+                                                <p className="text-sm text-gray-900">{prospect.broker_commission ?? 0}%</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Contacts</h4>
+                                            {prospect.broker_contacts && prospect.broker_contacts.length > 0 ? (
+                                                <ul className="space-y-2">
+                                                    {prospect.broker_contacts.map((contact, idx) => (
+                                                        <li key={idx} className="text-sm">
+                                                            <div className="text-gray-900">{contact.name}</div>
+                                                            {contact.value && (
+                                                                <div className="text-gray-500">{contact.value}</div>
+                                                            )}
+                                                            <div className="mt-1 flex gap-3 text-xs text-gray-400">
+                                                                <span>Sent: {formatDate(contact.last_emailed_at)}</span>
+                                                                <span>Received: {formatDate(contact.last_received_at)}</span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-gray-400">No broker contacts</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Broker Company Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={detailsForm.broker_company_name}
+                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_company_name: e.target.value }))}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    placeholder="e.g., HRG Brokers"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Commission (%)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.1"
+                                                    value={detailsForm.broker_commission}
+                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_commission: e.target.value }))}
+                                                    className="mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    placeholder="0.0"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="mb-2 flex items-center justify-between">
+                                                <h4 className="text-sm font-medium text-gray-700">Broker Contacts</h4>
+                                                <button
+                                                    type="button"
+                                                    onClick={addBrokerContact}
+                                                    className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                >
+                                                    <PlusIcon className="h-3 w-3" /> Add
+                                                </button>
+                                            </div>
+                                            {brokerContactsForm.broker_contacts.length === 0 ? (
+                                                <p className="text-sm text-gray-400">No broker contacts</p>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {brokerContactsForm.broker_contacts.map((contact, idx) => (
+                                                        <div key={idx} className="flex gap-2">
+                                                            <div className="flex-1">
+                                                                <input
+                                                                    type="text"
+                                                                    value={contact.name}
+                                                                    onChange={(e) => updateBrokerContact(idx, 'name', e.target.value)}
+                                                                    placeholder="Name"
+                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${brokerContactsErrors[`broker_contacts.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <input
+                                                                    type="email"
+                                                                    value={contact.value}
+                                                                    onChange={(e) => updateBrokerContact(idx, 'value', e.target.value)}
+                                                                    placeholder="Email"
+                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${brokerContactsErrors[`broker_contacts.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                />
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeBrokerContact(idx)}
+                                                                className="text-red-400 hover:text-red-600"
+                                                            >
+                                                                <XIcon />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Contacts */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
@@ -800,6 +1166,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                             </div>
 
                             {!editingContacts ? (
+                                <>
                                 <div className="grid gap-6 sm:grid-cols-3">
                                     {/* Buyers */}
                                     <div>
@@ -872,6 +1239,57 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Uncategorized Contacts Section */}
+                                {prospect.uncategorized && prospect.uncategorized.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-gray-200">
+                                        <h4 className="mb-3 text-sm font-medium text-gray-700 flex items-center gap-2">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-800">
+                                                Uncategorized
+                                            </span>
+                                            <span className="text-gray-500 font-normal">
+                                                ({prospect.uncategorized.length} discovered from emails)
+                                            </span>
+                                        </h4>
+                                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                            {prospect.uncategorized.map((contact) => (
+                                                <div key={contact.id} className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm text-gray-900 font-medium truncate">
+                                                                {contact.name || <span className="text-gray-400 italic">No name</span>}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500 truncate">{contact.value}</div>
+                                                            <div className="mt-1 flex gap-3 text-xs text-gray-400">
+                                                                <span>Sent: {formatDate(contact.last_emailed_at)}</span>
+                                                                <span>Received: {formatDate(contact.last_received_at)}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="ml-2">
+                                                            <select
+                                                                value={categorizingContacts[contact.id] || ''}
+                                                                onChange={(e) => {
+                                                                    const type = e.target.value;
+                                                                    if (type) {
+                                                                        setCategorizingContacts(prev => ({ ...prev, [contact.id]: type }));
+                                                                        categorizeContact(contact.id, type);
+                                                                    }
+                                                                }}
+                                                                className="text-xs rounded border-gray-300 py-1 pl-2 pr-6 focus:border-indigo-500 focus:ring-indigo-500"
+                                                            >
+                                                                <option value="">Categorize...</option>
+                                                                <option value="buyer">Buyer</option>
+                                                                <option value="accounts_payable">Accounts Payable</option>
+                                                                <option value="logistics">Logistics</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                </>
                             ) : (
                                 <div className="space-y-6">
                                     {/* Buyers Edit */}
@@ -1011,6 +1429,62 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                         <button
                                                             type="button"
                                                             onClick={() => removeLogistics(idx)}
+                                                            className="text-red-400 hover:text-red-600"
+                                                        >
+                                                            <XIcon />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Uncategorized Edit */}
+                                    <div className="pt-4 border-t border-gray-200">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-800">
+                                                    Uncategorized
+                                                </span>
+                                            </h4>
+                                            <button
+                                                type="button"
+                                                onClick={addUncategorized}
+                                                className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                            >
+                                                <PlusIcon className="h-3 w-3" /> Add
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">
+                                            These contacts were discovered from emails. Edit their name or categorize them to move to the appropriate section.
+                                        </p>
+                                        {contactsForm.uncategorized.length === 0 ? (
+                                            <p className="text-sm text-gray-400">No uncategorized contacts</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {contactsForm.uncategorized.map((contact, idx) => (
+                                                    <div key={idx} className="flex gap-2 bg-yellow-50 p-2 rounded">
+                                                        <div className="flex-1">
+                                                            <input
+                                                                type="text"
+                                                                value={contact.name}
+                                                                onChange={(e) => updateUncategorized(idx, 'name', e.target.value)}
+                                                                placeholder="Name"
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`uncategorized.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <input
+                                                                type="email"
+                                                                value={contact.value}
+                                                                onChange={(e) => updateUncategorized(idx, 'value', e.target.value)}
+                                                                placeholder="Email"
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`uncategorized.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            />
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeUncategorized(idx)}
                                                             className="text-red-400 hover:text-red-600"
                                                         >
                                                             <XIcon />

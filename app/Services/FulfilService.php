@@ -282,6 +282,8 @@ class FulfilService
             'buyers' => [],
             'accounts_payable' => [],
             'logistics' => [],
+            'broker_contacts_from_fulfil' => [],  // Broker contacts parsed from Fulfil
+            'broker_company_name_from_fulfil' => null,  // Extracted from broker contact names
             'shelf_life_requirement' => null,
             'vendor_guide' => null,
             'discount_percent' => null,
@@ -335,6 +337,23 @@ class FulfilService
                 $parsed['shelf_life_requirement'] = $dataValue;
             } elseif ($dataType === 'vendor_guide') {
                 $parsed['vendor_guide'] = $dataValue;
+            }
+            return;
+        }
+
+        // Broker contact: name = "Broker (Company Name): Contact Name"
+        // Pattern: starts with "Broker" followed by optional "(Company)" then ": Name"
+        if (preg_match('/^Broker\s*(?:\(([^)]+)\))?\s*:\s*(.+)$/i', $name, $matches)) {
+            $brokerCompany = trim($matches[1] ?? '');
+            $contactName = trim($matches[2]);
+            $isEmail = str_contains($value, '@') && str_contains($value, '.');
+
+            if ($isEmail) {
+                $parsed['broker_contacts_from_fulfil'][] = ['name' => $contactName, 'email' => $value];
+                // Extract broker company name from the first broker contact found
+                if (!empty($brokerCompany) && empty($parsed['broker_company_name_from_fulfil'])) {
+                    $parsed['broker_company_name_from_fulfil'] = $brokerCompany;
+                }
             }
             return;
         }
@@ -1098,6 +1117,21 @@ class FulfilService
             ];
         }
 
+        // Broker contacts (optional)
+        // Format: "Broker (Company Name): Contact Name"
+        $brokerCompanyName = $data['broker_company_name'] ?? '';
+        foreach ($data['broker_contacts'] ?? [] as $broker) {
+            $mechName = $brokerCompanyName
+                ? "Broker ({$brokerCompanyName}): {$broker['name']}"
+                : "Broker: {$broker['name']}";
+            $contactMechanisms[] = [
+                'party' => $partyId,
+                'type' => 'email',
+                'name' => $mechName,
+                'value' => $broker['email'],
+            ];
+        }
+
         // Shelf life requirement (required)
         // Using type 'email' so it's exposed to data warehouse
         $contactMechanisms[] = [
@@ -1244,6 +1278,7 @@ class FulfilService
         return isset($data['buyers'])
             || isset($data['accounts_payable'])
             || isset($data['logistics'])
+            || isset($data['broker_contacts'])
             || isset($data['shelf_life_requirement'])
             || isset($data['vendor_guide']);
     }
@@ -1373,6 +1408,57 @@ class FulfilService
             foreach ($existingLogistics as $el) {
                 if (!in_array($el['id'], $matchedIds)) {
                     $toDelete[] = $el['id'];
+                }
+            }
+        }
+
+        // Process broker contacts
+        // Format: "Broker (Company Name): Contact Name"
+        if (isset($data['broker_contacts'])) {
+            $brokerCompanyName = $data['broker_company_name'] ?? '';
+            $existingBrokers = array_filter($existing, fn($m) => preg_match('/^Broker\s*(?:\([^)]*\))?\s*:/i', $m['name'] ?? ''));
+
+            foreach ($data['broker_contacts'] as $broker) {
+                // Build mechanism name with company name if provided
+                $mechName = $brokerCompanyName
+                    ? "Broker ({$brokerCompanyName}): {$broker['name']}"
+                    : "Broker: {$broker['name']}";
+
+                // Try to find existing mechanism by contact name (ignore company name changes)
+                $found = null;
+                foreach ($existingBrokers as $eb) {
+                    // Extract contact name from existing mechanism
+                    if (preg_match('/^Broker\s*(?:\([^)]*\))?\s*:\s*(.+)$/i', $eb['name'], $matches)) {
+                        if (trim($matches[1]) === $broker['name']) {
+                            $found = $eb;
+                            break;
+                        }
+                    }
+                }
+
+                if ($found) {
+                    $matchedIds[] = $found['id'];
+                    // Update if email or company name changed
+                    if ($found['value'] !== $broker['email'] || $found['name'] !== $mechName) {
+                        $toUpdate[] = [
+                            'id' => $found['id'],
+                            'name' => $mechName,
+                            'value' => $broker['email'],
+                        ];
+                    }
+                } else {
+                    $toCreate[] = [
+                        'party' => $partyId,
+                        'type' => 'email',
+                        'name' => $mechName,
+                        'value' => $broker['email'],
+                    ];
+                }
+            }
+
+            foreach ($existingBrokers as $eb) {
+                if (!in_array($eb['id'], $matchedIds)) {
+                    $toDelete[] = $eb['id'];
                 }
             }
         }

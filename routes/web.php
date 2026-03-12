@@ -24,6 +24,16 @@ Route::middleware(['auth'])->group(function () {
     // Customer detail page (must come after /customers/create)
     Route::get('/customers/{id}', [ActiveCustomersController::class, 'show'])->name('customers.show');
     Route::put('/customers/{id}/company-urls', [ActiveCustomersController::class, 'updateCompanyUrls'])->name('customers.update-company-urls');
+    // Local contact management for customers
+    Route::post('/customers/{id}/contacts', [ActiveCustomersController::class, 'createLocalContact'])->name('customers.contacts.create');
+    Route::put('/customers/{customerId}/contacts/{contactId}', [ActiveCustomersController::class, 'updateLocalContact'])->name('customers.contacts.update');
+    Route::delete('/customers/{customerId}/contacts/{contactId}', [ActiveCustomersController::class, 'deleteLocalContact'])->name('customers.contacts.delete');
+    Route::patch('/customers/{customerId}/contacts/{contactId}/categorize', [ActiveCustomersController::class, 'categorizeContact'])->name('customers.contacts.categorize');
+    // Broker management for customers
+    Route::put('/customers/{id}/broker', [ActiveCustomersController::class, 'updateBroker'])->name('customers.broker.update');
+    Route::post('/customers/{id}/broker-contacts', [ActiveCustomersController::class, 'createBrokerContact'])->name('customers.broker-contacts.create');
+    Route::put('/customers/{customerId}/broker-contacts/{contactId}', [ActiveCustomersController::class, 'updateBrokerContact'])->name('customers.broker-contacts.update');
+    Route::delete('/customers/{customerId}/broker-contacts/{contactId}', [ActiveCustomersController::class, 'deleteBrokerContact'])->name('customers.broker-contacts.delete');
 
     // Prospects (create route must come before {id} wildcard)
     Route::get('/prospects', [ProspectController::class, 'index'])->name('prospects.index');
@@ -32,6 +42,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/prospects/{id}/status', [ProspectController::class, 'updateStatus'])->name('prospects.update-status');
     Route::get('/prospects/{id}', [ProspectController::class, 'show'])->name('prospects.show');
     Route::put('/prospects/{id}', [ProspectController::class, 'update'])->name('prospects.update');
+    Route::patch('/prospects/{prospectId}/contacts/{contactId}/categorize', [ProspectController::class, 'categorizeContact'])->name('prospects.contacts.categorize');
 
     // Accounts Receivable
     Route::get('/accounts-receivable', [AccountsReceivableController::class, 'index'])->name('ar.index');

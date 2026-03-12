@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
 use App\Models\FulfilCustomerMetadata;
+use App\Models\FulfilUncategorizedContact;
 use App\Services\FulfilService;
+use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -101,12 +104,60 @@ class ActiveCustomersController extends Controller
             }
         }
 
-        // Merge in local metadata (company_urls for Gmail matching)
+        // Merge in local metadata (company_urls for Gmail matching, broker info)
         $localMetadata = FulfilCustomerMetadata::find($id);
         $customer['company_urls'] = $localMetadata?->company_urls ?? [];
+        $customer['broker'] = $localMetadata?->broker ?? false;
+        $customer['broker_commission'] = $localMetadata?->broker_commission;
+        $customer['broker_company_name'] = $localMetadata?->broker_company_name;
+
+        // Get broker contacts
+        $brokerContacts = FulfilBrokerContact::where('fulfil_party_id', $id)->get()->map(fn($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'email' => $c->email,
+            'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
+            'last_received_at' => $c->last_received_at?->toIso8601String(),
+        ])->toArray();
 
         // Merge email tracking dates into buyer contacts
         $buyerContacts = $this->mergeContactEmailMetadata($id, $customer['buyers'] ?? []);
+
+        // Get local contacts (discovered from emails)
+        $localContacts = FulfilUncategorizedContact::where('fulfil_party_id', $id)->get();
+
+        // Separate uncategorized from categorized local contacts
+        $uncategorizedContacts = $localContacts->whereNull('type')->map(fn($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'email' => $c->email,
+            'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
+            'last_received_at' => $c->last_received_at?->toIso8601String(),
+        ])->values()->toArray();
+
+        // Merge categorized local contacts with Fulfil contacts
+        $localBuyers = $localContacts->where('type', 'buyer')->map(fn($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'email' => $c->email,
+            'is_local' => true,
+            'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
+            'last_received_at' => $c->last_received_at?->toIso8601String(),
+        ])->values()->toArray();
+
+        $localAP = $localContacts->where('type', 'accounts_payable')->map(fn($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'email' => $c->email,
+            'is_local' => true,
+        ])->values()->toArray();
+
+        $localLogistics = $localContacts->where('type', 'logistics')->map(fn($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'email' => $c->email,
+            'is_local' => true,
+        ])->values()->toArray();
 
         // Calculate T12M monthly revenue
         $monthlyRevenue = $this->calculateMonthlyRevenue($salesOrders);
@@ -123,6 +174,11 @@ class ActiveCustomersController extends Controller
         return Inertia::render('ActiveCustomers/Show', [
             'customer' => $customer,
             'buyerContacts' => $buyerContacts,
+            'brokerContacts' => $brokerContacts,
+            'localBuyers' => $localBuyers,
+            'localAP' => $localAP,
+            'localLogistics' => $localLogistics,
+            'uncategorizedContacts' => $uncategorizedContacts,
             'monthlyRevenue' => $monthlyRevenue,
             'topProducts' => $topProducts,
             'upcomingOrders' => $upcomingOrders,
@@ -460,5 +516,321 @@ class ActiveCustomersController extends Controller
         $metadata->save();
 
         return back()->with('success', 'Company URLs updated successfully.');
+    }
+
+    /**
+     * Create a new local contact for a customer (uncategorized by default).
+     */
+    public function createLocalContact(Request $request, int $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:1', 'max:100'],
+            'email' => ['required', 'email', 'max:255'],
+            'type' => ['nullable', 'in:buyer,accounts_payable,logistics'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Ensure customer metadata exists
+        FulfilCustomerMetadata::findOrCreateForCustomer($id);
+
+        // Check if contact with this email already exists
+        $existing = FulfilUncategorizedContact::where('fulfil_party_id', $id)
+            ->whereRaw('LOWER(email) = ?', [strtolower($request->email)])
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'A contact with this email already exists',
+            ], 422);
+        }
+
+        $contact = FulfilUncategorizedContact::create([
+            'fulfil_party_id' => $id,
+            'name' => $request->name,
+            'email' => strtolower($request->email),
+            'type' => $request->type,
+        ]);
+
+        return response()->json([
+            'message' => 'Contact created successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'type' => $contact->type,
+            ],
+        ]);
+    }
+
+    /**
+     * Update a local contact for a customer.
+     */
+    public function updateLocalContact(Request $request, int $customerId, int $contactId): JsonResponse
+    {
+        $contact = FulfilUncategorizedContact::where('fulfil_party_id', $customerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['sometimes', 'string', 'min:1', 'max:100'],
+            'email' => ['sometimes', 'email', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $updateData = [];
+        if ($request->has('name')) {
+            $updateData['name'] = $request->name;
+        }
+        if ($request->has('email')) {
+            $updateData['email'] = strtolower($request->email);
+        }
+
+        if (!empty($updateData)) {
+            $contact->update($updateData);
+        }
+
+        return response()->json([
+            'message' => 'Contact updated successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'type' => $contact->type,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a local contact for a customer.
+     */
+    public function deleteLocalContact(int $customerId, int $contactId): JsonResponse
+    {
+        $contact = FulfilUncategorizedContact::where('fulfil_party_id', $customerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        $contact->delete();
+
+        return response()->json([
+            'message' => 'Contact deleted successfully',
+        ]);
+    }
+
+    /**
+     * Categorize an uncategorized local contact.
+     */
+    public function categorizeContact(Request $request, int $customerId, int $contactId): JsonResponse
+    {
+        $contact = FulfilUncategorizedContact::where('fulfil_party_id', $customerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        // Only allow categorization of uncategorized contacts (type = null)
+        if ($contact->type !== null) {
+            return response()->json([
+                'message' => 'Only uncategorized contacts can be categorized',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'type' => ['required', 'in:buyer,accounts_payable,logistics'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Invalid contact type',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $contact->update(['type' => $request->type]);
+
+        return response()->json([
+            'message' => 'Contact categorized successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'type' => $contact->type,
+            ],
+        ]);
+    }
+
+    /**
+     * Update broker settings for a customer.
+     */
+    public function updateBroker(Request $request, int $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'broker' => ['required', 'boolean'],
+            'broker_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'broker_company_name' => ['nullable', 'string', 'max:255'],
+            'broker_contacts' => ['nullable', 'array'],
+            'broker_contacts.*.name' => ['required', 'string', 'min:1', 'max:100'],
+            'broker_contacts.*.email' => ['nullable', 'email', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        $metadata->broker = $request->broker;
+        $metadata->broker_commission = $request->broker_commission;
+        $metadata->broker_company_name = $request->broker_company_name;
+        $metadata->save();
+
+        // Update broker contacts if provided
+        if ($request->has('broker_contacts')) {
+            // Delete existing broker contacts for this customer
+            FulfilBrokerContact::where('fulfil_party_id', $id)->delete();
+
+            // Create new broker contacts
+            $contacts = $request->broker_contacts ?? [];
+            foreach ($contacts as $contactData) {
+                if (!empty($contactData['name'])) {
+                    FulfilBrokerContact::create([
+                        'fulfil_party_id' => $id,
+                        'name' => $contactData['name'],
+                        'email' => strtolower($contactData['email'] ?? ''),
+                    ]);
+                }
+            }
+        }
+
+        // TODO: Sync to Fulfil metafields
+
+        return response()->json([
+            'message' => 'Broker settings updated successfully',
+            'broker' => $metadata->broker,
+            'broker_commission' => $metadata->broker_commission,
+        ]);
+    }
+
+    /**
+     * Create a broker contact for a customer.
+     */
+    public function createBrokerContact(Request $request, int $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:1', 'max:100'],
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Ensure customer metadata exists
+        FulfilCustomerMetadata::findOrCreateForCustomer($id);
+
+        // Check if contact with this email already exists
+        $existing = FulfilBrokerContact::where('fulfil_party_id', $id)
+            ->whereRaw('LOWER(email) = ?', [strtolower($request->email)])
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'A broker contact with this email already exists',
+            ], 422);
+        }
+
+        $contact = FulfilBrokerContact::create([
+            'fulfil_party_id' => $id,
+            'name' => $request->name,
+            'email' => strtolower($request->email),
+        ]);
+
+        // TODO: Sync to Fulfil contacts with "Broker: Name" format
+
+        return response()->json([
+            'message' => 'Broker contact created successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+            ],
+        ]);
+    }
+
+    /**
+     * Update a broker contact for a customer.
+     */
+    public function updateBrokerContact(Request $request, int $customerId, int $contactId): JsonResponse
+    {
+        $contact = FulfilBrokerContact::where('fulfil_party_id', $customerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['sometimes', 'string', 'min:1', 'max:100'],
+            'email' => ['sometimes', 'email', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $updateData = [];
+        if ($request->has('name')) {
+            $updateData['name'] = $request->name;
+        }
+        if ($request->has('email')) {
+            $updateData['email'] = strtolower($request->email);
+        }
+
+        if (!empty($updateData)) {
+            $contact->update($updateData);
+        }
+
+        // TODO: Sync to Fulfil contacts
+
+        return response()->json([
+            'message' => 'Broker contact updated successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a broker contact for a customer.
+     */
+    public function deleteBrokerContact(int $customerId, int $contactId): JsonResponse
+    {
+        $contact = FulfilBrokerContact::where('fulfil_party_id', $customerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        $contact->delete();
+
+        // TODO: Remove from Fulfil contacts
+
+        return response()->json([
+            'message' => 'Broker contact deleted successfully',
+        ]);
     }
 }

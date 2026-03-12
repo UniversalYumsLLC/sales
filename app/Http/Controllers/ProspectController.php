@@ -186,7 +186,7 @@ class ProspectController extends Controller
      */
     public function show(int $id): Response
     {
-        $prospect = Prospect::with(['buyers', 'accountsPayable', 'logistics', 'products'])->findOrFail($id);
+        $prospect = Prospect::with(['buyers', 'accountsPayable', 'logistics', 'uncategorized', 'brokerContacts', 'products'])->findOrFail($id);
 
         // Get all products for the dropdown
         $products = $this->fulfil->getProducts();
@@ -222,6 +222,16 @@ class ProspectController extends Controller
                 'shelf_life_requirement' => $prospect->shelf_life_requirement,
                 'vendor_guide' => $prospect->vendor_guide,
                 'company_urls' => $prospect->company_urls ?? [],
+                'broker' => $prospect->broker ?? false,
+                'broker_commission' => $prospect->broker_commission,
+                'broker_company_name' => $prospect->broker_company_name,
+                'broker_contacts' => $prospect->brokerContacts->map(fn($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'value' => $c->value,
+                    'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
+                    'last_received_at' => $c->last_received_at?->toIso8601String(),
+                ])->toArray(),
                 'buyers' => $prospect->buyers->map(fn($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
@@ -238,6 +248,13 @@ class ProspectController extends Controller
                     'id' => $c->id,
                     'name' => $c->name,
                     'value' => $c->value,
+                ])->toArray(),
+                'uncategorized' => $prospect->uncategorized->map(fn($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'value' => $c->value,
+                    'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
+                    'last_received_at' => $c->last_received_at?->toIso8601String(),
                 ])->toArray(),
                 'products' => $prospectProducts,
                 'product_ids' => $prospect->products->pluck('product_id')->toArray(),
@@ -269,6 +286,12 @@ class ProspectController extends Controller
             'vendor_guide' => ['nullable', 'string', 'max:500', 'url'],
             'company_urls' => ['sometimes', 'array'],
             'company_urls.*' => ['string', 'max:255'],
+            'broker' => ['sometimes', 'boolean'],
+            'broker_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'broker_company_name' => ['nullable', 'string', 'max:255'],
+            'broker_contacts' => ['sometimes', 'array'],
+            'broker_contacts.*.name' => ['required_with:broker_contacts', 'string', 'min:1', 'max:100'],
+            'broker_contacts.*.value' => ['nullable', 'email', 'max:255'],
             'buyers' => ['sometimes', 'array'],
             'buyers.*.name' => ['required_with:buyers', 'string', 'min:1', 'max:100'],
             'buyers.*.value' => ['nullable', 'email', 'max:255'],
@@ -278,6 +301,9 @@ class ProspectController extends Controller
             'logistics' => ['sometimes', 'array'],
             'logistics.*.name' => ['required_with:logistics', 'string', 'min:1', 'max:100'],
             'logistics.*.value' => ['nullable', 'email', 'max:255'],
+            'uncategorized' => ['sometimes', 'array'],
+            'uncategorized.*.name' => ['required_with:uncategorized', 'string', 'min:1', 'max:100'],
+            'uncategorized.*.value' => ['nullable', 'email', 'max:255'],
             'product_ids' => ['sometimes', 'array'],
             'product_ids.*' => ['integer'],
         ], [
@@ -287,6 +313,10 @@ class ProspectController extends Controller
             'accounts_payable.*.name.required_with' => 'AP contact name is required.',
             'logistics.*.name.required_with' => 'Logistics contact name is required.',
             'logistics.*.value.email' => 'Please enter a valid email address.',
+            'uncategorized.*.name.required_with' => 'Contact name is required.',
+            'uncategorized.*.value.email' => 'Please enter a valid email address.',
+            'broker_contacts.*.name.required_with' => 'Broker contact name is required.',
+            'broker_contacts.*.value.email' => 'Please enter a valid email address for broker contact.',
             'vendor_guide.url' => 'Please enter a valid URL.',
         ]);
 
@@ -329,6 +359,15 @@ class ProspectController extends Controller
                 }
                 if (array_key_exists('company_urls', $validated)) {
                     $updateData['company_urls'] = array_values(array_filter($validated['company_urls']));
+                }
+                if (array_key_exists('broker', $validated)) {
+                    $updateData['broker'] = $validated['broker'];
+                }
+                if (array_key_exists('broker_commission', $validated)) {
+                    $updateData['broker_commission'] = $validated['broker_commission'];
+                }
+                if (array_key_exists('broker_company_name', $validated)) {
+                    $updateData['broker_company_name'] = $validated['broker_company_name'];
                 }
                 if (!empty($updateData)) {
                     $prospect->update($updateData);
@@ -382,6 +421,36 @@ class ProspectController extends Controller
                     }
                 }
 
+                // Update uncategorized contacts if provided
+                if (isset($validated['uncategorized'])) {
+                    $prospect->uncategorized()->delete();
+                    foreach ($validated['uncategorized'] as $contact) {
+                        if (!empty($contact['name'])) {
+                            ProspectContact::create([
+                                'prospect_id' => $prospect->id,
+                                'type' => ProspectContact::TYPE_UNCATEGORIZED,
+                                'name' => $contact['name'],
+                                'value' => $contact['value'] ?? null,
+                            ]);
+                        }
+                    }
+                }
+
+                // Update broker contacts if provided
+                if (isset($validated['broker_contacts'])) {
+                    $prospect->brokerContacts()->delete();
+                    foreach ($validated['broker_contacts'] as $contact) {
+                        if (!empty($contact['name'])) {
+                            ProspectContact::create([
+                                'prospect_id' => $prospect->id,
+                                'type' => ProspectContact::TYPE_BROKER,
+                                'name' => $contact['name'],
+                                'value' => $contact['value'] ?? null,
+                            ]);
+                        }
+                    }
+                }
+
                 // Update products if provided
                 if (isset($validated['product_ids'])) {
                     // Delete existing and recreate
@@ -412,7 +481,7 @@ class ProspectController extends Controller
      */
     protected function autoAddDomainsFromContacts(Prospect $prospect, array $validated): void
     {
-        $contactTypes = ['buyers', 'accounts_payable', 'logistics'];
+        $contactTypes = ['buyers', 'accounts_payable', 'logistics', 'uncategorized'];
         $newDomains = [];
 
         foreach ($contactTypes as $type) {
@@ -442,5 +511,46 @@ class ProspectController extends Controller
                 }
             }
         }
+    }
+
+    /**
+     * Categorize an uncategorized contact.
+     */
+    public function categorizeContact(Request $request, int $prospectId, int $contactId): JsonResponse
+    {
+        $prospect = Prospect::findOrFail($prospectId);
+        $contact = ProspectContact::where('prospect_id', $prospectId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        // Only allow categorization of uncategorized contacts
+        if ($contact->type !== ProspectContact::TYPE_UNCATEGORIZED) {
+            return response()->json([
+                'message' => 'Only uncategorized contacts can be categorized',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'type' => ['required', 'in:buyer,accounts_payable,logistics'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Invalid contact type',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $contact->update(['type' => $request->type]);
+
+        return response()->json([
+            'message' => 'Contact categorized successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'value' => $contact->value,
+                'type' => $contact->type,
+            ],
+        ]);
     }
 }

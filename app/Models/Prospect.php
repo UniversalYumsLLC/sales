@@ -52,6 +52,9 @@ class Prospect extends Model
         'shelf_life_requirement',
         'vendor_guide',
         'company_urls',
+        'broker',
+        'broker_commission',
+        'broker_company_name',
     ];
 
     protected function casts(): array
@@ -60,6 +63,8 @@ class Prospect extends Model
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'company_urls' => 'array',
+            'broker' => 'boolean',
+            'broker_commission' => 'decimal:2',
         ];
     }
 
@@ -163,6 +168,22 @@ class Prospect extends Model
     public function logistics(): HasMany
     {
         return $this->hasMany(ProspectContact::class)->where('type', 'logistics');
+    }
+
+    /**
+     * Get uncategorized contacts for this prospect.
+     */
+    public function uncategorized(): HasMany
+    {
+        return $this->hasMany(ProspectContact::class)->where('type', 'uncategorized');
+    }
+
+    /**
+     * Get broker contacts for this prospect.
+     */
+    public function brokerContacts(): HasMany
+    {
+        return $this->hasMany(ProspectContact::class)->where('type', 'broker');
     }
 
     /**
