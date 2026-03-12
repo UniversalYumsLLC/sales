@@ -4,7 +4,7 @@ export interface User {
     email: string;
     email_verified_at?: string;
     avatar?: string;
-    role: 'admin' | 'user';
+    role: 'admin' | 'user' | 'salesperson';
 }
 
 export type PageProps<

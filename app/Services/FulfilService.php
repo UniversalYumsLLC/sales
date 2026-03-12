@@ -44,7 +44,7 @@ class FulfilService
         $lastException = null;
 
         for ($attempt = 1; $attempt <= $this->maxRetries; $attempt++) {
-            $response = Http::timeout(30)
+            $response = Http::timeout(60)
                 ->withHeaders([
                     'X-API-KEY' => $this->token,
                     'Content-Type' => 'application/json',
@@ -93,8 +93,20 @@ class FulfilService
                 'attempt' => $attempt,
             ]);
 
-            // For non-429 errors, don't retry
-            if ($response->status() !== 429) {
+            // Retry on 500 errors (server errors are often transient)
+            if ($response->status() === 500 && $attempt < $this->maxRetries) {
+                $delaySeconds = $this->calculateBackoff($attempt);
+                Log::warning('Fulfil API server error, retrying', [
+                    'url' => $url,
+                    'attempt' => $attempt,
+                    'delay_seconds' => $delaySeconds,
+                ]);
+                sleep($delaySeconds);
+                continue;
+            }
+
+            // For non-retryable errors, throw immediately
+            if ($response->status() !== 429 && $response->status() !== 500) {
                 throw $lastException;
             }
         }
@@ -282,6 +294,8 @@ class FulfilService
             'buyers' => [],
             'accounts_payable' => [],
             'logistics' => [],
+            'broker_contacts_from_fulfil' => [],  // Broker contacts parsed from Fulfil
+            'broker_company_name_from_fulfil' => null,  // Extracted from broker contact names
             'shelf_life_requirement' => null,
             'vendor_guide' => null,
             'discount_percent' => null,
@@ -339,22 +353,42 @@ class FulfilService
             return;
         }
 
+        // Broker contact: name = "Broker (Company Name): Contact Name"
+        // Pattern: starts with "Broker" followed by optional "(Company)" then ": Name"
+        if (preg_match('/^Broker\s*(?:\(([^)]+)\))?\s*:\s*(.+)$/i', $name, $matches)) {
+            $brokerCompany = trim($matches[1] ?? '');
+            $contactName = trim($matches[2]);
+            $isEmail = str_contains($value, '@') && str_contains($value, '.');
+
+            if ($isEmail) {
+                $parsed['broker_contacts_from_fulfil'][] = ['name' => $contactName, 'email' => $value];
+                // Extract broker company name from the first broker contact found
+                if (!empty($brokerCompany) && empty($parsed['broker_company_name_from_fulfil'])) {
+                    $parsed['broker_company_name_from_fulfil'] = $brokerCompany;
+                }
+            }
+            return;
+        }
+
         // Department contact: name = "Accounts Payable: Contact Name"
         if (str_contains($name, ':')) {
             [$department, $contactName] = explode(':', $name, 2);
             $department = trim(strtolower($department));
             $contactName = trim($contactName);
 
-            // Only process if value looks like an email
-            if (str_contains($value, '@') && str_contains($value, '.')) {
-                $contactData = ['name' => $contactName, 'email' => $value];
+            $isEmail = str_contains($value, '@') && str_contains($value, '.');
+            $isUrl = str_starts_with($value, 'http://') || str_starts_with($value, 'https://');
+            $isAccountsPayable = str_contains($department, 'accounts payable') || str_contains($department, 'ap');
 
-                if (str_contains($department, 'buyer')) {
-                    $parsed['buyers'][] = $contactData;
-                } elseif (str_contains($department, 'accounts payable') || str_contains($department, 'ap')) {
-                    $parsed['accounts_payable'][] = $contactData;
-                } elseif (str_contains($department, 'logistics')) {
-                    $parsed['logistics'][] = $contactData;
+            // Process emails for all departments, or URLs for Accounts Payable
+            if ($isEmail || ($isUrl && $isAccountsPayable)) {
+                // Use 'value' key for AP (supports email or URL), 'email' for others
+                if ($isAccountsPayable) {
+                    $parsed['accounts_payable'][] = ['name' => $contactName, 'value' => $value];
+                } elseif ($isEmail && str_contains($department, 'buyer')) {
+                    $parsed['buyers'][] = ['name' => $contactName, 'email' => $value];
+                } elseif ($isEmail && str_contains($department, 'logistics')) {
+                    $parsed['logistics'][] = ['name' => $contactName, 'email' => $value];
                 }
             }
         }
@@ -668,18 +702,36 @@ class FulfilService
 
     /**
      * Fetch products from Fulfil
+     *
+     * Filters applied at API level:
+     * - active = TRUE
+     * - sellable = TRUE
+     * - template = ID of "RT Finished Goods" template
+     *
+     * Filters applied post-fetch in enrichProducts():
+     * - Class attribute in ('RT EV', 'RT SE')
      */
     protected function fetchProducts(): array
     {
+        // First, get the template ID for "RT Finished Goods"
+        $templateId = $this->getTemplateIdByName('RT Finished Goods');
+        if (!$templateId) {
+            return [];
+        }
+
         $fields = [
             'id', 'code', 'rec_name', 'template',
             'wholesale_list_price', 'active', 'attributes',
         ];
 
-        // Note: Fulfil API max page size is 500
+        // Filter by template at API level to get all matching products
         $response = $this->request('PUT', 'model/product.product/search_read', [
             'json' => [
-                'filters' => [['active', '=', true]],
+                'filters' => [
+                    ['active', '=', true],
+                    ['sellable', '=', true],
+                    ['template', '=', $templateId],
+                ],
                 'fields' => $fields,
                 'limit' => 500,
             ],
@@ -689,7 +741,32 @@ class FulfilService
     }
 
     /**
+     * Get template ID by name
+     */
+    protected function getTemplateIdByName(string $name): ?int
+    {
+        $cacheKey = 'template_id_' . md5($name);
+
+        return $this->cached($cacheKey, function () use ($name) {
+            $response = $this->request('PUT', 'model/product.template/search_read', [
+                'json' => [
+                    'filters' => [['name', '=', $name]],
+                    'fields' => ['id'],
+                    'limit' => 1,
+                ],
+            ]);
+
+            return $response[0]['id'] ?? null;
+        }, 86400); // Cache for 24 hours
+    }
+
+    /**
      * Enrich products with attributes
+     *
+     * Filters products by:
+     * - Class attribute value in ('RT EV', 'RT SE')
+     *
+     * Note: Template filtering is done at the API level in fetchProducts()
      */
     protected function enrichProducts(array $products): array
     {
@@ -713,11 +790,20 @@ class FulfilService
         $endDateAttrId = config('fulfil.attributes.end_date');
         $seasonAttrId = config('fulfil.attributes.season');
 
-        return array_map(function ($product) use ($attributesById, $classAttrId, $startDateAttrId, $endDateAttrId, $seasonAttrId) {
+        // Allowed Class values for product filtering
+        $allowedClassValues = ['RT EV', 'RT SE'];
+
+        $enrichedProducts = array_map(function ($product) use ($attributesById, $classAttrId, $startDateAttrId, $endDateAttrId, $seasonAttrId) {
+            // rec_name includes SKU prefix like "[SKU] Product Name" - strip it for clean display
+            $name = $product['rec_name'] ?? null;
+            if ($name && preg_match('/^\[[^\]]+\]\s*(.+)$/', $name, $matches)) {
+                $name = $matches[1];
+            }
+
             $parsed = [
                 'id' => $product['id'],
                 'sku' => $product['code'] ?? null,
-                'name' => $product['rec_name'] ?? null,
+                'name' => $name,
                 'template_id' => $product['template'] ?? null,
                 'wholesale_list_price' => $this->parseDecimal($product['wholesale_list_price'] ?? null),
                 'class' => null,
@@ -744,6 +830,11 @@ class FulfilService
 
             return $parsed;
         }, $products);
+
+        // Filter to only include products with Class in allowed values
+        return array_values(array_filter($enrichedProducts, function ($product) use ($allowedClassValues) {
+            return in_array($product['class'], $allowedClassValues, true);
+        }));
     }
 
     // =========================================================================
@@ -823,5 +914,633 @@ class FulfilService
         if (empty($ids)) return [];
 
         return $this->batchFetchByIds('model/product.product.attribute', $ids, 'id,attribute,value,value_selection');
+    }
+
+    protected function fetchProductTemplates(array $ids): array
+    {
+        if (empty($ids)) return [];
+
+        return $this->batchFetchByIds('model/product.template', $ids, 'id,name');
+    }
+
+    // =========================================================================
+    // LOOKUP DATA (for forms)
+    // =========================================================================
+
+    /**
+     * Get all price lists for dropdown selection.
+     * Cached for 24 hours since these rarely change.
+     */
+    public function getAllPriceLists(bool $bustCache = false): array
+    {
+        $cacheKey = 'all_price_lists';
+
+        if ($bustCache) {
+            $this->clearCache($cacheKey);
+        }
+
+        return $this->cached($cacheKey, function () {
+            $response = $this->request('PUT', 'model/product.price_list/search_read', [
+                'json' => [
+                    'filters' => [],
+                    'fields' => ['id', 'name'],
+                    'limit' => 100,
+                ],
+            ]);
+
+            // Transform and filter to wholesale price lists
+            return collect($response)
+                ->filter(fn($pl) => str_contains(strtolower($pl['name'] ?? ''), 'wholesale'))
+                ->map(function ($pl) {
+                    // Extract discount percentage from name like "Wholesale 15% Discount"
+                    $discount = 0;
+                    if (preg_match('/(\d+)%/', $pl['name'], $matches)) {
+                        $discount = (int) $matches[1];
+                    }
+
+                    return [
+                        'id' => $pl['id'],
+                        'name' => $pl['name'],
+                        'discount_percent' => $discount,
+                    ];
+                })
+                ->sortBy('discount_percent')
+                ->values()
+                ->toArray();
+        }, 86400); // 24 hour cache
+    }
+
+    /**
+     * Get all payment terms for dropdown selection.
+     * Cached for 24 hours since these rarely change.
+     */
+    public function getAllPaymentTerms(bool $bustCache = false): array
+    {
+        $cacheKey = 'all_payment_terms';
+
+        if ($bustCache) {
+            $this->clearCache($cacheKey);
+        }
+
+        return $this->cached($cacheKey, function () {
+            $response = $this->request('PUT', 'model/account.invoice.payment_term/search_read', [
+                'json' => [
+                    'filters' => [],
+                    'fields' => ['id', 'name'],
+                    'limit' => 100,
+                ],
+            ]);
+
+            // Sort by extracting days from name (Net 30, Net 60, etc.)
+            return collect($response)
+                ->map(function ($pt) {
+                    $days = 0;
+                    if (preg_match('/Net\s*(\d+)/i', $pt['name'], $matches)) {
+                        $days = (int) $matches[1];
+                    } elseif (strtolower($pt['name']) === 'immediate') {
+                        $days = 0;
+                    }
+
+                    return [
+                        'id' => $pt['id'],
+                        'name' => $pt['name'],
+                        'days' => $days,
+                    ];
+                })
+                ->sortBy('days')
+                ->values()
+                ->toArray();
+        }, 86400); // 24 hour cache
+    }
+
+    /**
+     * Get shipping terms categories for dropdown selection.
+     * Cached for 24 hours since these rarely change.
+     */
+    public function getShippingTermsCategories(bool $bustCache = false): array
+    {
+        $cacheKey = 'shipping_terms_categories';
+
+        if ($bustCache) {
+            $this->clearCache($cacheKey);
+        }
+
+        return $this->cached($cacheKey, function () {
+            $response = $this->request('PUT', 'model/party.category/search_read', [
+                'json' => [
+                    'filters' => [['rec_name', 'ilike', 'Shipping Terms / %']],
+                    'fields' => ['id', 'name', 'rec_name'],
+                    'limit' => 50,
+                ],
+            ]);
+
+            return collect($response)
+                ->map(fn($cat) => [
+                    'id' => $cat['id'],
+                    'name' => $cat['name'], // "Pickup" or "Delivered"
+                ])
+                ->sortBy('name')
+                ->values()
+                ->toArray();
+        }, 86400); // 24 hour cache
+    }
+
+    // =========================================================================
+    // CUSTOMER MANAGEMENT (create/update)
+    // =========================================================================
+
+    /**
+     * Default account manager ID (Matt Cameron)
+     */
+    protected const DEFAULT_ACCOUNT_MANAGER_ID = 58;
+
+    /**
+     * Create a new customer in Fulfil.
+     *
+     * @param array $data Customer data with keys:
+     *   - name: string (required)
+     *   - sale_price_list: int (required) - price list ID
+     *   - customer_payment_term: int (required) - payment term ID
+     *   - shipping_terms_category_id: int (required) - category ID for Pickup/Delivered
+     *   - shelf_life_requirement: int (required) - days
+     *   - vendor_guide: string|null (optional) - URL
+     *   - buyers: array (required, min 1) - [{name, email}, ...]
+     *   - accounts_payable: array (optional) - [{name, value}, ...] where value is email or URL
+     *   - logistics: array (optional) - [{name, email}, ...]
+     *
+     * @return array The created customer with ID
+     * @throws \RuntimeException on API errors
+     */
+    public function createCustomer(array $data): array
+    {
+        // 1. Create the party (customer) record
+        $partyData = [
+            'name' => $data['name'],
+            'is_customer' => true,
+            'account_manager' => self::DEFAULT_ACCOUNT_MANAGER_ID,
+            'sale_price_list' => $data['sale_price_list'],
+            'customer_payment_term' => $data['customer_payment_term'],
+        ];
+
+        $partyResponse = $this->request('POST', 'model/party.party', [
+            'json' => [$partyData],
+        ]);
+
+        // API returns array of created records: [['id' => 123, 'rec_name' => 'Name'], ...]
+        $partyId = $partyResponse[0]['id'] ?? null;
+        if (!$partyId) {
+            throw new \RuntimeException('Failed to create customer: no ID returned');
+        }
+
+        // 2. Add shipping terms category
+        $this->addCategoryToParty($partyId, $data['shipping_terms_category_id']);
+
+        // 3. Create contact mechanisms
+        $contactMechanisms = [];
+
+        // Buyers (required)
+        foreach ($data['buyers'] ?? [] as $buyer) {
+            $contactMechanisms[] = [
+                'party' => $partyId,
+                'type' => 'email',
+                'name' => 'Buyer: ' . $buyer['name'],
+                'value' => $buyer['email'],
+            ];
+        }
+
+        // Accounts Payable (optional, can be email or URL)
+        foreach ($data['accounts_payable'] ?? [] as $ap) {
+            $isUrl = str_starts_with($ap['value'], 'http://') || str_starts_with($ap['value'], 'https://');
+            $contactMechanisms[] = [
+                'party' => $partyId,
+                'type' => $isUrl ? 'website' : 'email',
+                'name' => 'Accounts Payable: ' . $ap['name'],
+                'value' => $ap['value'],
+            ];
+        }
+
+        // Logistics (optional)
+        foreach ($data['logistics'] ?? [] as $logistics) {
+            $contactMechanisms[] = [
+                'party' => $partyId,
+                'type' => 'email',
+                'name' => 'Logistics: ' . $logistics['name'],
+                'value' => $logistics['email'],
+            ];
+        }
+
+        // Broker contacts (optional)
+        // Format: "Broker (Company Name): Contact Name"
+        $brokerCompanyName = $data['broker_company_name'] ?? '';
+        foreach ($data['broker_contacts'] ?? [] as $broker) {
+            $mechName = $brokerCompanyName
+                ? "Broker ({$brokerCompanyName}): {$broker['name']}"
+                : "Broker: {$broker['name']}";
+            $contactMechanisms[] = [
+                'party' => $partyId,
+                'type' => 'email',
+                'name' => $mechName,
+                'value' => $broker['email'],
+            ];
+        }
+
+        // Shelf life requirement (required)
+        // Using type 'email' so it's exposed to data warehouse
+        $contactMechanisms[] = [
+            'party' => $partyId,
+            'type' => 'email',
+            'name' => 'data',
+            'value' => 'shelf_life_req:' . $data['shelf_life_requirement'],
+        ];
+
+        // Vendor guide (optional)
+        // Using type 'email' so it's exposed to data warehouse
+        if (!empty($data['vendor_guide'])) {
+            $contactMechanisms[] = [
+                'party' => $partyId,
+                'type' => 'email',
+                'name' => 'data',
+                'value' => 'vendor_guide:' . $data['vendor_guide'],
+            ];
+        }
+
+        // Batch create all contact mechanisms
+        if (!empty($contactMechanisms)) {
+            $this->request('POST', 'model/party.contact_mechanism', [
+                'json' => $contactMechanisms,
+            ]);
+        }
+
+        // Clear the active customers cache since we added a new one
+        $this->clearCache('active_customers');
+
+        return [
+            'id' => $partyId,
+            'name' => $data['name'],
+        ];
+    }
+
+    /**
+     * Update an existing customer in Fulfil.
+     *
+     * @param int $partyId The customer's party ID
+     * @param array $data Customer data (same structure as createCustomer)
+     * @return array The updated customer
+     */
+    public function updateCustomer(int $partyId, array $data): array
+    {
+        // 1. Update the party record
+        $partyData = [];
+
+        if (isset($data['name'])) {
+            $partyData['name'] = $data['name'];
+        }
+        if (isset($data['sale_price_list'])) {
+            $partyData['sale_price_list'] = $data['sale_price_list'];
+        }
+        if (isset($data['customer_payment_term'])) {
+            $partyData['customer_payment_term'] = $data['customer_payment_term'];
+        }
+
+        if (!empty($partyData)) {
+            $this->request('PUT', "model/party.party/{$partyId}", [
+                'json' => $partyData,
+            ]);
+        }
+
+        // 2. Update shipping terms category if provided
+        if (isset($data['shipping_terms_category_id'])) {
+            $this->updateShippingTermsCategory($partyId, $data['shipping_terms_category_id']);
+        }
+
+        // 3. Update contact mechanisms if provided
+        // For updates, we need to fetch existing mechanisms, compare, and update/create/delete
+        if ($this->hasContactMechanismUpdates($data)) {
+            $this->syncContactMechanisms($partyId, $data);
+        }
+
+        // Clear the active customers cache
+        $this->clearCache('active_customers');
+
+        return [
+            'id' => $partyId,
+            'name' => $data['name'] ?? null,
+        ];
+    }
+
+    /**
+     * Add a category to a party.
+     */
+    protected function addCategoryToParty(int $partyId, int $categoryId): void
+    {
+        // Fulfil uses a write operation to add categories
+        $this->request('PUT', "model/party.party/{$partyId}", [
+            'json' => [
+                'categories' => [['add', [$categoryId]]],
+            ],
+        ]);
+    }
+
+    /**
+     * Update shipping terms category for a party.
+     * Removes old shipping terms category and adds new one.
+     */
+    protected function updateShippingTermsCategory(int $partyId, int $newCategoryId): void
+    {
+        // Get current categories
+        $party = $this->request('GET', "model/party.party/{$partyId}", [
+            'query' => ['fields' => 'categories'],
+        ]);
+
+        $currentCategories = $party['categories'] ?? [];
+
+        // Get all shipping terms category IDs
+        $shippingCategories = $this->getShippingTermsCategories();
+        $shippingCategoryIds = array_column($shippingCategories, 'id');
+
+        // Build category operations: remove old shipping terms, add new one
+        $operations = [];
+
+        // Remove existing shipping terms categories
+        foreach ($currentCategories as $catId) {
+            if (in_array($catId, $shippingCategoryIds) && $catId !== $newCategoryId) {
+                $operations[] = ['remove', [$catId]];
+            }
+        }
+
+        // Add new category if not already present
+        if (!in_array($newCategoryId, $currentCategories)) {
+            $operations[] = ['add', [$newCategoryId]];
+        }
+
+        if (!empty($operations)) {
+            $this->request('PUT', "model/party.party/{$partyId}", [
+                'json' => [
+                    'categories' => $operations,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Check if data contains contact mechanism updates.
+     */
+    protected function hasContactMechanismUpdates(array $data): bool
+    {
+        return isset($data['buyers'])
+            || isset($data['accounts_payable'])
+            || isset($data['logistics'])
+            || isset($data['broker_contacts'])
+            || isset($data['shelf_life_requirement'])
+            || isset($data['vendor_guide']);
+    }
+
+    /**
+     * Sync contact mechanisms for a party.
+     * Handles create, update, and delete of contact mechanisms.
+     */
+    protected function syncContactMechanisms(int $partyId, array $data): void
+    {
+        // Fetch existing contact mechanisms for this party
+        $existing = $this->request('PUT', 'model/party.contact_mechanism/search_read', [
+            'json' => [
+                'filters' => [['party', '=', $partyId]],
+                'fields' => ['id', 'type', 'name', 'value'],
+                'limit' => 100,
+            ],
+        ]);
+
+        $toCreate = [];
+        $toUpdate = [];
+        $toDelete = [];
+
+        // Track which existing mechanisms we've matched
+        $matchedIds = [];
+
+        // Helper to find existing mechanism by name pattern
+        $findExisting = function (string $namePrefix) use ($existing, &$matchedIds) {
+            foreach ($existing as $mech) {
+                if (str_starts_with($mech['name'] ?? '', $namePrefix) && !in_array($mech['id'], $matchedIds)) {
+                    return $mech;
+                }
+            }
+            return null;
+        };
+
+        // Process buyers
+        if (isset($data['buyers'])) {
+            // Mark all existing buyer mechanisms for potential deletion
+            $existingBuyers = array_filter($existing, fn($m) => str_starts_with($m['name'] ?? '', 'Buyer:'));
+
+            foreach ($data['buyers'] as $buyer) {
+                $mechName = 'Buyer: ' . $buyer['name'];
+                $found = collect($existingBuyers)->firstWhere('name', $mechName);
+
+                if ($found) {
+                    $matchedIds[] = $found['id'];
+                    if ($found['value'] !== $buyer['email']) {
+                        $toUpdate[] = ['id' => $found['id'], 'value' => $buyer['email']];
+                    }
+                } else {
+                    $toCreate[] = [
+                        'party' => $partyId,
+                        'type' => 'email',
+                        'name' => $mechName,
+                        'value' => $buyer['email'],
+                    ];
+                }
+            }
+
+            // Delete unmatched existing buyers
+            foreach ($existingBuyers as $eb) {
+                if (!in_array($eb['id'], $matchedIds)) {
+                    $toDelete[] = $eb['id'];
+                }
+            }
+        }
+
+        // Process accounts payable
+        if (isset($data['accounts_payable'])) {
+            $existingAP = array_filter($existing, fn($m) => str_starts_with($m['name'] ?? '', 'Accounts Payable:'));
+
+            foreach ($data['accounts_payable'] as $ap) {
+                $mechName = 'Accounts Payable: ' . $ap['name'];
+                $isUrl = str_starts_with($ap['value'], 'http://') || str_starts_with($ap['value'], 'https://');
+                $found = collect($existingAP)->firstWhere('name', $mechName);
+
+                if ($found) {
+                    $matchedIds[] = $found['id'];
+                    if ($found['value'] !== $ap['value']) {
+                        $toUpdate[] = [
+                            'id' => $found['id'],
+                            'value' => $ap['value'],
+                            'type' => $isUrl ? 'website' : 'email',
+                        ];
+                    }
+                } else {
+                    $toCreate[] = [
+                        'party' => $partyId,
+                        'type' => $isUrl ? 'website' : 'email',
+                        'name' => $mechName,
+                        'value' => $ap['value'],
+                    ];
+                }
+            }
+
+            foreach ($existingAP as $eap) {
+                if (!in_array($eap['id'], $matchedIds)) {
+                    $toDelete[] = $eap['id'];
+                }
+            }
+        }
+
+        // Process logistics
+        if (isset($data['logistics'])) {
+            $existingLogistics = array_filter($existing, fn($m) => str_starts_with($m['name'] ?? '', 'Logistics:'));
+
+            foreach ($data['logistics'] as $logistics) {
+                $mechName = 'Logistics: ' . $logistics['name'];
+                $found = collect($existingLogistics)->firstWhere('name', $mechName);
+
+                if ($found) {
+                    $matchedIds[] = $found['id'];
+                    if ($found['value'] !== $logistics['email']) {
+                        $toUpdate[] = ['id' => $found['id'], 'value' => $logistics['email']];
+                    }
+                } else {
+                    $toCreate[] = [
+                        'party' => $partyId,
+                        'type' => 'email',
+                        'name' => $mechName,
+                        'value' => $logistics['email'],
+                    ];
+                }
+            }
+
+            foreach ($existingLogistics as $el) {
+                if (!in_array($el['id'], $matchedIds)) {
+                    $toDelete[] = $el['id'];
+                }
+            }
+        }
+
+        // Process broker contacts
+        // Format: "Broker (Company Name): Contact Name"
+        if (isset($data['broker_contacts'])) {
+            $brokerCompanyName = $data['broker_company_name'] ?? '';
+            $existingBrokers = array_filter($existing, fn($m) => preg_match('/^Broker\s*(?:\([^)]*\))?\s*:/i', $m['name'] ?? ''));
+
+            foreach ($data['broker_contacts'] as $broker) {
+                // Build mechanism name with company name if provided
+                $mechName = $brokerCompanyName
+                    ? "Broker ({$brokerCompanyName}): {$broker['name']}"
+                    : "Broker: {$broker['name']}";
+
+                // Try to find existing mechanism by contact name (ignore company name changes)
+                $found = null;
+                foreach ($existingBrokers as $eb) {
+                    // Extract contact name from existing mechanism
+                    if (preg_match('/^Broker\s*(?:\([^)]*\))?\s*:\s*(.+)$/i', $eb['name'], $matches)) {
+                        if (trim($matches[1]) === $broker['name']) {
+                            $found = $eb;
+                            break;
+                        }
+                    }
+                }
+
+                if ($found) {
+                    $matchedIds[] = $found['id'];
+                    // Update if email or company name changed
+                    if ($found['value'] !== $broker['email'] || $found['name'] !== $mechName) {
+                        $toUpdate[] = [
+                            'id' => $found['id'],
+                            'name' => $mechName,
+                            'value' => $broker['email'],
+                        ];
+                    }
+                } else {
+                    $toCreate[] = [
+                        'party' => $partyId,
+                        'type' => 'email',
+                        'name' => $mechName,
+                        'value' => $broker['email'],
+                    ];
+                }
+            }
+
+            foreach ($existingBrokers as $eb) {
+                if (!in_array($eb['id'], $matchedIds)) {
+                    $toDelete[] = $eb['id'];
+                }
+            }
+        }
+
+        // Process shelf life requirement
+        if (isset($data['shelf_life_requirement'])) {
+            $existingShelfLife = collect($existing)->first(fn($m) => $m['name'] === 'data' && str_starts_with($m['value'] ?? '', 'shelf_life_req:'));
+
+            if ($existingShelfLife) {
+                $matchedIds[] = $existingShelfLife['id'];
+                $newValue = 'shelf_life_req:' . $data['shelf_life_requirement'];
+                if ($existingShelfLife['value'] !== $newValue) {
+                    $toUpdate[] = ['id' => $existingShelfLife['id'], 'value' => $newValue];
+                }
+            } else {
+                // Using type 'email' so it's exposed to data warehouse
+                $toCreate[] = [
+                    'party' => $partyId,
+                    'type' => 'email',
+                    'name' => 'data',
+                    'value' => 'shelf_life_req:' . $data['shelf_life_requirement'],
+                ];
+            }
+        }
+
+        // Process vendor guide
+        if (array_key_exists('vendor_guide', $data)) {
+            $existingVendorGuide = collect($existing)->first(fn($m) => $m['name'] === 'data' && str_starts_with($m['value'] ?? '', 'vendor_guide:'));
+
+            if ($existingVendorGuide) {
+                $matchedIds[] = $existingVendorGuide['id'];
+                if (empty($data['vendor_guide'])) {
+                    // Delete if cleared
+                    $toDelete[] = $existingVendorGuide['id'];
+                } else {
+                    $newValue = 'vendor_guide:' . $data['vendor_guide'];
+                    if ($existingVendorGuide['value'] !== $newValue) {
+                        $toUpdate[] = ['id' => $existingVendorGuide['id'], 'value' => $newValue];
+                    }
+                }
+            } elseif (!empty($data['vendor_guide'])) {
+                // Using type 'email' so it's exposed to data warehouse
+                $toCreate[] = [
+                    'party' => $partyId,
+                    'type' => 'email',
+                    'name' => 'data',
+                    'value' => 'vendor_guide:' . $data['vendor_guide'],
+                ];
+            }
+        }
+
+        // Execute operations
+        if (!empty($toCreate)) {
+            $this->request('POST', 'model/party.contact_mechanism', [
+                'json' => $toCreate,
+            ]);
+        }
+
+        foreach ($toUpdate as $update) {
+            $id = $update['id'];
+            unset($update['id']);
+            $this->request('PUT', "model/party.contact_mechanism/{$id}", [
+                'json' => $update,
+            ]);
+        }
+
+        if (!empty($toDelete)) {
+            $this->request('DELETE', 'model/party.contact_mechanism', [
+                'json' => $toDelete,
+            ]);
+        }
     }
 }

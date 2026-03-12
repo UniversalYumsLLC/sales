@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
 
 interface Customer {
     id: number;
@@ -39,7 +39,19 @@ function formatCurrency(amount: number): string {
 }
 
 export default function Index({ customers, totals, search, lastUpdated }: Props) {
+    const { props } = usePage();
+    const flash = (props as { flash?: { success?: string } }).flash;
     const [searchTerm, setSearchTerm] = useState(search);
+    const [showFlash, setShowFlash] = useState(!!flash?.success);
+
+    // Auto-hide flash message after 5 seconds
+    useEffect(() => {
+        if (flash?.success) {
+            setShowFlash(true);
+            const timer = setTimeout(() => setShowFlash(false), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [flash?.success]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,12 +69,20 @@ export default function Index({ customers, totals, search, lastUpdated }: Props)
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
                         Active Customers
                     </h2>
-                    <button
-                        onClick={handleRefresh}
-                        className="text-sm text-gray-500 hover:text-gray-700"
-                    >
-                        Refresh Data
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={handleRefresh}
+                            className="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                            Refresh Data
+                        </button>
+                        <Link
+                            href={route('customers.create')}
+                            className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
+                        >
+                            Add New Customer
+                        </Link>
+                    </div>
                 </div>
             }
         >
@@ -70,6 +90,32 @@ export default function Index({ customers, totals, search, lastUpdated }: Props)
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                    {/* Success Flash Message */}
+                    {showFlash && flash?.success && (
+                        <div className="mb-6 rounded-md bg-green-50 p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-green-800">{flash.success}</p>
+                                </div>
+                                <div className="ml-auto pl-3">
+                                    <button
+                                        onClick={() => setShowFlash(false)}
+                                        className="inline-flex rounded-md bg-green-50 p-1.5 text-green-500 hover:bg-green-100"
+                                    >
+                                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Summary Cards */}
                     <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div className="rounded-lg bg-white p-6 shadow-sm">

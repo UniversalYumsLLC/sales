@@ -7,7 +7,7 @@ interface User {
     name: string;
     email: string;
     avatar: string | null;
-    role: 'admin' | 'user';
+    role: 'admin' | 'user' | 'salesperson';
     created_at: string;
     last_login: string;
 }
@@ -15,7 +15,7 @@ interface User {
 interface Invite {
     id: number;
     email: string;
-    role: 'admin' | 'user';
+    role: 'admin' | 'user' | 'salesperson';
     invited_by: string;
     created_at: string;
 }
@@ -32,7 +32,7 @@ export default function Users({ users, invites }: Props) {
 
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
-        role: 'user' as 'admin' | 'user',
+        role: 'user' as 'admin' | 'user' | 'salesperson',
     });
 
     const handleRoleChange = (userId: number, newRole: string) => {
@@ -118,10 +118,11 @@ export default function Users({ users, invites }: Props) {
                                         <select
                                             id="role"
                                             value={data.role}
-                                            onChange={(e) => setData('role', e.target.value as 'admin' | 'user')}
+                                            onChange={(e) => setData('role', e.target.value as 'admin' | 'user' | 'salesperson')}
                                             className="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         >
                                             <option value="user">User</option>
+                                            <option value="salesperson">Salesperson</option>
                                             <option value="admin">Admin</option>
                                         </select>
                                     </div>
@@ -272,6 +273,7 @@ export default function Users({ users, invites }: Props) {
                                                             className="rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                                         >
                                                             <option value="user">User</option>
+                                                            <option value="salesperson">Salesperson</option>
                                                             <option value="admin">Admin</option>
                                                         </select>
                                                     )}

@@ -27,6 +27,12 @@ export default function Authenticated({
                                     Active Customers
                                 </NavLink>
                                 <NavLink
+                                    href={route('prospects.index')}
+                                    active={route().current('prospects.*')}
+                                >
+                                    Prospects
+                                </NavLink>
+                                <NavLink
                                     href={route('ar.index')}
                                     active={route().current('ar.*')}
                                 >
@@ -80,6 +86,13 @@ export default function Authenticated({
                                         >
                                             Profile
                                         </Dropdown.Link>
+                                        {user.role === 'salesperson' && (
+                                            <Dropdown.Link
+                                                href={route('gmail.index')}
+                                            >
+                                                Gmail Integration
+                                            </Dropdown.Link>
+                                        )}
                                         {user.role === 'admin' && (
                                             <Dropdown.Link
                                                 href={route('admin.users')}
@@ -156,6 +169,12 @@ export default function Authenticated({
                             Active Customers
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
+                            href={route('prospects.index')}
+                            active={route().current('prospects.*')}
+                        >
+                            Prospects
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
                             href={route('ar.index')}
                             active={route().current('ar.*')}
                         >
@@ -177,6 +196,11 @@ export default function Authenticated({
                             <ResponsiveNavLink href={route('profile.edit')}>
                                 Profile
                             </ResponsiveNavLink>
+                            {user.role === 'salesperson' && (
+                                <ResponsiveNavLink href={route('gmail.index')}>
+                                    Gmail Integration
+                                </ResponsiveNavLink>
+                            )}
                             {user.role === 'admin' && (
                                 <ResponsiveNavLink href={route('admin.users')}>
                                     User Management

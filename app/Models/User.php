@@ -15,6 +15,19 @@ class User extends Authenticatable
 
     const ROLE_ADMIN = 'admin';
     const ROLE_USER = 'user';
+    const ROLE_SALESPERSON = 'salesperson';
+
+    /**
+     * Get all available roles.
+     */
+    public static function getRoles(): array
+    {
+        return [
+            self::ROLE_USER => 'User',
+            self::ROLE_SALESPERSON => 'Salesperson',
+            self::ROLE_ADMIN => 'Admin',
+        ];
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -59,10 +72,42 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is a salesperson
+     */
+    public function isSalesperson(): bool
+    {
+        return $this->role === self::ROLE_SALESPERSON;
+    }
+
+    /**
+     * Check if user can access Gmail integration (salesperson only)
+     */
+    public function canAccessGmailIntegration(): bool
+    {
+        return $this->isSalesperson();
+    }
+
+    /**
      * Check if user has a specific role
      */
     public function hasRole(string $role): bool
     {
         return $this->role === $role;
+    }
+
+    /**
+     * Get the user's Gmail token.
+     */
+    public function gmailToken(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(UserGmailToken::class);
+    }
+
+    /**
+     * Check if user has Gmail connected
+     */
+    public function hasGmailConnected(): bool
+    {
+        return $this->gmailToken()->exists();
     }
 }
