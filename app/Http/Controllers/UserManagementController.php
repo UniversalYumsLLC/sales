@@ -54,7 +54,7 @@ class UserManagementController extends Controller
     {
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255'],
-            'role' => ['required', 'in:admin,user'],
+            'role' => ['required', 'in:admin,salesperson,user'],
         ]);
 
         $email = strtolower($validated['email']);
@@ -94,7 +94,7 @@ class UserManagementController extends Controller
     public function updateRole(Request $request, User $user)
     {
         $validated = $request->validate([
-            'role' => ['required', 'in:admin,user'],
+            'role' => ['required', 'in:admin,salesperson,user'],
         ]);
 
         // Prevent users from changing their own role
