@@ -36,6 +36,17 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/customers/{id}/broker-contacts', [ActiveCustomersController::class, 'createBrokerContact'])->name('customers.broker-contacts.create');
     Route::put('/customers/{customerId}/broker-contacts/{contactId}', [ActiveCustomersController::class, 'updateBrokerContact'])->name('customers.broker-contacts.update');
     Route::delete('/customers/{customerId}/broker-contacts/{contactId}', [ActiveCustomersController::class, 'deleteBrokerContact'])->name('customers.broker-contacts.delete');
+    // Customer type management
+    Route::patch('/customers/{id}/customer-type', [ActiveCustomersController::class, 'updateCustomerType'])->name('customers.update-customer-type');
+    // Distributor customer management
+    Route::post('/customers/{id}/distributor-customers', [ActiveCustomersController::class, 'createDistributorCustomer'])->name('customers.distributor-customers.create');
+    Route::put('/customers/{customerId}/distributor-customers/{distributorCustomerId}', [ActiveCustomersController::class, 'updateDistributorCustomer'])->name('customers.distributor-customers.update');
+    Route::delete('/customers/{customerId}/distributor-customers/{distributorCustomerId}', [ActiveCustomersController::class, 'deleteDistributorCustomer'])->name('customers.distributor-customers.delete');
+    // Distributor customer contact management
+    Route::post('/distributor-customers/{distributorCustomerId}/contacts', [ActiveCustomersController::class, 'createDistributorCustomerContact'])->name('distributor-customers.contacts.create');
+    Route::put('/distributor-customers/{distributorCustomerId}/contacts/{contactId}', [ActiveCustomersController::class, 'updateDistributorCustomerContact'])->name('distributor-customers.contacts.update');
+    Route::delete('/distributor-customers/{distributorCustomerId}/contacts/{contactId}', [ActiveCustomersController::class, 'deleteDistributorCustomerContact'])->name('distributor-customers.contacts.delete');
+    Route::patch('/distributor-customers/{distributorCustomerId}/contacts/{contactId}/categorize', [ActiveCustomersController::class, 'categorizeDistributorCustomerContact'])->name('distributor-customers.contacts.categorize');
 
     // Prospects (create route must come before {id} wildcard)
     Route::get('/prospects', [ProspectController::class, 'index'])->name('prospects.index');

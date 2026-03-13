@@ -15,6 +15,8 @@ interface Email {
     email_date: string;
     has_attachments: boolean;
     contact_name: string | null;
+    distributor_customer_id: number | null;
+    distributor_customer_name: string | null;
 }
 
 interface Pagination {
@@ -240,6 +242,11 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                                                                 : `To: ${email.to_emails?.[0] || 'Unknown'}`
                                                             }
                                                         </span>
+                                                        {email.distributor_customer_name && (
+                                                            <span className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700 flex-shrink-0">
+                                                                {email.distributor_customer_name}
+                                                            </span>
+                                                        )}
                                                         {email.has_attachments && (
                                                             <PaperClipIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                                                         )}

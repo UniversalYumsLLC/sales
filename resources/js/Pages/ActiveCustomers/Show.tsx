@@ -40,6 +40,22 @@ interface BrokerContact {
     last_received_at: string | null;
 }
 
+interface DistributorCustomerContact {
+    id: number;
+    name: string;
+    email: string;
+    type: string;
+    last_emailed_at: string | null;
+    last_received_at: string | null;
+}
+
+interface DistributorCustomer {
+    id: number;
+    name: string;
+    company_urls: string[];
+    contacts: DistributorCustomerContact[];
+}
+
 interface APContact {
     name: string;
     value: string;
@@ -66,6 +82,7 @@ interface Customer {
     receivable: number | null;
     receivable_today: number | null;
     company_urls: string[];
+    customer_type: 'retailer' | 'distributor';
     broker: boolean;
     broker_commission: number | null;
     broker_company_name: string | null;
@@ -133,6 +150,7 @@ interface Props {
     localOther: LocalContact[];
     uncategorizedContacts: UncategorizedContact[];
     brokerContacts: BrokerContact[];
+    distributorCustomers: DistributorCustomer[];
     monthlyRevenue: MonthlyRevenue[];
     topProducts: TopProduct[];
     upcomingOrders: UpcomingOrder[];
@@ -265,6 +283,7 @@ export default function Show({
     localOther,
     uncategorizedContacts,
     brokerContacts,
+    distributorCustomers,
     monthlyRevenue,
     topProducts,
     upcomingOrders,
@@ -332,6 +351,18 @@ export default function Show({
     const [brokerContactsForm, setBrokerContactsForm] = useState<BrokerContactForm[]>(
         brokerContacts?.map(c => ({ name: c.name, email: c.email })) || []
     );
+
+    // Customer type state
+    const [customerType, setCustomerType] = useState<'retailer' | 'distributor'>(customer.customer_type || 'retailer');
+    const [changingCustomerType, setChangingCustomerType] = useState(false);
+
+    // Distributor customers state
+    const [localDistributorCustomers, setLocalDistributorCustomers] = useState<DistributorCustomer[]>(distributorCustomers || []);
+    const [newDistributorCustomerName, setNewDistributorCustomerName] = useState('');
+    const [addingDistributorCustomer, setAddingDistributorCustomer] = useState(false);
+    const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(new Set());
+    const [deleteConfirmDC, setDeleteConfirmDC] = useState<DistributorCustomer | null>(null);
+    const [deletingDC, setDeletingDC] = useState(false);
 
     // Derive AP method from existing data
     const deriveApMethod = (): { method: '' | 'inbox' | 'portal'; portalUrl: string; contacts: APContact[] } => {
@@ -782,6 +813,132 @@ export default function Show({
         }
     };
 
+    // Customer type management
+    const handleCustomerTypeChange = async (newType: 'retailer' | 'distributor') => {
+        if (newType === customerType) return;
+
+        setChangingCustomerType(true);
+        try {
+            const response = await fetch(route('customers.update-customer-type', customer.id), {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ customer_type: newType }),
+            });
+
+            if (response.ok) {
+                setCustomerType(newType);
+                setNotification({ type: 'success', message: `Customer type updated to ${newType}` });
+                router.reload();
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to update customer type' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to update customer type' });
+        } finally {
+            setChangingCustomerType(false);
+        }
+    };
+
+    // Distributor customer management
+    const toggleDistributorCustomerExpanded = (id: number) => {
+        setExpandedDistributorCustomers(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const addDistributorCustomer = async () => {
+        if (!newDistributorCustomerName.trim()) return;
+
+        setAddingDistributorCustomer(true);
+        try {
+            const response = await fetch(route('customers.distributor-customers.create', customer.id), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ name: newDistributorCustomerName.trim() }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setLocalDistributorCustomers(prev => [...prev, data.distributor_customer]);
+                setNewDistributorCustomerName('');
+                setNotification({ type: 'success', message: 'Distributor customer added' });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to add distributor customer' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to add distributor customer' });
+        } finally {
+            setAddingDistributorCustomer(false);
+        }
+    };
+
+    const deleteDistributorCustomer = async () => {
+        if (!deleteConfirmDC) return;
+
+        setDeletingDC(true);
+        try {
+            const response = await fetch(route('customers.distributor-customers.delete', { customerId: customer.id, distributorCustomerId: deleteConfirmDC.id }), {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (response.ok) {
+                setLocalDistributorCustomers(prev => prev.filter(dc => dc.id !== deleteConfirmDC.id));
+                setDeleteConfirmDC(null);
+                setNotification({ type: 'success', message: 'Distributor customer deleted' });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to delete' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to delete distributor customer' });
+        } finally {
+            setDeletingDC(false);
+        }
+    };
+
+    const updateDistributorCustomerUrls = async (dcId: number, urls: string[]) => {
+        try {
+            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ company_urls: urls.filter(u => u.trim()) }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setLocalDistributorCustomers(prev => prev.map(dc =>
+                    dc.id === dcId ? { ...dc, company_urls: data.distributor_customer.company_urls } : dc
+                ));
+                setNotification({ type: 'success', message: 'Domains updated' });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to update domains' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to update domains' });
+        }
+    };
+
     // Company URL management
     const addCompanyUrl = () => {
         setCompanyUrlsForm(prev => [...prev, '']);
@@ -1138,6 +1295,23 @@ export default function Show({
                                     </div>
 
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700">Customer Type</label>
+                                        <select
+                                            value={customerType}
+                                            onChange={(e) => handleCustomerTypeChange(e.target.value as 'retailer' | 'distributor')}
+                                            disabled={changingCustomerType}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
+                                        >
+                                            <option value="retailer">Retailer</option>
+                                            <option value="distributor">Distributor</option>
+                                        </select>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            {customerType === 'distributor' ? 'Distributors can have sub-customers' : 'Retailers can have broker relationships'}
+                                        </p>
+                                    </div>
+
+                                    {customerType === 'retailer' && (
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700">Uses Broker</label>
                                         <select
                                             value={detailsForm.broker}
@@ -1156,14 +1330,15 @@ export default function Show({
                                             <option value="true">Yes</option>
                                         </select>
                                     </div>
+                                    )}
 
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Broker Section - Only visible when broker=true */}
-                    {(customer.broker || detailsForm.broker === 'true') && (
+                    {/* Broker Section - Only visible when customer is retailer and broker=true */}
+                    {customerType === 'retailer' && (customer.broker || detailsForm.broker === 'true') && (
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-400">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
@@ -1342,6 +1517,144 @@ export default function Show({
                                         )}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Distributor Customers Section - Only visible when customer is distributor */}
+                    {customerType === 'distributor' && (
+                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-teal-400">
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                                    Distributor Customers
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-teal-100 text-teal-800">
+                                        {localDistributorCustomers.length} customer{localDistributorCustomers.length !== 1 ? 's' : ''}
+                                    </span>
+                                </h3>
+                            </div>
+
+                            {/* Add new distributor customer */}
+                            <div className="mb-4 flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newDistributorCustomerName}
+                                    onChange={(e) => setNewDistributorCustomerName(e.target.value)}
+                                    placeholder="Enter new customer name..."
+                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    onKeyDown={(e) => e.key === 'Enter' && addDistributorCustomer()}
+                                />
+                                <button
+                                    onClick={addDistributorCustomer}
+                                    disabled={!newDistributorCustomerName.trim() || addingDistributorCustomer}
+                                    className="rounded bg-teal-600 px-4 py-2 text-sm text-white hover:bg-teal-700 disabled:opacity-50"
+                                >
+                                    {addingDistributorCustomer ? 'Adding...' : 'Add'}
+                                </button>
+                            </div>
+
+                            {/* List of distributor customers */}
+                            {localDistributorCustomers.length === 0 ? (
+                                <p className="text-sm text-gray-400">No distributor customers yet. Add one above.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {localDistributorCustomers.map((dc) => (
+                                        <div key={dc.id} className="border border-gray-200 rounded-lg">
+                                            <div
+                                                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                                                onClick={() => toggleDistributorCustomerExpanded(dc.id)}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <svg
+                                                        className={`w-4 h-4 text-gray-400 transition-transform ${expandedDistributorCustomers.has(dc.id) ? 'rotate-90' : ''}`}
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                    <span className="font-medium text-gray-900">{dc.name}</span>
+                                                    <span className="text-xs text-gray-500">
+                                                        ({dc.contacts?.length || 0} contacts, {dc.company_urls?.length || 0} domains)
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirmDC(dc); }}
+                                                    className="text-red-400 hover:text-red-600 p-1"
+                                                    title="Delete"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            {expandedDistributorCustomers.has(dc.id) && (
+                                                <div className="border-t border-gray-200 p-3 bg-gray-50">
+                                                    <div className="text-sm text-gray-600">
+                                                        <p className="font-medium mb-2">Email Domains:</p>
+                                                        {dc.company_urls?.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-1 mb-3">
+                                                                {dc.company_urls.map((url, idx) => (
+                                                                    <span key={idx} className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
+                                                                        {url}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-gray-400 text-xs mb-3">No domains configured</p>
+                                                        )}
+                                                        <p className="font-medium mb-2">Contacts ({dc.contacts?.length || 0}):</p>
+                                                        {dc.contacts?.length > 0 ? (
+                                                            <ul className="space-y-1">
+                                                                {dc.contacts.map((c) => (
+                                                                    <li key={c.id} className="text-xs">
+                                                                        <span className="text-gray-900">{c.name || <span className="italic text-gray-400">No name</span>}</span>
+                                                                        <span className="text-gray-500"> - {c.email}</span>
+                                                                        <span className="ml-2 text-gray-400">({c.type})</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        ) : (
+                                                            <p className="text-gray-400 text-xs">No contacts discovered yet</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    )}
+
+                    {/* Delete Distributor Customer Confirmation Modal */}
+                    {deleteConfirmDC && (
+                        <div className="fixed inset-0 z-50 overflow-y-auto">
+                            <div className="flex min-h-full items-center justify-center p-4">
+                                <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setDeleteConfirmDC(null)} />
+                                <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                                    <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Distributor Customer?</h3>
+                                    <p className="text-sm text-gray-600 mb-6">
+                                        Are you sure you want to delete <strong>{deleteConfirmDC.name}</strong>? This will permanently remove all their contacts and email history.
+                                    </p>
+                                    <div className="flex justify-end gap-3">
+                                        <button
+                                            onClick={() => setDeleteConfirmDC(null)}
+                                            className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            disabled={deletingDC}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={deleteDistributorCustomer}
+                                            disabled={deletingDC}
+                                            className="rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
+                                        >
+                                            {deletingDC ? 'Deleting...' : 'Delete'}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

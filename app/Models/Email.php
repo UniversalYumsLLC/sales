@@ -17,6 +17,7 @@ class Email extends Model
         'gmail_thread_id',
         'prospect_id',
         'fulfil_party_id',
+        'distributor_customer_id',
         'contact_id',
         'direction',
         'from_email',
@@ -64,6 +65,14 @@ class Email extends Model
     public function contact(): BelongsTo
     {
         return $this->belongsTo(ProspectContact::class, 'contact_id');
+    }
+
+    /**
+     * Get the distributor customer associated with the email.
+     */
+    public function distributorCustomer(): BelongsTo
+    {
+        return $this->belongsTo(DistributorCustomer::class);
     }
 
     /**

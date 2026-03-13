@@ -21,9 +21,14 @@ class FulfilCustomerMetadata extends Model
      */
     protected $table = 'fulfil_customer_metadata';
 
+    const CUSTOMER_TYPE_RETAILER = 'retailer';
+
+    const CUSTOMER_TYPE_DISTRIBUTOR = 'distributor';
+
     protected $fillable = [
         'fulfil_party_id',
         'company_urls',
+        'customer_type',
         'broker',
         'broker_commission',
         'broker_company_name',
@@ -118,5 +123,59 @@ class FulfilCustomerMetadata extends Model
     public function brokerContacts()
     {
         return $this->hasMany(FulfilBrokerContact::class, 'fulfil_party_id', 'fulfil_party_id');
+    }
+
+    /**
+     * Get distributor customers for this customer (only applies to distributors).
+     */
+    public function distributorCustomers()
+    {
+        return $this->hasMany(DistributorCustomer::class, 'fulfil_party_id', 'fulfil_party_id');
+    }
+
+    /**
+     * Check if this customer is a distributor.
+     */
+    public function isDistributor(): bool
+    {
+        return $this->customer_type === self::CUSTOMER_TYPE_DISTRIBUTOR;
+    }
+
+    /**
+     * Check if this customer is a retailer.
+     */
+    public function isRetailer(): bool
+    {
+        return $this->customer_type === self::CUSTOMER_TYPE_RETAILER;
+    }
+
+    /**
+     * Check if this customer has broker data that would prevent switching to distributor.
+     */
+    public function hasBrokerData(): bool
+    {
+        return $this->broker || $this->broker_commission || $this->broker_company_name || $this->brokerContacts()->exists();
+    }
+
+    /**
+     * Check if this customer has distributor customers that would prevent switching to retailer.
+     */
+    public function hasDistributorCustomers(): bool
+    {
+        return $this->distributorCustomers()->exists();
+    }
+
+    /**
+     * Get all email domains including distributor customers.
+     */
+    public function getAllEmailDomains(): array
+    {
+        $domains = $this->getEmailDomains();
+
+        foreach ($this->distributorCustomers as $dc) {
+            $domains = array_merge($domains, $dc->getEmailDomains());
+        }
+
+        return array_unique($domains);
     }
 }

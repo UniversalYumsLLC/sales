@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\DistributorCustomer;
+use App\Models\DistributorCustomerContact;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
@@ -513,9 +515,11 @@ class GmailService
         }
 
         if ($matchedDomain && $matchInfo) {
-            // Handle based on company type (prospect or customer)
+            // Handle based on company type (prospect, customer, or distributor_customer)
             if ($matchInfo['type'] === 'prospect') {
                 $this->processProspectEmail($user, $emailData, $matchInfo['id'], $matchedDomain, $matchedEmail, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
+            } elseif ($matchInfo['type'] === 'distributor_customer') {
+                $this->processDistributorCustomerEmail($user, $emailData, $matchInfo['id'], $matchInfo['fulfil_party_id'], $matchedDomain, $matchedEmail, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
             } else {
                 $this->processCustomerEmail($user, $emailData, $matchInfo['id'], $matchedDomain, $matchedEmail, $direction, $fromEmail, $toEmails, $ccEmails, $body, $emailDate, $attachments, $headers);
             }
@@ -806,9 +810,121 @@ class GmailService
     }
 
     /**
-     * Get all company domains (prospects + customers) mapped to company info.
+     * Process an email for a distributor customer.
+     */
+    protected function processDistributorCustomerEmail(
+        User $user,
+        array $emailData,
+        int $distributorCustomerId,
+        int $fulfilPartyId,
+        string $matchedDomain,
+        string $matchedEmail,
+        string $direction,
+        string $fromEmail,
+        array $toEmails,
+        array $ccEmails,
+        array $body,
+        Carbon $emailDate,
+        array $attachments,
+        array $headers
+    ): void {
+        // Create email record (linked to both parent distributor and distributor customer)
+        Email::create([
+            'user_id' => $user->id,
+            'gmail_message_id' => $emailData['id'],
+            'gmail_thread_id' => $emailData['threadId'],
+            'prospect_id' => null,
+            'fulfil_party_id' => $fulfilPartyId,
+            'distributor_customer_id' => $distributorCustomerId,
+            'contact_id' => null,
+            'direction' => $direction,
+            'from_email' => $fromEmail,
+            'from_name' => $this->extractName($headers['from'] ?? ''),
+            'to_emails' => $toEmails,
+            'cc_emails' => $ccEmails ?: null,
+            'subject' => $headers['subject'] ?? null,
+            'body_text' => $body['text'] ?? null,
+            'body_html' => $body['html'] ?? null,
+            'email_date' => $emailDate,
+            'has_attachments' => ! empty($attachments),
+            'attachment_info' => $attachments ?: null,
+        ]);
+
+        // Update contact email tracking for matching contacts
+        $contact = DistributorCustomerContact::where('distributor_customer_id', $distributorCustomerId)
+            ->whereRaw('LOWER(email) = ?', [strtolower($matchedEmail)])
+            ->first();
+
+        if ($contact) {
+            if ($direction === Email::DIRECTION_OUTBOUND) {
+                $contact->recordEmailSent($emailDate);
+            } else {
+                $contact->recordEmailReceived($emailDate);
+            }
+        }
+
+        // Discover new contacts from this email
+        $this->discoverDistributorCustomerContacts($distributorCustomerId, $matchedDomain, $fromEmail, $toEmails, $ccEmails, $direction, $emailDate, $headers);
+    }
+
+    /**
+     * Discover new contacts from email addresses for a distributor customer.
+     */
+    protected function discoverDistributorCustomerContacts(
+        int $distributorCustomerId,
+        string $matchedDomain,
+        string $fromEmail,
+        array $toEmails,
+        array $ccEmails,
+        string $direction,
+        Carbon $emailDate,
+        array $headers
+    ): void {
+        // Collect all emails that match the distributor customer's domain
+        $allEmails = array_merge([$fromEmail], $toEmails, $ccEmails);
+        $allEmails = array_filter($allEmails);
+        $allEmails = array_unique(array_map('strtolower', $allEmails));
+
+        // Get existing contact emails
+        $existingEmails = DistributorCustomerContact::where('distributor_customer_id', $distributorCustomerId)
+            ->pluck('email')
+            ->map(fn ($e) => strtolower($e))
+            ->toArray();
+
+        foreach ($allEmails as $email) {
+            $emailDomain = strtolower(explode('@', $email)[1] ?? '');
+            if ($emailDomain !== $matchedDomain) {
+                continue; // Not from the company domain
+            }
+
+            if (! in_array($email, $existingEmails)) {
+                // Create uncategorized contact
+                $newContact = DistributorCustomerContact::create([
+                    'distributor_customer_id' => $distributorCustomerId,
+                    'name' => $this->extractNameForEmail($email, $headers) ?? '',
+                    'email' => $email,
+                    'type' => DistributorCustomerContact::TYPE_UNCATEGORIZED,
+                ]);
+
+                // Update email tracking for the new contact
+                if ($direction === Email::DIRECTION_OUTBOUND) {
+                    $newContact->recordEmailSent($emailDate);
+                } else {
+                    $newContact->recordEmailReceived($emailDate);
+                }
+
+                Log::info('Discovered new distributor customer contact', [
+                    'distributor_customer_id' => $distributorCustomerId,
+                    'email' => $email,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Get all company domains (prospects + customers + distributor customers) mapped to company info.
      *
-     * Returns: ['domain.com' => ['type' => 'prospect'|'customer', 'id' => int], ...]
+     * Returns: ['domain.com' => ['type' => 'prospect'|'customer'|'distributor_customer', 'id' => int, ...], ...]
      */
     protected function getAllCompanyDomains(): array
     {
@@ -834,6 +950,21 @@ class GmailService
                     $domains[$domain] = [
                         'type' => 'customer',
                         'id' => $metadata->fulfil_party_id,
+                    ];
+                }
+            }
+        }
+
+        // Get distributor customer domains
+        $distributorCustomers = DistributorCustomer::whereNotNull('company_urls')->get();
+        foreach ($distributorCustomers as $dc) {
+            foreach ($dc->getEmailDomains() as $domain) {
+                // Don't overwrite prospect or customer domains
+                if (! isset($domains[$domain])) {
+                    $domains[$domain] = [
+                        'type' => 'distributor_customer',
+                        'id' => $dc->id,
+                        'fulfil_party_id' => $dc->fulfil_party_id, // Parent distributor
                     ];
                 }
             }

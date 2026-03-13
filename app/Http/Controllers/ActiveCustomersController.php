@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DistributorCustomer;
+use App\Models\DistributorCustomerContact;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
@@ -147,9 +149,10 @@ class ActiveCustomersController extends Controller
             }
         }
 
-        // Merge in local metadata (company_urls for Gmail matching, broker info)
+        // Merge in local metadata (company_urls for Gmail matching, broker info, customer type)
         $localMetadata = FulfilCustomerMetadata::find($id);
         $customer['company_urls'] = $localMetadata?->company_urls ?? [];
+        $customer['customer_type'] = $localMetadata?->customer_type ?? 'retailer';
         $customer['broker'] = $localMetadata?->broker ?? false;
         $customer['broker_commission'] = $localMetadata?->broker_commission;
         $customer['broker_company_name'] = $localMetadata?->broker_company_name;
@@ -162,6 +165,24 @@ class ActiveCustomersController extends Controller
             'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
             'last_received_at' => $c->last_received_at?->toIso8601String(),
         ])->toArray();
+
+        // Get distributor customers (only relevant for distributors)
+        $distributorCustomers = DistributorCustomer::where('fulfil_party_id', $id)
+            ->with('contacts')
+            ->get()
+            ->map(fn ($dc) => [
+                'id' => $dc->id,
+                'name' => $dc->name,
+                'company_urls' => $dc->company_urls ?? [],
+                'contacts' => $dc->contacts->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'email' => $c->email,
+                    'type' => $c->type,
+                    'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
+                    'last_received_at' => $c->last_received_at?->toIso8601String(),
+                ])->toArray(),
+            ])->toArray();
 
         // Merge email tracking dates into buyer contacts
         $buyerContacts = $this->mergeContactEmailMetadata($id, $customer['buyers'] ?? []);
@@ -218,6 +239,7 @@ class ActiveCustomersController extends Controller
             'customer' => $customer,
             'buyerContacts' => $buyerContacts,
             'brokerContacts' => $brokerContacts,
+            'distributorCustomers' => $distributorCustomers,
             'localBuyers' => $localBuyers,
             'localAP' => $localAP,
             'localOther' => $localOther,
@@ -915,6 +937,7 @@ class ActiveCustomersController extends Controller
         $perPage = min($request->integer('per_page', 10), 50);
 
         $emails = Email::where('fulfil_party_id', $id)
+            ->with('distributorCustomer')
             ->orderBy('email_date', 'desc')
             ->paginate($perPage);
 
@@ -934,6 +957,8 @@ class ActiveCustomersController extends Controller
                     'email_date' => $email->email_date->toIso8601String(),
                     'has_attachments' => $email->has_attachments,
                     'contact_name' => $email->from_name,
+                    'distributor_customer_id' => $email->distributor_customer_id,
+                    'distributor_customer_name' => $email->distributorCustomer?->name,
                 ];
             }),
             'pagination' => [
@@ -1017,5 +1042,313 @@ class ActiveCustomersController extends Controller
         }
 
         return substr($text, 0, $length).'...';
+    }
+
+    /**
+     * Update customer type (retailer or distributor).
+     */
+    public function updateCustomerType(Request $request, int $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_type' => ['required', 'in:retailer,distributor'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        $newType = $request->customer_type;
+
+        // Prevent switching to distributor if broker data exists
+        if ($newType === 'distributor' && $metadata->hasBrokerData()) {
+            return response()->json([
+                'message' => 'Cannot switch to distributor while broker data exists. Please remove broker information first.',
+            ], 422);
+        }
+
+        // Prevent switching to retailer if distributor customers exist
+        if ($newType === 'retailer' && $metadata->hasDistributorCustomers()) {
+            return response()->json([
+                'message' => 'Cannot switch to retailer while distributor customers exist. Please remove all distributor customers first.',
+            ], 422);
+        }
+
+        $metadata->customer_type = $newType;
+        $metadata->save();
+
+        return response()->json([
+            'message' => 'Customer type updated successfully',
+            'customer_type' => $metadata->customer_type,
+        ]);
+    }
+
+    /**
+     * Create a distributor customer.
+     */
+    public function createDistributorCustomer(Request $request, int $id): JsonResponse
+    {
+        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+
+        // Only distributors can have distributor customers
+        if (! $metadata->isDistributor()) {
+            return response()->json([
+                'message' => 'Only distributors can have distributor customers',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:1', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $distributorCustomer = DistributorCustomer::create([
+            'fulfil_party_id' => $id,
+            'name' => $request->name,
+            'company_urls' => [],
+        ]);
+
+        return response()->json([
+            'message' => 'Distributor customer created successfully',
+            'distributor_customer' => [
+                'id' => $distributorCustomer->id,
+                'name' => $distributorCustomer->name,
+                'company_urls' => $distributorCustomer->company_urls,
+                'contacts' => [],
+            ],
+        ]);
+    }
+
+    /**
+     * Update a distributor customer.
+     */
+    public function updateDistributorCustomer(Request $request, int $customerId, int $distributorCustomerId): JsonResponse
+    {
+        $distributorCustomer = DistributorCustomer::where('fulfil_party_id', $customerId)
+            ->where('id', $distributorCustomerId)
+            ->firstOrFail();
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['sometimes', 'string', 'min:1', 'max:255'],
+            'company_urls' => ['sometimes', 'array'],
+            'company_urls.*' => ['string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if ($request->has('name')) {
+            $distributorCustomer->name = $request->name;
+        }
+
+        if ($request->has('company_urls')) {
+            // Normalize URLs
+            $urls = array_values(array_filter(array_map(function ($url) {
+                $url = trim($url);
+                if (empty($url)) {
+                    return null;
+                }
+
+                // Extract domain from URL if it looks like a full URL
+                if (preg_match('/^https?:\/\//', $url)) {
+                    $parsed = parse_url($url);
+                    $url = $parsed['host'] ?? $url;
+                }
+
+                // Remove www. prefix
+                return preg_replace('/^www\./', '', strtolower($url));
+            }, $request->company_urls)));
+
+            $distributorCustomer->company_urls = $urls;
+        }
+
+        $distributorCustomer->save();
+
+        return response()->json([
+            'message' => 'Distributor customer updated successfully',
+            'distributor_customer' => [
+                'id' => $distributorCustomer->id,
+                'name' => $distributorCustomer->name,
+                'company_urls' => $distributorCustomer->company_urls,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a distributor customer (cascades to contacts and emails).
+     */
+    public function deleteDistributorCustomer(int $customerId, int $distributorCustomerId): JsonResponse
+    {
+        $distributorCustomer = DistributorCustomer::where('fulfil_party_id', $customerId)
+            ->where('id', $distributorCustomerId)
+            ->firstOrFail();
+
+        // Delete cascades to contacts via foreign key
+        // Emails with this distributor_customer_id will also be deleted via foreign key cascade
+        $distributorCustomer->delete();
+
+        return response()->json([
+            'message' => 'Distributor customer deleted successfully',
+        ]);
+    }
+
+    /**
+     * Create a contact for a distributor customer.
+     */
+    public function createDistributorCustomerContact(Request $request, int $distributorCustomerId): JsonResponse
+    {
+        $distributorCustomer = DistributorCustomer::findOrFail($distributorCustomerId);
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:1', 'max:100'],
+            'email' => ['required', 'email', 'max:255'],
+            'type' => ['nullable', 'in:buyer,accounts_payable,other'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Check if contact with this email already exists
+        $existing = DistributorCustomerContact::where('distributor_customer_id', $distributorCustomerId)
+            ->whereRaw('LOWER(email) = ?', [strtolower($request->email)])
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'A contact with this email already exists',
+            ], 422);
+        }
+
+        $contact = DistributorCustomerContact::create([
+            'distributor_customer_id' => $distributorCustomerId,
+            'name' => $request->name,
+            'email' => strtolower($request->email),
+            'type' => $request->type ?? 'uncategorized',
+        ]);
+
+        return response()->json([
+            'message' => 'Contact created successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'type' => $contact->type,
+            ],
+        ]);
+    }
+
+    /**
+     * Update a distributor customer contact.
+     */
+    public function updateDistributorCustomerContact(Request $request, int $distributorCustomerId, int $contactId): JsonResponse
+    {
+        $contact = DistributorCustomerContact::where('distributor_customer_id', $distributorCustomerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['sometimes', 'string', 'min:1', 'max:100'],
+            'email' => ['sometimes', 'email', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if ($request->has('name')) {
+            $contact->name = $request->name;
+        }
+        if ($request->has('email')) {
+            $contact->email = strtolower($request->email);
+        }
+
+        $contact->save();
+
+        return response()->json([
+            'message' => 'Contact updated successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'type' => $contact->type,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a distributor customer contact.
+     */
+    public function deleteDistributorCustomerContact(int $distributorCustomerId, int $contactId): JsonResponse
+    {
+        $contact = DistributorCustomerContact::where('distributor_customer_id', $distributorCustomerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        $contact->delete();
+
+        return response()->json([
+            'message' => 'Contact deleted successfully',
+        ]);
+    }
+
+    /**
+     * Categorize an uncategorized distributor customer contact.
+     */
+    public function categorizeDistributorCustomerContact(Request $request, int $distributorCustomerId, int $contactId): JsonResponse
+    {
+        $contact = DistributorCustomerContact::where('distributor_customer_id', $distributorCustomerId)
+            ->where('id', $contactId)
+            ->firstOrFail();
+
+        // Only allow categorization of uncategorized contacts
+        if ($contact->type !== DistributorCustomerContact::TYPE_UNCATEGORIZED) {
+            return response()->json([
+                'message' => 'Only uncategorized contacts can be categorized',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'type' => ['required', 'in:buyer,accounts_payable,other'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Invalid contact type',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $contact->type = $request->type;
+        $contact->save();
+
+        return response()->json([
+            'message' => 'Contact categorized successfully',
+            'contact' => [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'type' => $contact->type,
+            ],
+        ]);
     }
 }
