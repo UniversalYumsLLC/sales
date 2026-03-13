@@ -10,7 +10,9 @@ class FulfilUncategorizedContact extends Model
     protected $table = 'fulfil_uncategorized_contacts';
 
     const TYPE_BUYER = 'buyer';
+
     const TYPE_ACCOUNTS_PAYABLE = 'accounts_payable';
+
     const TYPE_LOGISTICS = 'logistics';
 
     /**
@@ -68,7 +70,7 @@ class FulfilUncategorizedContact extends Model
      */
     public function recordEmailSent(\DateTime $date): void
     {
-        if (!$this->last_emailed_at || $date > $this->last_emailed_at) {
+        if (! $this->last_emailed_at || $date > $this->last_emailed_at) {
             $this->last_emailed_at = $date;
             $this->save();
         }
@@ -79,7 +81,7 @@ class FulfilUncategorizedContact extends Model
      */
     public function recordEmailReceived(\DateTime $date): void
     {
-        if (!$this->last_received_at || $date > $this->last_received_at) {
+        if (! $this->last_received_at || $date > $this->last_received_at) {
             $this->last_received_at = $date;
             $this->save();
         }
@@ -94,6 +96,7 @@ class FulfilUncategorizedContact extends Model
             return null;
         }
         $parts = explode('@', $this->email);
+
         return count($parts) === 2 ? strtolower($parts[1]) : null;
     }
 }

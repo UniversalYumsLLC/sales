@@ -34,7 +34,7 @@ class GmailController extends Controller
         $user = Auth::user();
 
         // Check if user can access Gmail integration
-        if (!$user->canAccessGmailIntegration()) {
+        if (! $user->canAccessGmailIntegration()) {
             abort(403, 'Gmail integration is only available for Salesperson and Admin accounts.');
         }
 
@@ -57,7 +57,7 @@ class GmailController extends Controller
             ->with('gmailToken')
             ->orderBy('name')
             ->get()
-            ->map(fn($sp) => [
+            ->map(fn ($sp) => [
                 'id' => $sp->id,
                 'name' => $sp->name,
                 'email' => $sp->email,
@@ -71,7 +71,7 @@ class GmailController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get()
-            ->map(fn($sync) => $this->formatSyncHistory($sync, includeUser: true));
+            ->map(fn ($sync) => $this->formatSyncHistory($sync, includeUser: true));
 
         return Inertia::render('Gmail/Index', [
             'isAdmin' => true,
@@ -97,7 +97,7 @@ class GmailController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(fn($sync) => $this->formatSyncHistory($sync));
+            ->map(fn ($sync) => $this->formatSyncHistory($sync));
 
         return Inertia::render('Gmail/Index', [
             'isAdmin' => false,
@@ -148,7 +148,7 @@ class GmailController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->canAccessGmailIntegration()) {
+        if (! $user->canAccessGmailIntegration()) {
             abort(403, 'Gmail integration is only available for Salesperson accounts.');
         }
 
@@ -168,13 +168,13 @@ class GmailController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->canAccessGmailIntegration()) {
+        if (! $user->canAccessGmailIntegration()) {
             abort(403, 'Gmail integration is only available for Salesperson accounts.');
         }
 
         // Verify state
         $state = session('gmail_oauth_state');
-        if (!$state || $state !== $request->input('state')) {
+        if (! $state || $state !== $request->input('state')) {
             return redirect()->route('gmail.index')
                 ->with('error', 'Invalid OAuth state. Please try again.');
         }
@@ -184,12 +184,12 @@ class GmailController extends Controller
         // Check for errors
         if ($request->has('error')) {
             return redirect()->route('gmail.index')
-                ->with('error', 'Authorization was denied: ' . $request->input('error_description', $request->input('error')));
+                ->with('error', 'Authorization was denied: '.$request->input('error_description', $request->input('error')));
         }
 
         // Exchange code for tokens
         $code = $request->input('code');
-        if (!$code) {
+        if (! $code) {
             return redirect()->route('gmail.index')
                 ->with('error', 'No authorization code received.');
         }
@@ -219,7 +219,7 @@ class GmailController extends Controller
 
         } catch (\Exception $e) {
             return redirect()->route('gmail.index')
-                ->with('error', 'Failed to connect Gmail: ' . $e->getMessage());
+                ->with('error', 'Failed to connect Gmail: '.$e->getMessage());
         }
     }
 
@@ -230,7 +230,7 @@ class GmailController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->canAccessGmailIntegration()) {
+        if (! $user->canAccessGmailIntegration()) {
             abort(403);
         }
 
@@ -247,11 +247,11 @@ class GmailController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->canAccessGmailIntegration()) {
+        if (! $user->canAccessGmailIntegration()) {
             abort(403);
         }
 
-        if (!$user->hasGmailConnected()) {
+        if (! $user->hasGmailConnected()) {
             return redirect()->route('gmail.index')
                 ->with('error', 'Gmail is not connected.');
         }
@@ -270,16 +270,16 @@ class GmailController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->canAccessGmailIntegration()) {
+        if (! $user->canAccessGmailIntegration()) {
             abort(403);
         }
 
         // Only salespersons can trigger their own full sync
-        if (!$user->isSalesperson()) {
+        if (! $user->isSalesperson()) {
             abort(403, 'Only salespersons can trigger their own full sync.');
         }
 
-        if (!$user->hasGmailConnected()) {
+        if (! $user->hasGmailConnected()) {
             return redirect()->route('gmail.index')
                 ->with('error', 'Gmail is not connected.');
         }
@@ -298,7 +298,7 @@ class GmailController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             abort(403, 'Only admins can trigger a full sync for all users.');
         }
 
@@ -320,7 +320,7 @@ class GmailController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             abort(403, 'Only admins can backfill company domains.');
         }
 
@@ -336,7 +336,7 @@ class GmailController extends Controller
                 $metadata = FulfilCustomerMetadata::find($customer['id']);
 
                 // Skip if customer already has company_urls set
-                if ($metadata && !empty($metadata->company_urls)) {
+                if ($metadata && ! empty($metadata->company_urls)) {
                     continue;
                 }
 
@@ -362,7 +362,7 @@ class GmailController extends Controller
 
         } catch (\Exception $e) {
             return redirect()->route('gmail.index')
-                ->with('error', 'Failed to backfill domains: ' . $e->getMessage());
+                ->with('error', 'Failed to backfill domains: '.$e->getMessage());
         }
     }
 
@@ -409,7 +409,7 @@ class GmailController extends Controller
      */
     protected function extractDomainFromEmail(string $email): ?string
     {
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (empty($email) || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return null;
         }
 

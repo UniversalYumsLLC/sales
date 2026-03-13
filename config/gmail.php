@@ -14,7 +14,7 @@ return [
 
     'client_id' => env('GMAIL_CLIENT_ID', env('GOOGLE_CLIENT_ID')),
     'client_secret' => env('GMAIL_CLIENT_SECRET', env('GOOGLE_CLIENT_SECRET')),
-    'redirect_uri' => env('GMAIL_REDIRECT_URI', env('APP_URL') . '/gmail/callback'),
+    'redirect_uri' => env('GMAIL_REDIRECT_URI', env('APP_URL').'/gmail/callback'),
 
     /*
     |--------------------------------------------------------------------------

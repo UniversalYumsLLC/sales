@@ -67,7 +67,7 @@ class CustomerController extends Controller
             $domains = $this->extractDomainsFromContacts($data);
 
             // Dispatch Gmail sync job for the new customer's domains (runs in background)
-            if (!empty($domains) && isset($customer['id'])) {
+            if (! empty($domains) && isset($customer['id'])) {
                 SyncGmailForDomains::dispatch($domains, 'customer', $customer['id']);
             }
 
@@ -78,7 +78,7 @@ class CustomerController extends Controller
                 ->with('success', "Customer \"{$customer['name']}\" created successfully.");
         } catch (\Exception $e) {
             return back()
-                ->withErrors(['general' => 'Failed to create customer: ' . $e->getMessage()])
+                ->withErrors(['general' => 'Failed to create customer: '.$e->getMessage()])
                 ->withInput();
         }
     }
@@ -92,7 +92,7 @@ class CustomerController extends Controller
 
         // Extract from buyers
         foreach ($data['buyers'] ?? [] as $buyer) {
-            if (!empty($buyer['email']) && filter_var($buyer['email'], FILTER_VALIDATE_EMAIL)) {
+            if (! empty($buyer['email']) && filter_var($buyer['email'], FILTER_VALIDATE_EMAIL)) {
                 $domain = strtolower(explode('@', $buyer['email'])[1] ?? '');
                 if ($domain) {
                     $domains[] = $domain;
@@ -102,7 +102,7 @@ class CustomerController extends Controller
 
         // Extract from logistics
         foreach ($data['logistics'] ?? [] as $contact) {
-            if (!empty($contact['email']) && filter_var($contact['email'], FILTER_VALIDATE_EMAIL)) {
+            if (! empty($contact['email']) && filter_var($contact['email'], FILTER_VALIDATE_EMAIL)) {
                 $domain = strtolower(explode('@', $contact['email'])[1] ?? '');
                 if ($domain) {
                     $domains[] = $domain;
@@ -156,7 +156,7 @@ class CustomerController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Failed to update customer: ' . $e->getMessage(),
+                'message' => 'Failed to update customer: '.$e->getMessage(),
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -236,14 +236,14 @@ class CustomerController extends Controller
         $validator = Validator::make($data, $rules, $messages);
 
         // Custom validation for accounts_payable value (must be email or URL)
-        $validator->after(function ($validator) use ($data, $isCreate) {
-            if (!empty($data['accounts_payable'])) {
+        $validator->after(function ($validator) use ($data) {
+            if (! empty($data['accounts_payable'])) {
                 foreach ($data['accounts_payable'] as $index => $ap) {
                     $value = $ap['value'] ?? '';
                     $isEmail = filter_var($value, FILTER_VALIDATE_EMAIL);
                     $isUrl = filter_var($value, FILTER_VALIDATE_URL);
 
-                    if (!$isEmail && !$isUrl) {
+                    if (! $isEmail && ! $isUrl) {
                         $validator->errors()->add(
                             "accounts_payable.{$index}.value",
                             'Accounts payable contact must be a valid email address or URL.'
@@ -261,7 +261,7 @@ class CustomerController extends Controller
                 }
 
                 // Broker commission required
-                if (!isset($data['broker_commission']) || $data['broker_commission'] === '' || $data['broker_commission'] === null) {
+                if (! isset($data['broker_commission']) || $data['broker_commission'] === '' || $data['broker_commission'] === null) {
                     $validator->errors()->add('broker_commission', 'Broker commission is required when using a broker.');
                 }
 

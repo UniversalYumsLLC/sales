@@ -40,7 +40,7 @@ class GmailService
             'state' => $state,
         ];
 
-        return $this->config['oauth_url'] . '?' . http_build_query($params);
+        return $this->config['oauth_url'].'?'.http_build_query($params);
     }
 
     /**
@@ -58,7 +58,7 @@ class GmailService
                 'code' => $code,
             ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             Log::error('Gmail token exchange failed', [
                 'status' => $response->status(),
                 'body' => $response->body(),
@@ -83,7 +83,7 @@ class GmailService
                 'grant_type' => 'refresh_token',
             ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             Log::error('Gmail token refresh failed', [
                 'user_id' => $token->user_id,
                 'status' => $response->status(),
@@ -107,9 +107,9 @@ class GmailService
     {
         $response = Http::withToken($accessToken)
             ->timeout(15)
-            ->get($this->config['api_base'] . '/users/me/profile');
+            ->get($this->config['api_base'].'/users/me/profile');
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \Exception('Failed to get Gmail profile');
         }
 
@@ -132,13 +132,13 @@ class GmailService
     /**
      * Sync emails for a user.
      *
-     * @param User $user The user to sync emails for
-     * @param bool $forceFullSync If true, ignores last sync and goes back full 365 days
+     * @param  User  $user  The user to sync emails for
+     * @param  bool  $forceFullSync  If true, ignores last sync and goes back full 365 days
      */
     public function syncEmails(User $user, bool $forceFullSync = false): GmailSyncHistory
     {
         $token = $user->gmailToken;
-        if (!$token) {
+        if (! $token) {
             throw new \Exception('User does not have Gmail connected');
         }
 
@@ -187,6 +187,7 @@ class GmailService
             if (empty($companyDomains) && empty($brokerEmails)) {
                 // No companies with domains or broker emails to match
                 $syncHistory->markCompleted(0, 0);
+
                 return $syncHistory;
             }
 
@@ -223,16 +224,16 @@ class GmailService
      * This is used when a new prospect or customer is created to fetch historical
      * emails for just that entity's domains, without triggering a full sync.
      *
-     * @param User $user The user to sync emails for
-     * @param array $domains The domains to sync (e.g., ['example.com'])
-     * @param string $entityType 'prospect' or 'customer'
-     * @param int $entityId The ID of the prospect or fulfil_party_id
+     * @param  User  $user  The user to sync emails for
+     * @param  array  $domains  The domains to sync (e.g., ['example.com'])
+     * @param  string  $entityType  'prospect' or 'customer'
+     * @param  int  $entityId  The ID of the prospect or fulfil_party_id
      * @return array{fetched: int, matched: int}
      */
     public function syncEmailsForDomains(User $user, array $domains, string $entityType, int $entityId): array
     {
         $token = $user->gmailToken;
-        if (!$token) {
+        if (! $token) {
             throw new \Exception('User does not have Gmail connected');
         }
 
@@ -333,7 +334,7 @@ class GmailService
         // Batch domains to avoid query length limits
         // Each domain adds ~40 chars (from:@domain.com OR to:@domain.com OR)
         // Safe batch size: ~30 domains per query
-        if (!empty($domains)) {
+        if (! empty($domains)) {
             $domainBatches = array_chunk($domains, 30);
 
             foreach ($domainBatches as $batchDomains) {
@@ -346,7 +347,7 @@ class GmailService
 
                 // Build query: date range AND (domain1 OR domain2 OR ...)
                 // Using {} syntax for OR grouping in Gmail
-                $domainFilter = '{' . implode(' ', $domainQueries) . '}';
+                $domainFilter = '{'.implode(' ', $domainQueries).'}';
                 $query = "{$dateQuery} {$domainFilter}";
 
                 Log::debug('Gmail query (domains)', ['query' => $query, 'domains_in_batch' => count($batchDomains)]);
@@ -357,7 +358,7 @@ class GmailService
         }
 
         // Fetch broker emails by exact email address match
-        if (!empty($brokerEmails)) {
+        if (! empty($brokerEmails)) {
             $emailBatches = array_chunk($brokerEmails, 20);
 
             foreach ($emailBatches as $batchEmails) {
@@ -368,7 +369,7 @@ class GmailService
                     $emailQueries[] = "to:{$email}";
                 }
 
-                $emailFilter = '{' . implode(' ', $emailQueries) . '}';
+                $emailFilter = '{'.implode(' ', $emailQueries).'}';
                 $query = "{$dateQuery} {$emailFilter}";
 
                 Log::debug('Gmail query (broker emails)', ['query' => $query, 'emails_in_batch' => count($batchEmails)]);
@@ -402,9 +403,9 @@ class GmailService
 
             $response = Http::withToken($accessToken)
                 ->timeout(30)
-                ->get($this->config['api_base'] . '/users/me/messages', $params);
+                ->get($this->config['api_base'].'/users/me/messages', $params);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::warning('Gmail messages fetch failed', [
                     'status' => $response->status(),
                     'body' => $response->body(),
@@ -438,15 +439,16 @@ class GmailService
 
         $response = Http::withToken($accessToken)
             ->timeout(15)
-            ->get($this->config['api_base'] . '/users/me/messages/' . $messageId, [
+            ->get($this->config['api_base'].'/users/me/messages/'.$messageId, [
                 'format' => 'full',
             ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             Log::warning('Gmail message fetch failed', [
                 'message_id' => $messageId,
                 'status' => $response->status(),
             ]);
+
             return null;
         }
 
@@ -600,7 +602,7 @@ class GmailService
     ): void {
         // Find the prospect contact
         $contact = ProspectContact::where('prospect_id', $prospectId)
-            ->where('value', 'like', '%@' . $matchedDomain)
+            ->where('value', 'like', '%@'.$matchedDomain)
             ->first();
 
         // Create email record
@@ -620,7 +622,7 @@ class GmailService
             'body_text' => $body['text'] ?? null,
             'body_html' => $body['html'] ?? null,
             'email_date' => $emailDate,
-            'has_attachments' => !empty($attachments),
+            'has_attachments' => ! empty($attachments),
             'attachment_info' => $attachments ?: null,
         ]);
 
@@ -665,7 +667,7 @@ class GmailService
                 ->whereRaw('LOWER(value) = ?', [$email])
                 ->first();
 
-            if (!$existingContact) {
+            if (! $existingContact) {
                 // Create uncategorized contact
                 $newContact = ProspectContact::create([
                     'prospect_id' => $prospectId,
@@ -724,7 +726,7 @@ class GmailService
             'body_text' => $body['text'] ?? null,
             'body_html' => $body['html'] ?? null,
             'email_date' => $emailDate,
-            'has_attachments' => !empty($attachments),
+            'has_attachments' => ! empty($attachments),
             'attachment_info' => $attachments ?: null,
         ]);
 
@@ -761,13 +763,13 @@ class GmailService
         // Get existing contact emails from FulfilContactMetadata (tracks known contacts from Fulfil)
         $existingContactEmails = FulfilContactMetadata::where('fulfil_party_id', $fulfilPartyId)
             ->pluck('email')
-            ->map(fn($e) => strtolower($e))
+            ->map(fn ($e) => strtolower($e))
             ->toArray();
 
         // Get existing uncategorized contact emails
         $existingUncategorizedEmails = FulfilUncategorizedContact::where('fulfil_party_id', $fulfilPartyId)
             ->pluck('email')
-            ->map(fn($e) => strtolower($e))
+            ->map(fn ($e) => strtolower($e))
             ->toArray();
 
         $knownEmails = array_merge($existingContactEmails, $existingUncategorizedEmails);
@@ -778,7 +780,7 @@ class GmailService
                 continue; // Not from the company domain
             }
 
-            if (!in_array($email, $knownEmails)) {
+            if (! in_array($email, $knownEmails)) {
                 // Create uncategorized contact
                 $newContact = FulfilUncategorizedContact::create([
                     'fulfil_party_id' => $fulfilPartyId,
@@ -826,7 +828,7 @@ class GmailService
         foreach ($customerMetadata as $metadata) {
             foreach ($metadata->getEmailDomains() as $domain) {
                 // Don't overwrite prospect domains (prospect takes priority if both have same domain)
-                if (!isset($domains[$domain])) {
+                if (! isset($domains[$domain])) {
                     $domains[$domain] = [
                         'type' => 'customer',
                         'id' => $metadata->fulfil_party_id,
@@ -871,7 +873,7 @@ class GmailService
         foreach ($customerBrokerContacts as $contact) {
             $email = strtolower($contact->email);
             // Don't overwrite prospect broker emails (prospect takes priority)
-            if (!isset($emails[$email])) {
+            if (! isset($emails[$email])) {
                 $emails[$email] = [
                     'type' => 'customer',
                     'id' => $contact->fulfil_party_id,
@@ -892,6 +894,7 @@ class GmailService
             $name = strtolower($header['name']);
             $result[$name] = $header['value'];
         }
+
         return $result;
     }
 
@@ -903,6 +906,7 @@ class GmailService
         if (preg_match('/<([^>]+)>/', $value, $matches)) {
             return strtolower(trim($matches[1]));
         }
+
         return strtolower(trim($value));
     }
 
@@ -914,6 +918,7 @@ class GmailService
         if (preg_match('/^"?([^"<]+)"?\s*</', $value, $matches)) {
             return trim($matches[1]);
         }
+
         return null;
     }
 
@@ -962,10 +967,10 @@ class GmailService
         if (isset($payload['parts'])) {
             foreach ($payload['parts'] as $part) {
                 $partBody = $this->parseBody($part);
-                if ($partBody['text'] && !$body['text']) {
+                if ($partBody['text'] && ! $body['text']) {
                     $body['text'] = $partBody['text'];
                 }
-                if ($partBody['html'] && !$body['html']) {
+                if ($partBody['html'] && ! $body['html']) {
                     $body['html'] = $partBody['html'];
                 }
             }
@@ -980,6 +985,7 @@ class GmailService
     protected function decodeBody(string $data): string
     {
         $data = str_replace(['-', '_'], ['+', '/'], $data);
+
         return base64_decode($data);
     }
 
@@ -988,7 +994,7 @@ class GmailService
      */
     protected function parseAttachments(array $payload, array $attachments = []): array
     {
-        if (isset($payload['filename']) && !empty($payload['filename'])) {
+        if (isset($payload['filename']) && ! empty($payload['filename'])) {
             $attachments[] = [
                 'filename' => $payload['filename'],
                 'mimeType' => $payload['mimeType'] ?? 'application/octet-stream',

@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Log;
 class FulfilService
 {
     protected string $baseUrl;
+
     protected string $token;
+
     protected int $cacheTtl;
+
     protected string $cachePrefix;
+
     protected int $maxRetries;
 
     public function __construct(?string $environment = null)
@@ -19,7 +23,7 @@ class FulfilService
         $env = $environment ?? config('fulfil.default');
         $config = config("fulfil.environments.{$env}");
 
-        if (!$config['subdomain'] || !$config['token']) {
+        if (! $config['subdomain'] || ! $config['token']) {
             throw new \RuntimeException("Fulfil {$env} environment not configured");
         }
 
@@ -65,7 +69,7 @@ class FulfilService
                 );
 
                 // Don't retry validation errors - they'll fail every time
-                if (!$isValidationError) {
+                if (! $isValidationError) {
                     $retryAfter = $response->header('Retry-After');
                     $delaySeconds = $retryAfter
                         ? (int) $retryAfter
@@ -80,6 +84,7 @@ class FulfilService
 
                     if ($attempt < $this->maxRetries) {
                         sleep($delaySeconds);
+
                         continue;
                     }
                 }
@@ -102,6 +107,7 @@ class FulfilService
                     'delay_seconds' => $delaySeconds,
                 ]);
                 sleep($delaySeconds);
+
                 continue;
             }
 
@@ -111,7 +117,7 @@ class FulfilService
             }
         }
 
-        throw $lastException ?? new \RuntimeException("Fulfil API error: max retries exceeded");
+        throw $lastException ?? new \RuntimeException('Fulfil API error: max retries exceeded');
     }
 
     /**
@@ -133,7 +139,7 @@ class FulfilService
      */
     protected function cached(string $key, callable $callback, ?int $ttl = null): mixed
     {
-        $cacheKey = $this->cachePrefix . $key;
+        $cacheKey = $this->cachePrefix.$key;
         $ttl = $ttl ?? $this->cacheTtl;
 
         return Cache::remember($cacheKey, $ttl, $callback);
@@ -145,7 +151,7 @@ class FulfilService
     public function clearCache(?string $key = null): void
     {
         if ($key) {
-            Cache::forget($this->cachePrefix . $key);
+            Cache::forget($this->cachePrefix.$key);
         } else {
             // Clear all Fulfil cache by tag or pattern
             Cache::flush(); // Simple approach - in production, use tags
@@ -166,6 +172,7 @@ class FulfilService
         if (is_numeric($value)) {
             return (float) $value;
         }
+
         return null;
     }
 
@@ -188,6 +195,7 @@ class FulfilService
         if (is_array($value) && isset($value['year'], $value['month'], $value['day'])) {
             return sprintf('%04d-%02d-%02d', $value['year'], $value['month'], $value['day']);
         }
+
         return null;
     }
 
@@ -208,6 +216,7 @@ class FulfilService
 
         return $this->cached($cacheKey, function () {
             $contacts = $this->fetchContactsWithAccountManager();
+
             return $this->enrichContacts($contacts);
         });
     }
@@ -307,14 +316,18 @@ class FulfilService
 
         // Parse contact mechanisms
         foreach ($contact['contact_mechanisms'] ?? [] as $mechanismId) {
-            if (!isset($mechanisms[$mechanismId])) continue;
+            if (! isset($mechanisms[$mechanismId])) {
+                continue;
+            }
             $mechanism = $mechanisms[$mechanismId];
             $this->parseContactMechanism($mechanism, $parsed);
         }
 
         // Parse categories for shipping terms
         foreach ($contact['categories'] ?? [] as $categoryId) {
-            if (!isset($categories[$categoryId])) continue;
+            if (! isset($categories[$categoryId])) {
+                continue;
+            }
             $category = $categories[$categoryId];
             $this->parseCategoryForShippingTerms($category, $parsed);
         }
@@ -350,6 +363,7 @@ class FulfilService
             } elseif ($dataType === 'vendor_guide') {
                 $parsed['vendor_guide'] = $dataValue;
             }
+
             return;
         }
 
@@ -363,10 +377,11 @@ class FulfilService
             if ($isEmail) {
                 $parsed['broker_contacts_from_fulfil'][] = ['name' => $contactName, 'email' => $value];
                 // Extract broker company name from the first broker contact found
-                if (!empty($brokerCompany) && empty($parsed['broker_company_name_from_fulfil'])) {
+                if (! empty($brokerCompany) && empty($parsed['broker_company_name_from_fulfil'])) {
                     $parsed['broker_company_name_from_fulfil'] = $brokerCompany;
                 }
             }
+
             return;
         }
 
@@ -429,7 +444,7 @@ class FulfilService
      */
     public function getSalesOrders(array $filters = [], bool $bustCache = false): array
     {
-        $cacheKey = 'sales_orders_' . md5(json_encode($filters));
+        $cacheKey = 'sales_orders_'.md5(json_encode($filters));
 
         if ($bustCache) {
             $this->clearCache($cacheKey);
@@ -437,6 +452,7 @@ class FulfilService
 
         return $this->cached($cacheKey, function () use ($filters) {
             $orders = $this->fetchSalesOrders($filters);
+
             return $this->enrichSalesOrders($orders);
         });
     }
@@ -458,7 +474,7 @@ class FulfilService
         }
 
         if (isset($filters['state'])) {
-            $baseFilters = array_filter($baseFilters, fn($f) => $f[0] !== 'state');
+            $baseFilters = array_filter($baseFilters, fn ($f) => $f[0] !== 'state');
             $baseFilters[] = ['state', 'in', (array) $filters['state']];
         }
 
@@ -594,6 +610,7 @@ class FulfilService
         if (preg_match('/^\[([^\]]+)\]/', $recName, $matches)) {
             return $matches[1];
         }
+
         return null;
     }
 
@@ -606,7 +623,7 @@ class FulfilService
      */
     public function getInvoices(array $filters = [], bool $bustCache = false): array
     {
-        $cacheKey = 'invoices_' . md5(json_encode($filters));
+        $cacheKey = 'invoices_'.md5(json_encode($filters));
 
         if ($bustCache) {
             $this->clearCache($cacheKey);
@@ -696,6 +713,7 @@ class FulfilService
 
         return $this->cached($cacheKey, function () {
             $products = $this->fetchProducts();
+
             return $this->enrichProducts($products);
         });
     }
@@ -715,7 +733,7 @@ class FulfilService
     {
         // First, get the template ID for "RT Finished Goods"
         $templateId = $this->getTemplateIdByName('RT Finished Goods');
-        if (!$templateId) {
+        if (! $templateId) {
             return [];
         }
 
@@ -745,7 +763,7 @@ class FulfilService
      */
     protected function getTemplateIdByName(string $name): ?int
     {
-        $cacheKey = 'template_id_' . md5($name);
+        $cacheKey = 'template_id_'.md5($name);
 
         return $this->cached($cacheKey, function () use ($name) {
             $response = $this->request('PUT', 'model/product.template/search_read', [
@@ -813,7 +831,9 @@ class FulfilService
             ];
 
             foreach ($product['attributes'] ?? [] as $attrId) {
-                if (!isset($attributesById[$attrId])) continue;
+                if (! isset($attributesById[$attrId])) {
+                    continue;
+                }
                 $attr = $attributesById[$attrId];
                 $attrDefId = $attr['attribute'] ?? null;
 
@@ -847,7 +867,9 @@ class FulfilService
      */
     protected function batchFetchByIds(string $endpoint, array $ids, string $fields, int $batchSize = 100): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         $results = [];
         $chunks = array_chunk($ids, $batchSize);
@@ -867,35 +889,45 @@ class FulfilService
 
     protected function fetchContactMechanisms(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         return $this->batchFetchByIds('model/party.contact_mechanism', $ids, 'id,type,value,name,party,active');
     }
 
     protected function fetchCategories(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         return $this->batchFetchByIds('model/party.category', $ids, 'id,name,parent,rec_name');
     }
 
     protected function fetchPriceLists(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         return $this->batchFetchByIds('model/product.price_list', $ids, 'id,name');
     }
 
     protected function fetchPaymentTerms(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         return $this->batchFetchByIds('model/account.invoice.payment_term', $ids, 'id,name');
     }
 
     protected function fetchSalesOrderLines(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         // Batch IDs to avoid URI Too Long (414) errors
         return $this->batchFetchByIds('model/sale.line', $ids, 'id,product,description,quantity,unit_price,amount,rec_name');
@@ -903,7 +935,9 @@ class FulfilService
 
     protected function fetchShipments(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         // Fetch customer shipments with effective_date for done order date calculations
         return $this->batchFetchByIds('model/customer_shipment', $ids, 'id,effective_date,state');
@@ -911,14 +945,18 @@ class FulfilService
 
     protected function fetchProductAttributes(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         return $this->batchFetchByIds('model/product.product.attribute', $ids, 'id,attribute,value,value_selection');
     }
 
     protected function fetchProductTemplates(array $ids): array
     {
-        if (empty($ids)) return [];
+        if (empty($ids)) {
+            return [];
+        }
 
         return $this->batchFetchByIds('model/product.template', $ids, 'id,name');
     }
@@ -950,7 +988,7 @@ class FulfilService
 
             // Transform and filter to wholesale price lists
             return collect($response)
-                ->filter(fn($pl) => str_contains(strtolower($pl['name'] ?? ''), 'wholesale'))
+                ->filter(fn ($pl) => str_contains(strtolower($pl['name'] ?? ''), 'wholesale'))
                 ->map(function ($pl) {
                     // Extract discount percentage from name like "Wholesale 15% Discount"
                     $discount = 0;
@@ -1035,7 +1073,7 @@ class FulfilService
             ]);
 
             return collect($response)
-                ->map(fn($cat) => [
+                ->map(fn ($cat) => [
                     'id' => $cat['id'],
                     'name' => $cat['name'], // "Pickup" or "Delivered"
                 ])
@@ -1057,18 +1095,18 @@ class FulfilService
     /**
      * Create a new customer in Fulfil.
      *
-     * @param array $data Customer data with keys:
-     *   - name: string (required)
-     *   - sale_price_list: int (required) - price list ID
-     *   - customer_payment_term: int (required) - payment term ID
-     *   - shipping_terms_category_id: int (required) - category ID for Pickup/Delivered
-     *   - shelf_life_requirement: int (required) - days
-     *   - vendor_guide: string|null (optional) - URL
-     *   - buyers: array (required, min 1) - [{name, email}, ...]
-     *   - accounts_payable: array (optional) - [{name, value}, ...] where value is email or URL
-     *   - logistics: array (optional) - [{name, email}, ...]
-     *
+     * @param  array  $data  Customer data with keys:
+     *                       - name: string (required)
+     *                       - sale_price_list: int (required) - price list ID
+     *                       - customer_payment_term: int (required) - payment term ID
+     *                       - shipping_terms_category_id: int (required) - category ID for Pickup/Delivered
+     *                       - shelf_life_requirement: int (required) - days
+     *                       - vendor_guide: string|null (optional) - URL
+     *                       - buyers: array (required, min 1) - [{name, email}, ...]
+     *                       - accounts_payable: array (optional) - [{name, value}, ...] where value is email or URL
+     *                       - logistics: array (optional) - [{name, email}, ...]
      * @return array The created customer with ID
+     *
      * @throws \RuntimeException on API errors
      */
     public function createCustomer(array $data): array
@@ -1088,7 +1126,7 @@ class FulfilService
 
         // API returns array of created records: [['id' => 123, 'rec_name' => 'Name'], ...]
         $partyId = $partyResponse[0]['id'] ?? null;
-        if (!$partyId) {
+        if (! $partyId) {
             throw new \RuntimeException('Failed to create customer: no ID returned');
         }
 
@@ -1103,7 +1141,7 @@ class FulfilService
             $contactMechanisms[] = [
                 'party' => $partyId,
                 'type' => 'email',
-                'name' => 'Buyer: ' . $buyer['name'],
+                'name' => 'Buyer: '.$buyer['name'],
                 'value' => $buyer['email'],
             ];
         }
@@ -1114,7 +1152,7 @@ class FulfilService
             $contactMechanisms[] = [
                 'party' => $partyId,
                 'type' => $isUrl ? 'website' : 'email',
-                'name' => 'Accounts Payable: ' . $ap['name'],
+                'name' => 'Accounts Payable: '.$ap['name'],
                 'value' => $ap['value'],
             ];
         }
@@ -1124,7 +1162,7 @@ class FulfilService
             $contactMechanisms[] = [
                 'party' => $partyId,
                 'type' => 'email',
-                'name' => 'Logistics: ' . $logistics['name'],
+                'name' => 'Logistics: '.$logistics['name'],
                 'value' => $logistics['email'],
             ];
         }
@@ -1150,22 +1188,22 @@ class FulfilService
             'party' => $partyId,
             'type' => 'email',
             'name' => 'data',
-            'value' => 'shelf_life_req:' . $data['shelf_life_requirement'],
+            'value' => 'shelf_life_req:'.$data['shelf_life_requirement'],
         ];
 
         // Vendor guide (optional)
         // Using type 'email' so it's exposed to data warehouse
-        if (!empty($data['vendor_guide'])) {
+        if (! empty($data['vendor_guide'])) {
             $contactMechanisms[] = [
                 'party' => $partyId,
                 'type' => 'email',
                 'name' => 'data',
-                'value' => 'vendor_guide:' . $data['vendor_guide'],
+                'value' => 'vendor_guide:'.$data['vendor_guide'],
             ];
         }
 
         // Batch create all contact mechanisms
-        if (!empty($contactMechanisms)) {
+        if (! empty($contactMechanisms)) {
             $this->request('POST', 'model/party.contact_mechanism', [
                 'json' => $contactMechanisms,
             ]);
@@ -1183,8 +1221,8 @@ class FulfilService
     /**
      * Update an existing customer in Fulfil.
      *
-     * @param int $partyId The customer's party ID
-     * @param array $data Customer data (same structure as createCustomer)
+     * @param  int  $partyId  The customer's party ID
+     * @param  array  $data  Customer data (same structure as createCustomer)
      * @return array The updated customer
      */
     public function updateCustomer(int $partyId, array $data): array
@@ -1202,7 +1240,7 @@ class FulfilService
             $partyData['customer_payment_term'] = $data['customer_payment_term'];
         }
 
-        if (!empty($partyData)) {
+        if (! empty($partyData)) {
             $this->request('PUT', "model/party.party/{$partyId}", [
                 'json' => $partyData,
             ]);
@@ -1269,11 +1307,11 @@ class FulfilService
         }
 
         // Add new category if not already present
-        if (!in_array($newCategoryId, $currentCategories)) {
+        if (! in_array($newCategoryId, $currentCategories)) {
             $operations[] = ['add', [$newCategoryId]];
         }
 
-        if (!empty($operations)) {
+        if (! empty($operations)) {
             $this->request('PUT', "model/party.party/{$partyId}", [
                 'json' => [
                     'categories' => $operations,
@@ -1320,20 +1358,21 @@ class FulfilService
         // Helper to find existing mechanism by name pattern
         $findExisting = function (string $namePrefix) use ($existing, &$matchedIds) {
             foreach ($existing as $mech) {
-                if (str_starts_with($mech['name'] ?? '', $namePrefix) && !in_array($mech['id'], $matchedIds)) {
+                if (str_starts_with($mech['name'] ?? '', $namePrefix) && ! in_array($mech['id'], $matchedIds)) {
                     return $mech;
                 }
             }
+
             return null;
         };
 
         // Process buyers
         if (isset($data['buyers'])) {
             // Mark all existing buyer mechanisms for potential deletion
-            $existingBuyers = array_filter($existing, fn($m) => str_starts_with($m['name'] ?? '', 'Buyer:'));
+            $existingBuyers = array_filter($existing, fn ($m) => str_starts_with($m['name'] ?? '', 'Buyer:'));
 
             foreach ($data['buyers'] as $buyer) {
-                $mechName = 'Buyer: ' . $buyer['name'];
+                $mechName = 'Buyer: '.$buyer['name'];
                 $found = collect($existingBuyers)->firstWhere('name', $mechName);
 
                 if ($found) {
@@ -1353,7 +1392,7 @@ class FulfilService
 
             // Delete unmatched existing buyers
             foreach ($existingBuyers as $eb) {
-                if (!in_array($eb['id'], $matchedIds)) {
+                if (! in_array($eb['id'], $matchedIds)) {
                     $toDelete[] = $eb['id'];
                 }
             }
@@ -1361,10 +1400,10 @@ class FulfilService
 
         // Process accounts payable
         if (isset($data['accounts_payable'])) {
-            $existingAP = array_filter($existing, fn($m) => str_starts_with($m['name'] ?? '', 'Accounts Payable:'));
+            $existingAP = array_filter($existing, fn ($m) => str_starts_with($m['name'] ?? '', 'Accounts Payable:'));
 
             foreach ($data['accounts_payable'] as $ap) {
-                $mechName = 'Accounts Payable: ' . $ap['name'];
+                $mechName = 'Accounts Payable: '.$ap['name'];
                 $isUrl = str_starts_with($ap['value'], 'http://') || str_starts_with($ap['value'], 'https://');
                 $found = collect($existingAP)->firstWhere('name', $mechName);
 
@@ -1388,7 +1427,7 @@ class FulfilService
             }
 
             foreach ($existingAP as $eap) {
-                if (!in_array($eap['id'], $matchedIds)) {
+                if (! in_array($eap['id'], $matchedIds)) {
                     $toDelete[] = $eap['id'];
                 }
             }
@@ -1396,10 +1435,10 @@ class FulfilService
 
         // Process logistics
         if (isset($data['logistics'])) {
-            $existingLogistics = array_filter($existing, fn($m) => str_starts_with($m['name'] ?? '', 'Logistics:'));
+            $existingLogistics = array_filter($existing, fn ($m) => str_starts_with($m['name'] ?? '', 'Logistics:'));
 
             foreach ($data['logistics'] as $logistics) {
-                $mechName = 'Logistics: ' . $logistics['name'];
+                $mechName = 'Logistics: '.$logistics['name'];
                 $found = collect($existingLogistics)->firstWhere('name', $mechName);
 
                 if ($found) {
@@ -1418,7 +1457,7 @@ class FulfilService
             }
 
             foreach ($existingLogistics as $el) {
-                if (!in_array($el['id'], $matchedIds)) {
+                if (! in_array($el['id'], $matchedIds)) {
                     $toDelete[] = $el['id'];
                 }
             }
@@ -1428,7 +1467,7 @@ class FulfilService
         // Format: "Broker (Company Name): Contact Name"
         if (isset($data['broker_contacts'])) {
             $brokerCompanyName = $data['broker_company_name'] ?? '';
-            $existingBrokers = array_filter($existing, fn($m) => preg_match('/^Broker\s*(?:\([^)]*\))?\s*:/i', $m['name'] ?? ''));
+            $existingBrokers = array_filter($existing, fn ($m) => preg_match('/^Broker\s*(?:\([^)]*\))?\s*:/i', $m['name'] ?? ''));
 
             foreach ($data['broker_contacts'] as $broker) {
                 // Build mechanism name with company name if provided
@@ -1469,7 +1508,7 @@ class FulfilService
             }
 
             foreach ($existingBrokers as $eb) {
-                if (!in_array($eb['id'], $matchedIds)) {
+                if (! in_array($eb['id'], $matchedIds)) {
                     $toDelete[] = $eb['id'];
                 }
             }
@@ -1477,11 +1516,11 @@ class FulfilService
 
         // Process shelf life requirement
         if (isset($data['shelf_life_requirement'])) {
-            $existingShelfLife = collect($existing)->first(fn($m) => $m['name'] === 'data' && str_starts_with($m['value'] ?? '', 'shelf_life_req:'));
+            $existingShelfLife = collect($existing)->first(fn ($m) => $m['name'] === 'data' && str_starts_with($m['value'] ?? '', 'shelf_life_req:'));
 
             if ($existingShelfLife) {
                 $matchedIds[] = $existingShelfLife['id'];
-                $newValue = 'shelf_life_req:' . $data['shelf_life_requirement'];
+                $newValue = 'shelf_life_req:'.$data['shelf_life_requirement'];
                 if ($existingShelfLife['value'] !== $newValue) {
                     $toUpdate[] = ['id' => $existingShelfLife['id'], 'value' => $newValue];
                 }
@@ -1491,14 +1530,14 @@ class FulfilService
                     'party' => $partyId,
                     'type' => 'email',
                     'name' => 'data',
-                    'value' => 'shelf_life_req:' . $data['shelf_life_requirement'],
+                    'value' => 'shelf_life_req:'.$data['shelf_life_requirement'],
                 ];
             }
         }
 
         // Process vendor guide
         if (array_key_exists('vendor_guide', $data)) {
-            $existingVendorGuide = collect($existing)->first(fn($m) => $m['name'] === 'data' && str_starts_with($m['value'] ?? '', 'vendor_guide:'));
+            $existingVendorGuide = collect($existing)->first(fn ($m) => $m['name'] === 'data' && str_starts_with($m['value'] ?? '', 'vendor_guide:'));
 
             if ($existingVendorGuide) {
                 $matchedIds[] = $existingVendorGuide['id'];
@@ -1506,24 +1545,24 @@ class FulfilService
                     // Delete if cleared
                     $toDelete[] = $existingVendorGuide['id'];
                 } else {
-                    $newValue = 'vendor_guide:' . $data['vendor_guide'];
+                    $newValue = 'vendor_guide:'.$data['vendor_guide'];
                     if ($existingVendorGuide['value'] !== $newValue) {
                         $toUpdate[] = ['id' => $existingVendorGuide['id'], 'value' => $newValue];
                     }
                 }
-            } elseif (!empty($data['vendor_guide'])) {
+            } elseif (! empty($data['vendor_guide'])) {
                 // Using type 'email' so it's exposed to data warehouse
                 $toCreate[] = [
                     'party' => $partyId,
                     'type' => 'email',
                     'name' => 'data',
-                    'value' => 'vendor_guide:' . $data['vendor_guide'],
+                    'value' => 'vendor_guide:'.$data['vendor_guide'],
                 ];
             }
         }
 
         // Execute operations
-        if (!empty($toCreate)) {
+        if (! empty($toCreate)) {
             $this->request('POST', 'model/party.contact_mechanism', [
                 'json' => $toCreate,
             ]);
@@ -1537,7 +1576,7 @@ class FulfilService
             ]);
         }
 
-        if (!empty($toDelete)) {
+        if (! empty($toDelete)) {
             $this->request('DELETE', 'model/party.contact_mechanism', [
                 'json' => $toDelete,
             ]);

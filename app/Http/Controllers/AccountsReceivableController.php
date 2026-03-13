@@ -39,6 +39,7 @@ class AccountsReceivableController extends Controller
             if ($b['total_overdue'] !== $a['total_overdue']) {
                 return $b['total_overdue'] <=> $a['total_overdue'];
             }
+
             return $b['total_due'] <=> $a['total_due'];
         });
 
@@ -117,7 +118,7 @@ class AccountsReceivableController extends Controller
 
             // Get AP contact names
             $apNames = array_slice(
-                array_map(fn($c) => $c['name'], $customer['accounts_payable'] ?? []),
+                array_map(fn ($c) => $c['name'], $customer['accounts_payable'] ?? []),
                 0,
                 3
             );
@@ -131,6 +132,6 @@ class AccountsReceivableController extends Controller
                 'total_overdue' => $totalOverdue,
                 'total_severely_overdue' => $totalSeverelyOverdue,
             ];
-        }, $customers), fn($c) => $c !== null);
+        }, $customers), fn ($c) => $c !== null);
     }
 }

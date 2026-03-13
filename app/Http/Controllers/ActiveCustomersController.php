@@ -8,8 +8,8 @@ use App\Models\FulfilContactMetadata;
 use App\Models\FulfilCustomerMetadata;
 use App\Models\FulfilUncategorizedContact;
 use App\Services\FulfilService;
-use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
@@ -89,7 +89,7 @@ class ActiveCustomersController extends Controller
         $customers = $this->getActiveCustomersWithMetrics($bustCache);
         $customer = collect($customers)->firstWhere('id', $id);
 
-        if (!$customer) {
+        if (! $customer) {
             abort(404, 'Customer not found');
         }
 
@@ -113,7 +113,7 @@ class ActiveCustomersController extends Controller
         $customer['broker_company_name'] = $localMetadata?->broker_company_name;
 
         // Get broker contacts
-        $brokerContacts = FulfilBrokerContact::where('fulfil_party_id', $id)->get()->map(fn($c) => [
+        $brokerContacts = FulfilBrokerContact::where('fulfil_party_id', $id)->get()->map(fn ($c) => [
             'id' => $c->id,
             'name' => $c->name,
             'email' => $c->email,
@@ -128,7 +128,7 @@ class ActiveCustomersController extends Controller
         $localContacts = FulfilUncategorizedContact::where('fulfil_party_id', $id)->get();
 
         // Separate uncategorized from categorized local contacts
-        $uncategorizedContacts = $localContacts->whereNull('type')->map(fn($c) => [
+        $uncategorizedContacts = $localContacts->whereNull('type')->map(fn ($c) => [
             'id' => $c->id,
             'name' => $c->name,
             'email' => $c->email,
@@ -137,7 +137,7 @@ class ActiveCustomersController extends Controller
         ])->values()->toArray();
 
         // Merge categorized local contacts with Fulfil contacts
-        $localBuyers = $localContacts->where('type', 'buyer')->map(fn($c) => [
+        $localBuyers = $localContacts->where('type', 'buyer')->map(fn ($c) => [
             'id' => $c->id,
             'name' => $c->name,
             'email' => $c->email,
@@ -146,14 +146,14 @@ class ActiveCustomersController extends Controller
             'last_received_at' => $c->last_received_at?->toIso8601String(),
         ])->values()->toArray();
 
-        $localAP = $localContacts->where('type', 'accounts_payable')->map(fn($c) => [
+        $localAP = $localContacts->where('type', 'accounts_payable')->map(fn ($c) => [
             'id' => $c->id,
             'name' => $c->name,
             'email' => $c->email,
             'is_local' => true,
         ])->values()->toArray();
 
-        $localLogistics = $localContacts->where('type', 'logistics')->map(fn($c) => [
+        $localLogistics = $localContacts->where('type', 'logistics')->map(fn ($c) => [
             'id' => $c->id,
             'name' => $c->name,
             'email' => $c->email,
@@ -232,7 +232,7 @@ class ActiveCustomersController extends Controller
             $hasDoneOrder = $partyOrders->where('state', 'done')->isNotEmpty();
             $hasOpenOrder = $partyOrders->whereIn('state', ['confirmed', 'processing'])->isNotEmpty();
 
-            if (!$hasDoneOrder && !$hasOpenOrder) {
+            if (! $hasDoneOrder && ! $hasOpenOrder) {
                 return null; // Not an active customer
             }
 
@@ -247,7 +247,10 @@ class ActiveCustomersController extends Controller
                 ->where('state', 'done')
                 ->filter(function ($order) use ($t12mStart) {
                     $effectiveDate = $this->getEffectiveDate($order);
-                    if (!$effectiveDate) return false;
+                    if (! $effectiveDate) {
+                        return false;
+                    }
+
                     return $effectiveDate->gte($t12mStart);
                 });
             $t12mRevenue = $t12mOrders->sum('total_amount');
@@ -257,7 +260,10 @@ class ActiveCustomersController extends Controller
                 ->where('state', 'done')
                 ->filter(function ($order) use ($t12mStart, $t24mStart) {
                     $effectiveDate = $this->getEffectiveDate($order);
-                    if (!$effectiveDate) return false;
+                    if (! $effectiveDate) {
+                        return false;
+                    }
+
                     return $effectiveDate->gte($t24mStart) && $effectiveDate->lt($t12mStart);
                 });
             $priorYearRevenue = $priorYearOrders->sum('total_amount');
@@ -266,8 +272,11 @@ class ActiveCustomersController extends Controller
             $overdueInvoices = $partyInvoices
                 ->where('balance', '>', 0)
                 ->filter(function ($invoice) use ($today) {
-                    if (!$invoice['due_date']) return false;
+                    if (! $invoice['due_date']) {
+                        return false;
+                    }
                     $dueDate = Carbon::parse($invoice['due_date'])->startOfDay();
+
                     // Invoice is overdue if due date is before today
                     return $dueDate->isBefore($today);
                 });
@@ -276,8 +285,11 @@ class ActiveCustomersController extends Controller
 
             // Calculate late shipments (open orders with shipping_end_date in the past)
             $lateShipments = $openOrders->filter(function ($order) use ($today) {
-                if (!$order['shipping_end_date']) return false;
+                if (! $order['shipping_end_date']) {
+                    return false;
+                }
                 $shipDate = Carbon::parse($order['shipping_end_date'])->startOfDay();
+
                 return $shipDate->isBefore($today);
             });
             $lateShipmentsCount = $lateShipments->count();
@@ -296,10 +308,10 @@ class ActiveCustomersController extends Controller
         }, $customers);
 
         // Filter out non-active and null entries
-        $activeCustomers = array_values(array_filter($mappedCustomers, fn($c) => $c !== null));
+        $activeCustomers = array_values(array_filter($mappedCustomers, fn ($c) => $c !== null));
 
         // Sort by T12M revenue from high to low
-        usort($activeCustomers, fn($a, $b) => $b['t12m_revenue'] <=> $a['t12m_revenue']);
+        usort($activeCustomers, fn ($a, $b) => $b['t12m_revenue'] <=> $a['t12m_revenue']);
 
         return $activeCustomers;
     }
@@ -329,10 +341,14 @@ class ActiveCustomersController extends Controller
         // Sum revenue by month for done orders
         // Uses shipping_end_date if available, falls back to sale_date
         foreach ($salesOrders as $order) {
-            if ($order['state'] !== 'done') continue;
+            if ($order['state'] !== 'done') {
+                continue;
+            }
 
             $date = $this->getEffectiveDate($order);
-            if (!$date) continue;
+            if (! $date) {
+                continue;
+            }
 
             // Check if it falls in current T12M period
             $key = $date->format('Y-m');
@@ -362,14 +378,18 @@ class ActiveCustomersController extends Controller
         $productStats = [];
 
         foreach ($salesOrders as $order) {
-            if ($order['state'] !== 'done') continue;
+            if ($order['state'] !== 'done') {
+                continue;
+            }
 
             $date = $this->getEffectiveDate($order);
-            if (!$date || $date->lt($t12mStart)) continue;
+            if (! $date || $date->lt($t12mStart)) {
+                continue;
+            }
 
             foreach ($order['lines'] ?? [] as $line) {
                 $sku = $line['sku'] ?? 'Unknown';
-                if (!isset($productStats[$sku])) {
+                if (! isset($productStats[$sku])) {
                     $productStats[$sku] = [
                         'sku' => $sku,
                         'name' => $line['description'] ?? $sku,
@@ -465,7 +485,7 @@ class ActiveCustomersController extends Controller
         // Get all contact metadata for this customer
         $metadata = FulfilContactMetadata::where('fulfil_party_id', $partyId)
             ->get()
-            ->keyBy(fn($m) => strtolower($m->email));
+            ->keyBy(fn ($m) => strtolower($m->email));
 
         return array_map(function ($contact) use ($metadata) {
             $email = strtolower($contact['email'] ?? '');
@@ -497,7 +517,9 @@ class ActiveCustomersController extends Controller
         // Normalize URLs (extract domains, lowercase)
         $urls = array_values(array_filter(array_map(function ($url) {
             $url = trim($url);
-            if (empty($url)) return null;
+            if (empty($url)) {
+                return null;
+            }
 
             // Extract domain from URL if it looks like a full URL
             if (preg_match('/^https?:\/\//', $url)) {
@@ -598,7 +620,7 @@ class ActiveCustomersController extends Controller
             $updateData['email'] = strtolower($request->email);
         }
 
-        if (!empty($updateData)) {
+        if (! empty($updateData)) {
             $contact->update($updateData);
         }
 
@@ -704,7 +726,7 @@ class ActiveCustomersController extends Controller
             // Create new broker contacts
             $contacts = $request->broker_contacts ?? [];
             foreach ($contacts as $contactData) {
-                if (!empty($contactData['name'])) {
+                if (! empty($contactData['name'])) {
                     FulfilBrokerContact::create([
                         'fulfil_party_id' => $id,
                         'name' => $contactData['name'],
@@ -801,7 +823,7 @@ class ActiveCustomersController extends Controller
             $updateData['email'] = strtolower($request->email);
         }
 
-        if (!empty($updateData)) {
+        if (! empty($updateData)) {
             $contact->update($updateData);
         }
 
@@ -844,7 +866,7 @@ class ActiveCustomersController extends Controller
         $customers = $this->fulfil->getActiveCustomers();
         $customer = collect($customers)->firstWhere('id', $id);
 
-        if (!$customer) {
+        if (! $customer) {
             abort(404, 'Customer not found');
         }
 
@@ -941,7 +963,7 @@ class ActiveCustomersController extends Controller
      */
     protected function getEmailSnippet(?string $bodyText, int $length = 100): string
     {
-        if (!$bodyText) {
+        if (! $bodyText) {
             return '';
         }
 
@@ -952,6 +974,6 @@ class ActiveCustomersController extends Controller
             return $text;
         }
 
-        return substr($text, 0, $length) . '...';
+        return substr($text, 0, $length).'...';
     }
 }

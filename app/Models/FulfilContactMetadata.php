@@ -41,7 +41,7 @@ class FulfilContactMetadata extends Model
      */
     public function recordEmailSent(\DateTime $date): void
     {
-        if (!$this->last_emailed_at || $date > $this->last_emailed_at) {
+        if (! $this->last_emailed_at || $date > $this->last_emailed_at) {
             $this->last_emailed_at = $date;
             $this->save();
         }
@@ -52,7 +52,7 @@ class FulfilContactMetadata extends Model
      */
     public function recordEmailReceived(\DateTime $date): void
     {
-        if (!$this->last_received_at || $date > $this->last_received_at) {
+        if (! $this->last_received_at || $date > $this->last_received_at) {
             $this->last_received_at = $date;
             $this->save();
         }

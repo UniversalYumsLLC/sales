@@ -11,9 +11,13 @@ class ProspectContact extends Model
     use HasFactory;
 
     const TYPE_BUYER = 'buyer';
+
     const TYPE_ACCOUNTS_PAYABLE = 'accounts_payable';
+
     const TYPE_LOGISTICS = 'logistics';
+
     const TYPE_UNCATEGORIZED = 'uncategorized';
+
     const TYPE_BROKER = 'broker';
 
     /**
@@ -49,10 +53,11 @@ class ProspectContact extends Model
      */
     public function getEmailDomain(): ?string
     {
-        if (empty($this->value) || !filter_var($this->value, FILTER_VALIDATE_EMAIL)) {
+        if (empty($this->value) || ! filter_var($this->value, FILTER_VALIDATE_EMAIL)) {
             return null;
         }
         $parts = explode('@', $this->value);
+
         return count($parts) === 2 ? strtolower($parts[1]) : null;
     }
 

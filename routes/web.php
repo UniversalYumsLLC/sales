@@ -1,13 +1,12 @@
 <?php
 
-use App\Http\Controllers\ActiveCustomersController;
 use App\Http\Controllers\AccountsReceivableController;
+use App\Http\Controllers\ActiveCustomersController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\GmailController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProspectController;
 use App\Http\Controllers\UserManagementController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
