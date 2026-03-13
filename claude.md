@@ -172,10 +172,10 @@ Every change should be tested. Run the minimum needed tests with `php artisan te
 4. `composer run dev` (runs server + queue + logs + vite concurrently)
 
 ## Production Deployment
-- **Hosting**: Laravel Forge
+- **Hosting**: Laravel Forge (sales.yums.com)
 - **Database**: MySQL 8.0
-- **Queue**: Database driver
-- **Deploy**: Automatic on push to main branch
+- **Queue**: Database driver with daemon worker
+- **Auto-deploy**: Enabled - pushes to `main` trigger automatic deployment
 - **Deploy Script**:
 ```bash
 $CREATE_RELEASE()
