@@ -11,10 +11,16 @@ interface Invoice {
     days_overdue: number; // positive = overdue, negative = days until due
 }
 
+interface APContact {
+    name: string;
+    value: string;
+    type: 'portal' | 'inbox';
+}
+
 interface Customer {
     id: number;
     name: string;
-    ap_contact_names: string[];
+    ap_contacts: APContact[];
     invoices: Invoice[];
     total_due: number;
     total_overdue: number;
@@ -32,6 +38,7 @@ interface Props {
     totals: Totals;
     search: string;
     lastUpdated: string;
+    fulfilSubdomain: string;
 }
 
 function formatCurrency(amount: number): string {
@@ -60,7 +67,11 @@ function getInvoiceStatus(daysOverdue: number): { text: string; className: strin
     }
 }
 
-export default function Index({ customers, totals, search, lastUpdated }: Props) {
+function getInvoiceUrl(subdomain: string, invoiceId: number): string {
+    return `https://${subdomain}.fulfil.io/v2/erp/model/account.invoice/${invoiceId}`;
+}
+
+export default function Index({ customers, totals, search, lastUpdated, fulfilSubdomain }: Props) {
     const [searchTerm, setSearchTerm] = useState(search);
     const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null);
 
@@ -100,7 +111,7 @@ export default function Index({ customers, totals, search, lastUpdated }: Props)
                     {/* Summary Cards */}
                     <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
                         <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <div className="text-sm font-medium text-gray-500">Customers</div>
+                            <div className="text-sm font-medium text-gray-500">Customers with Outstanding Invoices</div>
                             <div className="mt-1 text-2xl font-semibold text-gray-900">
                                 {customers.length}
                             </div>
@@ -155,15 +166,8 @@ export default function Index({ customers, totals, search, lastUpdated }: Props)
                                             className="flex cursor-pointer items-center justify-between p-4 hover:bg-gray-50"
                                             onClick={() => toggleExpanded(customer.id)}
                                         >
-                                            <div>
-                                                <div className="font-medium text-gray-900">
-                                                    {customer.name}
-                                                </div>
-                                                {customer.ap_contact_names.length > 0 && (
-                                                    <div className="text-sm text-gray-500">
-                                                        AP: {customer.ap_contact_names.join(', ')}
-                                                    </div>
-                                                )}
+                                            <div className="font-medium text-gray-900">
+                                                {customer.name}
                                             </div>
                                             <div className="flex items-center gap-6">
                                                 <div className="text-right">
@@ -230,7 +234,17 @@ export default function Index({ customers, totals, search, lastUpdated }: Props)
                                                             return (
                                                                 <tr key={invoice.id}>
                                                                     <td className="py-2 text-sm text-gray-900">
-                                                                        {invoice.number || '-'}
+                                                                        {invoice.number ? (
+                                                                            <a
+                                                                                href={getInvoiceUrl(fulfilSubdomain, invoice.id)}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                            >
+                                                                                {invoice.number}
+                                                                            </a>
+                                                                        ) : '-'}
                                                                     </td>
                                                                     <td className="py-2 text-sm text-gray-500">
                                                                         {formatDate(invoice.due_date)}
@@ -249,6 +263,55 @@ export default function Index({ customers, totals, search, lastUpdated }: Props)
                                                         })}
                                                     </tbody>
                                                 </table>
+
+                                                {/* AP Contacts Section */}
+                                                {customer.ap_contacts.length > 0 && (
+                                                    <div className="mt-6 pt-4 border-t border-gray-200">
+                                                        <h4 className="text-xs font-medium uppercase text-gray-500 mb-3">AP Contacts</h4>
+                                                        {(() => {
+                                                            const portalContact = customer.ap_contacts.find(c => c.type === 'portal');
+                                                            const inboxContacts = customer.ap_contacts.filter(c => c.type === 'inbox');
+
+                                                            return (
+                                                                <div className="space-y-2">
+                                                                    {portalContact && (
+                                                                        <div className="flex items-center gap-4 text-sm">
+                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                                                                Portal
+                                                                            </span>
+                                                                            <a
+                                                                                href={portalContact.value}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                            >
+                                                                                {portalContact.value}
+                                                                            </a>
+                                                                        </div>
+                                                                    )}
+                                                                    {inboxContacts.map((contact, idx) => (
+                                                                        <div key={idx} className="flex items-center gap-4 text-sm">
+                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                Inbox
+                                                                            </span>
+                                                                            <span className="text-gray-900">{contact.name}</span>
+                                                                            {contact.value && (
+                                                                                <a
+                                                                                    href={`mailto:${contact.value}`}
+                                                                                    className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                >
+                                                                                    {contact.value}
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

@@ -636,7 +636,7 @@ class GmailService
         }
 
         // Discover new contacts from this email
-        $this->discoverProspectContacts($prospectId, $matchedDomain, $fromEmail, $toEmails, $ccEmails, $direction, $emailDate);
+        $this->discoverProspectContacts($prospectId, $matchedDomain, $fromEmail, $toEmails, $ccEmails, $direction, $emailDate, $headers);
     }
 
     /**
@@ -649,7 +649,8 @@ class GmailService
         array $toEmails,
         array $ccEmails,
         string $direction,
-        Carbon $emailDate
+        Carbon $emailDate,
+        array $headers
     ): void {
         // Collect all emails that match the prospect's domain
         $allEmails = array_merge([$fromEmail], $toEmails, $ccEmails);
@@ -672,7 +673,7 @@ class GmailService
                 $newContact = ProspectContact::create([
                     'prospect_id' => $prospectId,
                     'type' => ProspectContact::TYPE_UNCATEGORIZED,
-                    'name' => $this->extractName($email) ?? '',
+                    'name' => $this->extractNameForEmail($email, $headers) ?? '',
                     'value' => $email,
                 ]);
 
@@ -740,7 +741,7 @@ class GmailService
         }
 
         // Discover new contacts from this email
-        $this->discoverCustomerContacts($fulfilPartyId, $matchedDomain, $fromEmail, $toEmails, $ccEmails, $direction, $emailDate);
+        $this->discoverCustomerContacts($fulfilPartyId, $matchedDomain, $fromEmail, $toEmails, $ccEmails, $direction, $emailDate, $headers);
     }
 
     /**
@@ -753,7 +754,8 @@ class GmailService
         array $toEmails,
         array $ccEmails,
         string $direction,
-        Carbon $emailDate
+        Carbon $emailDate,
+        array $headers
     ): void {
         // Collect all emails that match the customer's domain
         $allEmails = array_merge([$fromEmail], $toEmails, $ccEmails);
@@ -784,7 +786,7 @@ class GmailService
                 // Create uncategorized contact
                 $newContact = FulfilUncategorizedContact::create([
                     'fulfil_party_id' => $fulfilPartyId,
-                    'name' => '',
+                    'name' => $this->extractNameForEmail($email, $headers) ?? '',
                     'email' => $email,
                 ]);
 
@@ -917,6 +919,36 @@ class GmailService
     {
         if (preg_match('/^"?([^"<]+)"?\s*</', $value, $matches)) {
             return trim($matches[1]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the name associated with an email address from email headers.
+     * Searches through from, to, and cc headers to find the matching email and extract the name.
+     */
+    protected function extractNameForEmail(string $email, array $headers): ?string
+    {
+        $emailLower = strtolower($email);
+
+        // Check each header field that might contain the email
+        foreach (['from', 'to', 'cc'] as $field) {
+            if (empty($headers[$field])) {
+                continue;
+            }
+
+            // Split by comma for multiple recipients
+            $parts = preg_split('/,\s*/', $headers[$field]);
+            foreach ($parts as $part) {
+                $partEmail = $this->extractEmail($part);
+                if (strtolower($partEmail) === $emailLower) {
+                    $name = $this->extractName($part);
+                    if ($name) {
+                        return $name;
+                    }
+                }
+            }
         }
 
         return null;

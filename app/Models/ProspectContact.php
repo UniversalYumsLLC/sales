@@ -14,7 +14,7 @@ class ProspectContact extends Model
 
     const TYPE_ACCOUNTS_PAYABLE = 'accounts_payable';
 
-    const TYPE_LOGISTICS = 'logistics';
+    const TYPE_OTHER = 'other';
 
     const TYPE_UNCATEGORIZED = 'uncategorized';
 
@@ -26,12 +26,13 @@ class ProspectContact extends Model
     const CATEGORIZABLE_TYPES = [
         self::TYPE_BUYER,
         self::TYPE_ACCOUNTS_PAYABLE,
-        self::TYPE_LOGISTICS,
+        self::TYPE_OTHER,
     ];
 
     protected $fillable = [
         'prospect_id',
         'type',
+        'function',
         'name',
         'value',
         'last_emailed_at',

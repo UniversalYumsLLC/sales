@@ -199,7 +199,7 @@ class ProspectController extends Controller
      */
     public function show(int $id): Response
     {
-        $prospect = Prospect::with(['buyers', 'accountsPayable', 'logistics', 'uncategorized', 'brokerContacts', 'products'])->findOrFail($id);
+        $prospect = Prospect::with(['buyers', 'accountsPayable', 'other', 'uncategorized', 'brokerContacts', 'products'])->findOrFail($id);
 
         // Get all products for the dropdown
         $products = $this->fulfil->getProducts();
@@ -258,10 +258,11 @@ class ProspectController extends Controller
                     'name' => $c->name,
                     'value' => $c->value,
                 ])->toArray(),
-                'logistics' => $prospect->logistics->map(fn ($c) => [
+                'other' => $prospect->other->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'value' => $c->value,
+                    'function' => $c->function,
                 ])->toArray(),
                 'uncategorized' => $prospect->uncategorized->map(fn ($c) => [
                     'id' => $c->id,
@@ -312,9 +313,10 @@ class ProspectController extends Controller
             'accounts_payable' => ['sometimes', 'array'],
             'accounts_payable.*.name' => ['required_with:accounts_payable', 'string', 'min:1', 'max:100'],
             'accounts_payable.*.value' => ['nullable', 'string', 'max:500'],
-            'logistics' => ['sometimes', 'array'],
-            'logistics.*.name' => ['required_with:logistics', 'string', 'min:1', 'max:100'],
-            'logistics.*.value' => ['nullable', 'email', 'max:255'],
+            'other' => ['sometimes', 'array'],
+            'other.*.name' => ['required_with:other', 'string', 'min:1', 'max:100'],
+            'other.*.value' => ['nullable', 'email', 'max:255'],
+            'other.*.function' => ['nullable', 'string', 'max:100'],
             'uncategorized' => ['sometimes', 'array'],
             'uncategorized.*.name' => ['required_with:uncategorized', 'string', 'min:1', 'max:100'],
             'uncategorized.*.value' => ['nullable', 'email', 'max:255'],
@@ -325,8 +327,8 @@ class ProspectController extends Controller
             'buyers.*.name.required_with' => 'Buyer name is required.',
             'buyers.*.value.email' => 'Please enter a valid email address.',
             'accounts_payable.*.name.required_with' => 'AP contact name is required.',
-            'logistics.*.name.required_with' => 'Logistics contact name is required.',
-            'logistics.*.value.email' => 'Please enter a valid email address.',
+            'other.*.name.required_with' => 'Other contact name is required.',
+            'other.*.value.email' => 'Please enter a valid email address.',
             'uncategorized.*.name.required_with' => 'Contact name is required.',
             'uncategorized.*.value.email' => 'Please enter a valid email address.',
             'broker_contacts.*.name.required_with' => 'Broker contact name is required.',
@@ -420,16 +422,17 @@ class ProspectController extends Controller
                     }
                 }
 
-                // Update logistics if provided
-                if (isset($validated['logistics'])) {
-                    $prospect->logistics()->delete();
-                    foreach ($validated['logistics'] as $contact) {
+                // Update other contacts if provided
+                if (isset($validated['other'])) {
+                    $prospect->other()->delete();
+                    foreach ($validated['other'] as $contact) {
                         if (! empty($contact['name'])) {
                             ProspectContact::create([
                                 'prospect_id' => $prospect->id,
-                                'type' => ProspectContact::TYPE_LOGISTICS,
+                                'type' => ProspectContact::TYPE_OTHER,
                                 'name' => $contact['name'],
                                 'value' => $contact['value'] ?? null,
+                                'function' => $contact['function'] ?? null,
                             ]);
                         }
                     }
@@ -480,7 +483,7 @@ class ProspectController extends Controller
 
             return response()->json([
                 'message' => 'Prospect updated successfully',
-                'prospect' => $prospect->fresh(['buyers', 'accountsPayable', 'logistics', 'products']),
+                'prospect' => $prospect->fresh(['buyers', 'accountsPayable', 'other', 'products']),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -495,7 +498,7 @@ class ProspectController extends Controller
      */
     protected function autoAddDomainsFromContacts(Prospect $prospect, array $validated): void
     {
-        $contactTypes = ['buyers', 'accounts_payable', 'logistics', 'uncategorized'];
+        $contactTypes = ['buyers', 'accounts_payable', 'other', 'uncategorized'];
         $newDomains = [];
 
         foreach ($contactTypes as $type) {
@@ -545,7 +548,7 @@ class ProspectController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'type' => ['required', 'in:buyer,accounts_payable,logistics'],
+            'type' => ['required', 'in:buyer,accounts_payable,other'],
         ]);
 
         if ($validator->fails()) {
@@ -694,7 +697,7 @@ class ProspectController extends Controller
      */
     public function promote(int $id): JsonResponse|RedirectResponse
     {
-        $prospect = Prospect::with(['buyers', 'accountsPayable', 'logistics', 'brokerContacts', 'uncategorized'])
+        $prospect = Prospect::with(['buyers', 'accountsPayable', 'other', 'brokerContacts', 'uncategorized'])
             ->findOrFail($id);
 
         // Get form options for validation
@@ -783,10 +786,10 @@ class ProspectController extends Controller
             }
         }
 
-        // Validate logistics contacts (optional, but if present must be valid)
-        foreach ($prospect->logistics as $index => $logistics) {
-            if (empty($logistics->name) || strlen($logistics->name) < 2) {
-                $errors["logistics.{$index}.name"] = 'Logistics contact name must be at least 2 characters';
+        // Validate other contacts (optional, but if present must be valid)
+        foreach ($prospect->other as $index => $other) {
+            if (empty($other->name) || strlen($other->name) < 2) {
+                $errors["other.{$index}.name"] = 'Other contact name must be at least 2 characters';
             }
         }
 
@@ -840,7 +843,7 @@ class ProspectController extends Controller
             'broker_commission' => $prospect->broker_commission,
             'buyers' => $buyers->map(fn ($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
             'accounts_payable' => $prospect->accountsPayable->map(fn ($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
-            'logistics' => $prospect->logistics->map(fn ($l) => ['name' => $l->name, 'email' => $l->value])->toArray(),
+            'other' => $prospect->other->map(fn ($o) => ['name' => $o->name, 'email' => $o->value, 'function' => $o->function])->toArray(),
         ];
 
         // Add broker contacts if broker is enabled

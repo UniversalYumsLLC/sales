@@ -302,7 +302,7 @@ class FulfilService
             'code' => $contact['code'] ?? null,
             'buyers' => [],
             'accounts_payable' => [],
-            'logistics' => [],
+            'other' => [],
             'broker_contacts_from_fulfil' => [],  // Broker contacts parsed from Fulfil
             'broker_company_name_from_fulfil' => null,  // Extracted from broker contact names
             'shelf_life_requirement' => null,
@@ -403,7 +403,14 @@ class FulfilService
                 } elseif ($isEmail && str_contains($department, 'buyer')) {
                     $parsed['buyers'][] = ['name' => $contactName, 'email' => $value];
                 } elseif ($isEmail && str_contains($department, 'logistics')) {
-                    $parsed['logistics'][] = ['name' => $contactName, 'email' => $value];
+                    $parsed['other'][] = ['name' => $contactName, 'email' => $value, 'function' => 'Logistics'];
+                } elseif ($isEmail && str_contains($department, 'other')) {
+                    // Parse "Other (Function): Name" or "Other: Name"
+                    $function = '';
+                    if (preg_match('/other\s*\(([^)]+)\)/i', $mechanism['name'], $funcMatch)) {
+                        $function = trim($funcMatch[1]);
+                    }
+                    $parsed['other'][] = ['name' => $contactName, 'email' => $value, 'function' => $function];
                 }
             }
         }
@@ -1104,7 +1111,7 @@ class FulfilService
      *                       - vendor_guide: string|null (optional) - URL
      *                       - buyers: array (required, min 1) - [{name, email}, ...]
      *                       - accounts_payable: array (optional) - [{name, value}, ...] where value is email or URL
-     *                       - logistics: array (optional) - [{name, email}, ...]
+     *                       - other: array (optional) - [{name, email, function}, ...]
      * @return array The created customer with ID
      *
      * @throws \RuntimeException on API errors
@@ -1157,13 +1164,17 @@ class FulfilService
             ];
         }
 
-        // Logistics (optional)
-        foreach ($data['logistics'] ?? [] as $logistics) {
+        // Other contacts (optional)
+        foreach ($data['other'] ?? [] as $other) {
+            $function = trim($other['function'] ?? '');
+            $mechName = $function
+                ? "Other ({$function}): {$other['name']}"
+                : "Other: {$other['name']}";
             $contactMechanisms[] = [
                 'party' => $partyId,
                 'type' => 'email',
-                'name' => 'Logistics: '.$logistics['name'],
-                'value' => $logistics['email'],
+                'name' => $mechName,
+                'value' => $other['email'],
             ];
         }
 
@@ -1327,7 +1338,7 @@ class FulfilService
     {
         return isset($data['buyers'])
             || isset($data['accounts_payable'])
-            || isset($data['logistics'])
+            || isset($data['other'])
             || isset($data['broker_contacts'])
             || isset($data['shelf_life_requirement'])
             || isset($data['vendor_guide']);
@@ -1433,32 +1444,52 @@ class FulfilService
             }
         }
 
-        // Process logistics
-        if (isset($data['logistics'])) {
-            $existingLogistics = array_filter($existing, fn ($m) => str_starts_with($m['name'] ?? '', 'Logistics:'));
+        // Process other contacts (also match legacy "Logistics:" entries)
+        if (isset($data['other'])) {
+            $existingOther = array_filter($existing, fn ($m) =>
+                str_starts_with($m['name'] ?? '', 'Other:') ||
+                str_starts_with($m['name'] ?? '', 'Other (') ||
+                str_starts_with($m['name'] ?? '', 'Logistics:')
+            );
 
-            foreach ($data['logistics'] as $logistics) {
-                $mechName = 'Logistics: '.$logistics['name'];
-                $found = collect($existingLogistics)->firstWhere('name', $mechName);
+            foreach ($data['other'] as $other) {
+                $function = trim($other['function'] ?? '');
+                $mechName = $function
+                    ? "Other ({$function}): {$other['name']}"
+                    : "Other: {$other['name']}";
+
+                // Try to find by exact name first
+                $found = collect($existingOther)->firstWhere('name', $mechName);
+
+                // If not found and function is 'Logistics', try legacy "Logistics:" format
+                if (! $found && strtolower($function) === 'logistics') {
+                    $legacyName = 'Logistics: '.$other['name'];
+                    $found = collect($existingOther)->firstWhere('name', $legacyName);
+                }
 
                 if ($found) {
                     $matchedIds[] = $found['id'];
-                    if ($found['value'] !== $logistics['email']) {
-                        $toUpdate[] = ['id' => $found['id'], 'value' => $logistics['email']];
+                    // Update if email or name format changed
+                    if ($found['value'] !== $other['email'] || $found['name'] !== $mechName) {
+                        $toUpdate[] = [
+                            'id' => $found['id'],
+                            'name' => $mechName,
+                            'value' => $other['email'],
+                        ];
                     }
                 } else {
                     $toCreate[] = [
                         'party' => $partyId,
                         'type' => 'email',
                         'name' => $mechName,
-                        'value' => $logistics['email'],
+                        'value' => $other['email'],
                     ];
                 }
             }
 
-            foreach ($existingLogistics as $el) {
-                if (! in_array($el['id'], $matchedIds)) {
-                    $toDelete[] = $el['id'];
+            foreach ($existingOther as $eo) {
+                if (! in_array($eo['id'], $matchedIds)) {
+                    $toDelete[] = $eo['id'];
                 }
             }
         }

@@ -13,7 +13,7 @@ class FulfilUncategorizedContact extends Model
 
     const TYPE_ACCOUNTS_PAYABLE = 'accounts_payable';
 
-    const TYPE_LOGISTICS = 'logistics';
+    const TYPE_OTHER = 'other';
 
     /**
      * Contact types that can be assigned.
@@ -21,7 +21,7 @@ class FulfilUncategorizedContact extends Model
     const CATEGORIZABLE_TYPES = [
         self::TYPE_BUYER,
         self::TYPE_ACCOUNTS_PAYABLE,
-        self::TYPE_LOGISTICS,
+        self::TYPE_OTHER,
     ];
 
     protected $fillable = [

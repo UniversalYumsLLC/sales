@@ -45,13 +45,19 @@ interface APContact {
     value: string;
 }
 
+interface OtherContact {
+    name: string;
+    email: string;
+    function?: string;
+}
+
 interface Customer {
     id: number;
     name: string;
     code: string | null;
     buyers: Contact[];
     accounts_payable: APContact[];
-    logistics: Contact[];
+    other: OtherContact[];
     payment_terms: string | null;
     shipping_terms: string | null;
     discount_percent: number | null;
@@ -124,7 +130,7 @@ interface Props {
     buyerContacts: BuyerContact[];
     localBuyers: LocalContact[];
     localAP: LocalContact[];
-    localLogistics: LocalContact[];
+    localOther: LocalContact[];
     uncategorizedContacts: UncategorizedContact[];
     brokerContacts: BrokerContact[];
     monthlyRevenue: MonthlyRevenue[];
@@ -156,8 +162,10 @@ interface BrokerContactForm {
 
 interface ContactsForm {
     buyers: Contact[];
+    ap_method: '' | 'inbox' | 'portal';
+    ap_portal_url: string;
     accounts_payable: APContact[];
-    logistics: Contact[];
+    other: OtherContact[];
 }
 
 interface ValidationErrors {
@@ -253,7 +261,7 @@ export default function Show({
     buyerContacts,
     localBuyers,
     localAP,
-    localLogistics,
+    localOther,
     uncategorizedContacts,
     brokerContacts,
     monthlyRevenue,
@@ -270,6 +278,9 @@ export default function Show({
     const flash = (props as { flash?: Flash }).flash;
     const [showSuccessBanner, setShowSuccessBanner] = useState(!!flash?.success);
 
+    // Local notification state for async operations
+    const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
     // Auto-dismiss success banner after 5 seconds
     useEffect(() => {
         if (flash?.success) {
@@ -278,6 +289,14 @@ export default function Show({
             return () => clearTimeout(timer);
         }
     }, [flash?.success]);
+
+    // Auto-dismiss local notification after 5 seconds
+    useEffect(() => {
+        if (notification) {
+            const timer = setTimeout(() => setNotification(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
 
     // Edit mode states
     const [editingDetails, setEditingDetails] = useState(false);
@@ -312,10 +331,28 @@ export default function Show({
         brokerContacts?.map(c => ({ name: c.name, email: c.email })) || []
     );
 
+    // Derive AP method from existing data
+    const deriveApMethod = (): { method: '' | 'inbox' | 'portal'; portalUrl: string; contacts: APContact[] } => {
+        const apContacts = customer.accounts_payable || [];
+        // Check if there's an "AP Portal" entry with a URL
+        const portalEntry = apContacts.find(ap => ap.name === 'AP Portal' && ap.value?.startsWith('http'));
+        if (portalEntry) {
+            return { method: 'portal', portalUrl: portalEntry.value, contacts: [] };
+        }
+        if (apContacts.length > 0) {
+            return { method: 'inbox', portalUrl: '', contacts: [...apContacts] };
+        }
+        return { method: '', portalUrl: '', contacts: [] };
+    };
+
+    const initialApState = deriveApMethod();
+
     const [contactsForm, setContactsForm] = useState<ContactsForm>({
         buyers: customer.buyers?.length > 0 ? [...customer.buyers] : [{ name: '', email: '' }],
-        accounts_payable: customer.accounts_payable?.length > 0 ? [...customer.accounts_payable] : [],
-        logistics: customer.logistics?.length > 0 ? [...customer.logistics] : [],
+        ap_method: initialApState.method,
+        ap_portal_url: initialApState.portalUrl,
+        accounts_payable: initialApState.contacts,
+        other: customer.other?.length > 0 ? [...customer.other] : [],
     });
 
     // Validation errors
@@ -377,23 +414,30 @@ export default function Show({
             });
         }
 
-        // Validate AP (optional, but if provided must be valid)
-        contactsForm.accounts_payable.forEach((ap, idx) => {
-            if (!ap.name || ap.name.length < 2) {
-                errors[`accounts_payable.${idx}.name`] = 'Name is required';
+        // Validate AP based on method
+        if (contactsForm.ap_method === 'portal') {
+            if (!contactsForm.ap_portal_url || !isValidUrl(contactsForm.ap_portal_url)) {
+                errors.ap_portal_url = 'Valid portal URL is required (https://...)';
             }
-            if (!ap.value || (!isValidEmail(ap.value) && !isValidUrl(ap.value))) {
-                errors[`accounts_payable.${idx}.value`] = 'Valid email or URL is required';
-            }
-        });
+        } else if (contactsForm.ap_method === 'inbox') {
+            contactsForm.accounts_payable.forEach((ap, idx) => {
+                if (!ap.name || ap.name.length < 2) {
+                    errors[`accounts_payable.${idx}.name`] = 'Name is required';
+                }
+                if (!ap.value || !isValidEmail(ap.value)) {
+                    errors[`accounts_payable.${idx}.value`] = 'Valid email is required';
+                }
+            });
+        }
+        // If method is '', that's fine - no AP required
 
-        // Validate logistics (optional, but if provided must be valid)
-        contactsForm.logistics.forEach((logistics, idx) => {
-            if (!logistics.name || logistics.name.length < 2) {
-                errors[`logistics.${idx}.name`] = 'Name is required';
+        // Validate other contacts (optional, but if provided must be valid)
+        contactsForm.other.forEach((other, idx) => {
+            if (!other.name || other.name.length < 2) {
+                errors[`other.${idx}.name`] = 'Name is required';
             }
-            if (!logistics.email || !isValidEmail(logistics.email)) {
-                errors[`logistics.${idx}.email`] = 'Valid email is required';
+            if (!other.email || !isValidEmail(other.email)) {
+                errors[`other.${idx}.email`] = 'Valid email is required';
             }
         });
 
@@ -434,10 +478,13 @@ export default function Show({
     };
 
     const cancelContactsEdit = () => {
+        const apState = deriveApMethod();
         setContactsForm({
             buyers: customer.buyers?.length > 0 ? [...customer.buyers] : [{ name: '', email: '' }],
-            accounts_payable: customer.accounts_payable?.length > 0 ? [...customer.accounts_payable] : [],
-            logistics: customer.logistics?.length > 0 ? [...customer.logistics] : [],
+            ap_method: apState.method,
+            ap_portal_url: apState.portalUrl,
+            accounts_payable: apState.contacts,
+            other: customer.other?.length > 0 ? [...customer.other] : [],
         });
         setEditingContacts(false);
         setContactsErrors({});
@@ -467,13 +514,14 @@ export default function Show({
 
             if (response.ok) {
                 setEditingDetails(false);
+                setNotification({ type: 'success', message: 'Customer details updated successfully' });
                 router.reload({ only: ['customer'] });
             } else {
                 const data = await response.json();
-                alert(data.message || 'Failed to save changes');
+                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
         } catch (error) {
-            alert('Failed to save changes');
+            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
         }
@@ -481,6 +529,15 @@ export default function Show({
 
     const saveContacts = async () => {
         if (Object.keys(contactsErrors).length > 0) return;
+
+        // Transform AP data based on method
+        let accountsPayable: APContact[] = [];
+        if (contactsForm.ap_method === 'portal' && contactsForm.ap_portal_url) {
+            accountsPayable = [{ name: 'AP Portal', value: contactsForm.ap_portal_url }];
+        } else if (contactsForm.ap_method === 'inbox') {
+            accountsPayable = contactsForm.accounts_payable;
+        }
+        // If method is '', send empty array
 
         setSaving(true);
         try {
@@ -492,20 +549,25 @@ export default function Show({
                 },
                 body: JSON.stringify({
                     buyers: contactsForm.buyers,
-                    accounts_payable: contactsForm.accounts_payable,
-                    logistics: contactsForm.logistics,
+                    accounts_payable: accountsPayable,
+                    other: contactsForm.other.map(o => ({
+                        name: o.name,
+                        email: o.email,
+                        function: o.function || '',
+                    })),
                 }),
             });
 
             if (response.ok) {
                 setEditingContacts(false);
-                router.reload({ only: ['customer'] });
+                setNotification({ type: 'success', message: 'Contacts updated successfully' });
+                router.reload({ only: ['customer', 'buyerContacts', 'localBuyers', 'localAP', 'localOther'] });
             } else {
                 const data = await response.json();
-                alert(data.message || 'Failed to save changes');
+                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
         } catch (error) {
-            alert('Failed to save changes');
+            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
         }
@@ -556,24 +618,24 @@ export default function Show({
         }));
     };
 
-    const addLogistics = () => {
+    const addOther = () => {
         setContactsForm(prev => ({
             ...prev,
-            logistics: [...prev.logistics, { name: '', email: '' }],
+            other: [...prev.other, { name: '', email: '', function: '' }],
         }));
     };
 
-    const removeLogistics = (index: number) => {
+    const removeOther = (index: number) => {
         setContactsForm(prev => ({
             ...prev,
-            logistics: prev.logistics.filter((_, i) => i !== index),
+            other: prev.other.filter((_, i) => i !== index),
         }));
     };
 
-    const updateLogistics = (index: number, field: 'name' | 'email', value: string) => {
+    const updateOther = (index: number, field: 'name' | 'email' | 'function', value: string) => {
         setContactsForm(prev => ({
             ...prev,
-            logistics: prev.logistics.map((l, i) => i === index ? { ...l, [field]: value } : l),
+            other: prev.other.map((o, i) => i === index ? { ...o, [field]: value } : o),
         }));
     };
 
@@ -593,13 +655,14 @@ export default function Show({
 
             if (response.ok) {
                 setCategorizingContacts({});
+                setNotification({ type: 'success', message: 'Contact categorized successfully' });
                 router.reload();
             } else {
                 const data = await response.json();
-                alert(data.message || 'Failed to categorize contact');
+                setNotification({ type: 'error', message: data.message || 'Failed to categorize contact' });
             }
         } catch (error) {
-            alert('Failed to categorize contact');
+            setNotification({ type: 'error', message: 'Failed to categorize contact. Please try again.' });
         }
     };
 
@@ -616,13 +679,14 @@ export default function Show({
             });
 
             if (response.ok) {
+                setNotification({ type: 'success', message: 'Contact deleted successfully' });
                 router.reload();
             } else {
                 const data = await response.json();
-                alert(data.message || 'Failed to delete contact');
+                setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
             }
         } catch (error) {
-            alert('Failed to delete contact');
+            setNotification({ type: 'error', message: 'Failed to delete contact. Please try again.' });
         }
     };
 
@@ -703,13 +767,14 @@ export default function Show({
 
             if (brokerResponse.ok) {
                 setEditingBroker(false);
+                setNotification({ type: 'success', message: 'Broker settings updated successfully' });
                 router.reload();
             } else {
                 const data = await brokerResponse.json();
-                alert(data.message || 'Failed to save broker settings');
+                setNotification({ type: 'error', message: data.message || 'Failed to save broker settings' });
             }
         } catch (error) {
-            alert('Failed to save broker settings');
+            setNotification({ type: 'error', message: 'Failed to save broker settings. Please try again.' });
         } finally {
             setSaving(false);
         }
@@ -753,13 +818,14 @@ export default function Show({
 
             if (response.ok) {
                 setEditingCompanyUrls(false);
+                setNotification({ type: 'success', message: 'Company domains updated successfully' });
                 router.reload({ only: ['customer'] });
             } else {
                 const data = await response.json();
-                alert(data.message || 'Failed to save changes');
+                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
         } catch (error) {
-            alert('Failed to save changes');
+            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
         }
@@ -831,6 +897,42 @@ export default function Show({
                                 <button
                                     onClick={() => setShowSuccessBanner(false)}
                                     className="inline-flex rounded-md bg-green-50 p-1.5 text-green-500 hover:bg-green-100"
+                                >
+                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Local notification banner (for async operations) */}
+            {notification && (
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+                    <div className={`rounded-md p-4 ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                {notification.type === 'success' ? (
+                                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div className="ml-3">
+                                <p className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                                    {notification.message}
+                                </p>
+                            </div>
+                            <div className="ml-auto pl-3">
+                                <button
+                                    onClick={() => setNotification(null)}
+                                    className={`inline-flex rounded-md p-1.5 ${notification.type === 'success' ? 'bg-green-50 text-green-500 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
                                 >
                                     <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                         <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -1007,22 +1109,41 @@ export default function Show({
                                         {detailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{detailsErrors.vendor_guide}</p>}
                                     </div>
 
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Uses Broker</label>
+                                        <select
+                                            value={detailsForm.broker}
+                                            onChange={(e) => {
+                                                const newValue = e.target.value;
+                                                setDetailsForm(prev => ({ ...prev, broker: newValue }));
+                                                // If switching to TRUE and no broker contacts, add one
+                                                if (newValue === 'true' && brokerContactsForm.length === 0) {
+                                                    setBrokerContactsForm([{ name: '', email: '' }]);
+                                                }
+                                            }}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        >
+                                            <option value="">Select...</option>
+                                            <option value="false">No</option>
+                                            <option value="true">Yes</option>
+                                        </select>
+                                    </div>
+
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Broker Section */}
-                    <div className={`overflow-hidden bg-white shadow-sm sm:rounded-lg ${customer.broker ? 'border-l-4 border-purple-400' : ''}`}>
+                    {/* Broker Section - Only visible when broker=true */}
+                    {(customer.broker || detailsForm.broker === 'true') && (
+                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-400">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
                                     Broker
-                                    {customer.broker && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
-                                            Commission: {customer.broker_commission ?? 0}%
-                                        </span>
-                                    )}
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
+                                        Commission: {customer.broker_commission ?? detailsForm.broker_commission ?? 0}%
+                                    </span>
                                 </h3>
                                     {!editingBroker ? (
                                         <button
@@ -1052,7 +1173,6 @@ export default function Show({
                                 </div>
 
                                 {!editingBroker ? (
-                                    customer.broker ? (
                                         <div>
                                             <div className="grid grid-cols-2 gap-4 mb-4">
                                                 <div>
@@ -1086,30 +1206,8 @@ export default function Show({
                                                 )}
                                             </div>
                                         </div>
-                                    ) : (
-                                        <p className="text-sm text-gray-500">This customer does not use a broker. Click edit to enable.</p>
-                                    )
                                 ) : (
                                     <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Uses Broker</label>
-                                            <select
-                                                value={detailsForm.broker}
-                                                onChange={(e) => {
-                                                    const newValue = e.target.value;
-                                                    setDetailsForm(prev => ({ ...prev, broker: newValue }));
-                                                    // If switching to TRUE and no broker contacts, add one
-                                                    if (newValue === 'true' && brokerContactsForm.length === 0) {
-                                                        setBrokerContactsForm([{ name: '', email: '' }]);
-                                                    }
-                                                }}
-                                                className="mt-1 block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            >
-                                                <option value="false">FALSE</option>
-                                                <option value="true">TRUE</option>
-                                            </select>
-                                        </div>
-
                                         {detailsForm.broker === 'true' && (
                                             <>
                                                 <div className="grid grid-cols-2 gap-4">
@@ -1218,6 +1316,7 @@ export default function Show({
                                 )}
                             </div>
                         </div>
+                    )}
 
                     {/* Contacts */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
@@ -1333,20 +1432,27 @@ export default function Show({
                                         )}
                                     </div>
 
-                                    {/* Logistics */}
+                                    {/* Other */}
                                     <div>
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Logistics</h4>
-                                        {(customer.logistics && customer.logistics.length > 0) || (localLogistics && localLogistics.length > 0) ? (
+                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Other</h4>
+                                        {(customer.other && customer.other.length > 0) || (localOther && localOther.length > 0) ? (
                                             <ul className="space-y-2">
-                                                {customer.logistics?.map((contact, idx) => (
+                                                {customer.other?.map((contact, idx) => (
                                                     <li key={`fulfil-${idx}`} className="text-sm">
-                                                        <div className="text-gray-900">{contact.name}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-gray-900">{contact.name}</span>
+                                                            {contact.function && (
+                                                                <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                                                                    {contact.function}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {contact.email && (
                                                             <div className="text-gray-500">{contact.email}</div>
                                                         )}
                                                     </li>
                                                 ))}
-                                                {localLogistics?.map((contact) => (
+                                                {localOther?.map((contact) => (
                                                     <li key={`local-${contact.id}`} className="text-sm bg-blue-50 rounded p-2 -mx-2">
                                                         <div className="flex justify-between items-start">
                                                             <div>
@@ -1404,7 +1510,7 @@ export default function Show({
                                                                 <option value="">Categorize...</option>
                                                                 <option value="buyer">Buyer</option>
                                                                 <option value="accounts_payable">Accounts Payable</option>
-                                                                <option value="logistics">Logistics</option>
+                                                                <option value="other">Other</option>
                                                             </select>
                                                             <button
                                                                 onClick={() => deleteLocalContact(contact.id)}
@@ -1472,92 +1578,158 @@ export default function Show({
 
                                     {/* AP Edit */}
                                     <div>
-                                        <div className="mb-2 flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-gray-700">Accounts Payable</h4>
-                                            <button
-                                                type="button"
-                                                onClick={addAP}
-                                                className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
-                                            >
-                                                <PlusIcon className="h-3 w-3" /> Add
-                                            </button>
+                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Accounts Payable</h4>
+
+                                        {/* AP Method Selection */}
+                                        <div className="mb-3 flex gap-4">
+                                            <label className="flex items-center">
+                                                <input
+                                                    type="radio"
+                                                    name="ap_method_edit"
+                                                    checked={contactsForm.ap_method === ''}
+                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: '' }))}
+                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">Not set</span>
+                                            </label>
+                                            <label className="flex items-center">
+                                                <input
+                                                    type="radio"
+                                                    name="ap_method_edit"
+                                                    checked={contactsForm.ap_method === 'inbox'}
+                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'inbox' }))}
+                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">Email inbox</span>
+                                            </label>
+                                            <label className="flex items-center">
+                                                <input
+                                                    type="radio"
+                                                    name="ap_method_edit"
+                                                    checked={contactsForm.ap_method === 'portal'}
+                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'portal' }))}
+                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">Web portal</span>
+                                            </label>
                                         </div>
-                                        {contactsForm.accounts_payable.length === 0 ? (
-                                            <p className="text-sm text-gray-400">No AP contacts</p>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                {contactsForm.accounts_payable.map((ap, idx) => (
-                                                    <div key={idx} className="flex gap-2">
-                                                        <div className="flex-1">
-                                                            <input
-                                                                type="text"
-                                                                value={ap.name}
-                                                                onChange={(e) => updateAP(idx, 'name', e.target.value)}
-                                                                placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <input
-                                                                type="text"
-                                                                value={ap.value}
-                                                                onChange={(e) => updateAP(idx, 'value', e.target.value)}
-                                                                placeholder="Email or URL"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
-                                                            />
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeAP(idx)}
-                                                            className="text-red-400 hover:text-red-600"
-                                                        >
-                                                            <XIcon />
-                                                        </button>
+
+                                        {/* Portal URL (when portal selected) */}
+                                        {contactsForm.ap_method === 'portal' && (
+                                            <div>
+                                                <input
+                                                    type="url"
+                                                    value={contactsForm.ap_portal_url}
+                                                    onChange={(e) => setContactsForm(prev => ({ ...prev, ap_portal_url: e.target.value }))}
+                                                    placeholder="https://vendor-portal.example.com"
+                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors.ap_portal_url ? 'border-red-300' : 'border-gray-300'}`}
+                                                />
+                                                {contactsErrors.ap_portal_url && (
+                                                    <p className="mt-1 text-sm text-red-600">{contactsErrors.ap_portal_url}</p>
+                                                )}
+                                                <p className="mt-1 text-xs text-gray-500">Will be saved as contact "AP Portal"</p>
+                                            </div>
+                                        )}
+
+                                        {/* AP Contacts (when inbox selected) */}
+                                        {contactsForm.ap_method === 'inbox' && (
+                                            <div>
+                                                <div className="mb-2 flex items-center justify-end">
+                                                    <button
+                                                        type="button"
+                                                        onClick={addAP}
+                                                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        <PlusIcon className="h-3 w-3" /> Add Contact
+                                                    </button>
+                                                </div>
+                                                {contactsForm.accounts_payable.length === 0 ? (
+                                                    <p className="text-sm text-gray-400">No AP contacts. Click "Add Contact" to add one.</p>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {contactsForm.accounts_payable.map((ap, idx) => (
+                                                            <div key={idx} className="flex gap-2">
+                                                                <div className="flex-1">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={ap.name}
+                                                                        onChange={(e) => updateAP(idx, 'name', e.target.value)}
+                                                                        placeholder="Name"
+                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <input
+                                                                        type="email"
+                                                                        value={ap.value}
+                                                                        onChange={(e) => updateAP(idx, 'value', e.target.value)}
+                                                                        placeholder="Email"
+                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeAP(idx)}
+                                                                    className="text-red-400 hover:text-red-600"
+                                                                >
+                                                                    <XIcon />
+                                                                </button>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Logistics Edit */}
+                                    {/* Other Edit */}
                                     <div>
                                         <div className="mb-2 flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-gray-700">Logistics</h4>
+                                            <h4 className="text-sm font-medium text-gray-700">Other</h4>
                                             <button
                                                 type="button"
-                                                onClick={addLogistics}
+                                                onClick={addOther}
                                                 className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
                                             >
                                                 <PlusIcon className="h-3 w-3" /> Add
                                             </button>
                                         </div>
-                                        {contactsForm.logistics.length === 0 ? (
-                                            <p className="text-sm text-gray-400">No logistics contacts</p>
+                                        {contactsForm.other.length === 0 ? (
+                                            <p className="text-sm text-gray-400">No other contacts</p>
                                         ) : (
                                             <div className="space-y-2">
-                                                {contactsForm.logistics.map((logistics, idx) => (
+                                                {contactsForm.other.map((other, idx) => (
                                                     <div key={idx} className="flex gap-2">
                                                         <div className="flex-1">
                                                             <input
                                                                 type="text"
-                                                                value={logistics.name}
-                                                                onChange={(e) => updateLogistics(idx, 'name', e.target.value)}
+                                                                value={other.name}
+                                                                onChange={(e) => updateOther(idx, 'name', e.target.value)}
                                                                 placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`logistics.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            />
+                                                        </div>
+                                                        <div className="w-28">
+                                                            <input
+                                                                type="text"
+                                                                value={other.function || ''}
+                                                                onChange={(e) => updateOther(idx, 'function', e.target.value)}
+                                                                placeholder="Function"
+                                                                className="block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300"
                                                             />
                                                         </div>
                                                         <div className="flex-1">
                                                             <input
                                                                 type="email"
-                                                                value={logistics.email}
-                                                                onChange={(e) => updateLogistics(idx, 'email', e.target.value)}
+                                                                value={other.email}
+                                                                onChange={(e) => updateOther(idx, 'email', e.target.value)}
                                                                 placeholder="Email"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`logistics.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <button
                                                             type="button"
-                                                            onClick={() => removeLogistics(idx)}
+                                                            onClick={() => removeOther(idx)}
                                                             className="text-red-400 hover:text-red-600"
                                                         >
                                                             <XIcon />

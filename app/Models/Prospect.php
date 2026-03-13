@@ -166,11 +166,11 @@ class Prospect extends Model
     }
 
     /**
-     * Get logistics contacts for this prospect.
+     * Get other contacts for this prospect.
      */
-    public function logistics(): HasMany
+    public function other(): HasMany
     {
-        return $this->hasMany(ProspectContact::class)->where('type', 'logistics');
+        return $this->hasMany(ProspectContact::class)->where('type', 'other');
     }
 
     /**

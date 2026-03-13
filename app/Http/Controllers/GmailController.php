@@ -312,7 +312,7 @@ class GmailController extends Controller
     /**
      * Backfill company domains from existing customer contacts (admin only).
      *
-     * This extracts email domains from buyer, logistics, and accounts payable
+     * This extracts email domains from buyer, other, and accounts payable
      * contacts and populates the company_urls field for customers that don't
      * have any domains set.
      */
@@ -381,9 +381,9 @@ class GmailController extends Controller
             }
         }
 
-        // Extract from logistics
-        foreach ($customer['logistics'] ?? [] as $logistics) {
-            $domain = $this->extractDomainFromEmail($logistics['email'] ?? '');
+        // Extract from other contacts
+        foreach ($customer['other'] ?? [] as $other) {
+            $domain = $this->extractDomainFromEmail($other['email'] ?? '');
             if ($domain) {
                 $domains[] = $domain;
             }

@@ -153,7 +153,7 @@ class ActiveCustomersController extends Controller
             'is_local' => true,
         ])->values()->toArray();
 
-        $localLogistics = $localContacts->where('type', 'logistics')->map(fn ($c) => [
+        $localOther = $localContacts->where('type', 'other')->map(fn ($c) => [
             'id' => $c->id,
             'name' => $c->name,
             'email' => $c->email,
@@ -178,7 +178,7 @@ class ActiveCustomersController extends Controller
             'brokerContacts' => $brokerContacts,
             'localBuyers' => $localBuyers,
             'localAP' => $localAP,
-            'localLogistics' => $localLogistics,
+            'localOther' => $localOther,
             'uncategorizedContacts' => $uncategorizedContacts,
             'monthlyRevenue' => $monthlyRevenue,
             'topProducts' => $topProducts,
@@ -549,7 +549,7 @@ class ActiveCustomersController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'min:1', 'max:100'],
             'email' => ['required', 'email', 'max:255'],
-            'type' => ['nullable', 'in:buyer,accounts_payable,logistics'],
+            'type' => ['nullable', 'in:buyer,accounts_payable,other'],
         ]);
 
         if ($validator->fails()) {
@@ -668,7 +668,7 @@ class ActiveCustomersController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'type' => ['required', 'in:buyer,accounts_payable,logistics'],
+            'type' => ['required', 'in:buyer,accounts_payable,other'],
         ]);
 
         if ($validator->fails()) {

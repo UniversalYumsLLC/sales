@@ -49,18 +49,10 @@ interface Flash {
 export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, lastSync, syncHistory, salespersons }: Props) {
     const pageProps = usePage().props as unknown as { flash?: Flash };
     const flash = pageProps.flash;
-    const [syncing, setSyncing] = useState(false);
     const [fullSyncing, setFullSyncing] = useState(false);
     const [fullSyncingAll, setFullSyncingAll] = useState(false);
     const [backfillingDomains, setBackfillingDomains] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
-
-    const handleSync = () => {
-        setSyncing(true);
-        router.post(route('gmail.sync'), {}, {
-            onFinish: () => setSyncing(false),
-        });
-    };
 
     const handleFullSync = () => {
         if (!confirm('This will resync all emails from the past 365 days. This may take several minutes. Continue?')) {
@@ -457,18 +449,11 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
 
                                     <div className="flex flex-wrap gap-3 pt-2">
                                         <button
-                                            onClick={handleSync}
-                                            disabled={syncing || fullSyncing}
+                                            onClick={handleFullSync}
+                                            disabled={fullSyncing}
                                             className="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
                                         >
-                                            {syncing ? 'Syncing...' : 'Sync Now'}
-                                        </button>
-                                        <button
-                                            onClick={handleFullSync}
-                                            disabled={syncing || fullSyncing}
-                                            className="inline-flex items-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-700 focus:bg-orange-700 active:bg-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
-                                        >
-                                            {fullSyncing ? 'Starting...' : 'Full Resync (365 days)'}
+                                            {fullSyncing ? 'Syncing...' : 'Full Resync (365 days)'}
                                         </button>
                                         <button
                                             onClick={handleDisconnect}

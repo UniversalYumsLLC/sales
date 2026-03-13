@@ -50,11 +50,16 @@ class AccountsReceivableController extends Controller
             'total_severely_overdue' => array_sum(array_column($customers, 'total_severely_overdue')),
         ];
 
+        // Get Fulfil subdomain for building invoice URLs
+        $fulfilEnv = config('fulfil.default');
+        $fulfilSubdomain = config("fulfil.environments.{$fulfilEnv}.subdomain");
+
         return Inertia::render('AccountsReceivable/Index', [
             'customers' => array_values($customers),
             'totals' => $totals,
             'search' => (string) $search,
             'lastUpdated' => now()->toIso8601String(),
+            'fulfilSubdomain' => $fulfilSubdomain,
         ]);
     }
 
@@ -116,17 +121,22 @@ class AccountsReceivableController extends Controller
                 ];
             })->sortByDesc('days_overdue')->values()->toArray();
 
-            // Get AP contact names
-            $apNames = array_slice(
-                array_map(fn ($c) => $c['name'], $customer['accounts_payable'] ?? []),
-                0,
-                3
-            );
+            // Get AP contacts with type detection
+            $apContacts = array_map(function ($contact) {
+                $value = $contact['value'] ?? '';
+                $isPortal = str_starts_with($value, 'http://') || str_starts_with($value, 'https://');
+
+                return [
+                    'name' => $contact['name'] ?? '',
+                    'value' => $value,
+                    'type' => $isPortal ? 'portal' : 'inbox',
+                ];
+            }, $customer['accounts_payable'] ?? []);
 
             return [
                 'id' => $customer['id'],
                 'name' => $customer['name'],
-                'ap_contact_names' => $apNames,
+                'ap_contacts' => $apContacts,
                 'invoices' => $invoiceData,
                 'total_due' => $totalDue,
                 'total_overdue' => $totalOverdue,

@@ -55,6 +55,15 @@ interface BrokerContact {
     last_received_at?: string | null;
 }
 
+interface OtherContact {
+    id?: number;
+    name: string;
+    value: string;
+    function?: string;
+    last_emailed_at?: string | null;
+    last_received_at?: string | null;
+}
+
 interface Prospect {
     id: number;
     company_name: string;
@@ -72,7 +81,7 @@ interface Prospect {
     broker_contacts: BrokerContact[];
     buyers: Contact[];
     accounts_payable: Contact[];
-    logistics: Contact[];
+    other: OtherContact[];
     uncategorized: UncategorizedContact[];
     products: Product[];
     product_ids: number[];
@@ -107,8 +116,10 @@ interface BrokerContactsForm {
 
 interface ContactsForm {
     buyers: Contact[];
+    ap_method: '' | 'inbox' | 'portal';
+    ap_portal_url: string;
     accounts_payable: Contact[];
-    logistics: Contact[];
+    other: OtherContact[];
     uncategorized: Contact[];
 }
 
@@ -203,10 +214,30 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     const [promoting, setPromoting] = useState(false);
     const [promotionErrors, setPromotionErrors] = useState<ValidationErrors>({});
 
+    // Derive AP method from existing data
+    const deriveApMethod = (): { method: '' | 'inbox' | 'portal'; portalUrl: string; contacts: Contact[] } => {
+        const apContacts = prospect.accounts_payable || [];
+        // Check if there's a portal entry (name="AP Portal" with a URL value)
+        const portalEntry = apContacts.find(c => c.name === 'AP Portal' && c.value && isValidUrl(c.value));
+        if (portalEntry) {
+            return { method: 'portal', portalUrl: portalEntry.value, contacts: [] };
+        }
+        // If there are AP contacts, it's inbox mode
+        if (apContacts.length > 0) {
+            return { method: 'inbox', portalUrl: '', contacts: [...apContacts] };
+        }
+        // No AP configured
+        return { method: '', portalUrl: '', contacts: [] };
+    };
+
+    const initialApState = deriveApMethod();
+
     const [contactsForm, setContactsForm] = useState<ContactsForm>({
         buyers: prospect.buyers?.length > 0 ? [...prospect.buyers] : [],
-        accounts_payable: prospect.accounts_payable?.length > 0 ? [...prospect.accounts_payable] : [],
-        logistics: prospect.logistics?.length > 0 ? [...prospect.logistics] : [],
+        ap_method: initialApState.method,
+        ap_portal_url: initialApState.portalUrl,
+        accounts_payable: initialApState.contacts,
+        other: prospect.other?.length > 0 ? [...prospect.other] : [],
         uncategorized: prospect.uncategorized?.length > 0 ? [...prospect.uncategorized] : [],
     });
 
@@ -258,23 +289,29 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             }
         });
 
-        // Validate AP (value can be email or URL)
-        contactsForm.accounts_payable.forEach((ap, idx) => {
-            if (!ap.name || ap.name.length < 1) {
-                errors[`accounts_payable.${idx}.name`] = 'Name is required';
+        // Validate AP based on method
+        if (contactsForm.ap_method === 'portal') {
+            if (!contactsForm.ap_portal_url || !isValidUrl(contactsForm.ap_portal_url)) {
+                errors.ap_portal_url = 'Valid portal URL is required (https://...)';
             }
-            if (ap.value && !isValidEmail(ap.value) && !isValidUrl(ap.value)) {
-                errors[`accounts_payable.${idx}.value`] = 'Must be a valid email or URL';
-            }
-        });
+        } else if (contactsForm.ap_method === 'inbox') {
+            contactsForm.accounts_payable.forEach((ap, idx) => {
+                if (!ap.name || ap.name.length < 1) {
+                    errors[`accounts_payable.${idx}.name`] = 'Name is required';
+                }
+                if (ap.value && !isValidEmail(ap.value)) {
+                    errors[`accounts_payable.${idx}.value`] = 'Invalid email address';
+                }
+            });
+        }
 
-        // Validate logistics
-        contactsForm.logistics.forEach((logistics, idx) => {
-            if (!logistics.name || logistics.name.length < 1) {
-                errors[`logistics.${idx}.name`] = 'Name is required';
+        // Validate other contacts
+        contactsForm.other.forEach((other, idx) => {
+            if (!other.name || other.name.length < 1) {
+                errors[`other.${idx}.name`] = 'Name is required';
             }
-            if (logistics.value && !isValidEmail(logistics.value)) {
-                errors[`logistics.${idx}.value`] = 'Invalid email address';
+            if (other.value && !isValidEmail(other.value)) {
+                errors[`other.${idx}.value`] = 'Invalid email address';
             }
         });
 
@@ -311,10 +348,13 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     };
 
     const cancelContactsEdit = () => {
+        const apState = deriveApMethod();
         setContactsForm({
             buyers: prospect.buyers?.length > 0 ? [...prospect.buyers] : [],
-            accounts_payable: prospect.accounts_payable?.length > 0 ? [...prospect.accounts_payable] : [],
-            logistics: prospect.logistics?.length > 0 ? [...prospect.logistics] : [],
+            ap_method: apState.method,
+            ap_portal_url: apState.portalUrl,
+            accounts_payable: apState.contacts,
+            other: prospect.other?.length > 0 ? [...prospect.other] : [],
             uncategorized: prospect.uncategorized?.length > 0 ? [...prospect.uncategorized] : [],
         });
         setEditingContacts(false);
@@ -383,6 +423,15 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             const cleanContacts = (contacts: Contact[]) =>
                 contacts.filter(c => c.name).map(c => ({ name: c.name, value: c.value || '' }));
 
+            // Transform AP data based on method
+            let accountsPayable: { name: string; value: string }[] = [];
+            if (contactsForm.ap_method === 'portal' && contactsForm.ap_portal_url) {
+                accountsPayable = [{ name: 'AP Portal', value: contactsForm.ap_portal_url }];
+            } else if (contactsForm.ap_method === 'inbox') {
+                accountsPayable = cleanContacts(contactsForm.accounts_payable);
+            }
+            // If ap_method is '', send empty array
+
             const response = await fetch(route('prospects.update', prospect.id), {
                 method: 'PUT',
                 headers: {
@@ -391,8 +440,12 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 },
                 body: JSON.stringify({
                     buyers: cleanContacts(contactsForm.buyers),
-                    accounts_payable: cleanContacts(contactsForm.accounts_payable),
-                    logistics: cleanContacts(contactsForm.logistics),
+                    accounts_payable: accountsPayable,
+                    other: contactsForm.other.filter(c => c.name.trim()).map(c => ({
+                        name: c.name.trim(),
+                        value: c.value?.trim() || '',
+                        function: c.function?.trim() || '',
+                    })),
                     uncategorized: cleanContacts(contactsForm.uncategorized),
                 }),
             });
@@ -486,25 +539,25 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         }));
     };
 
-    // Contact management - Logistics
-    const addLogistics = () => {
+    // Contact management - Other
+    const addOther = () => {
         setContactsForm(prev => ({
             ...prev,
-            logistics: [...prev.logistics, { name: '', value: '' }],
+            other: [...prev.other, { name: '', value: '', function: '' }],
         }));
     };
 
-    const removeLogistics = (index: number) => {
+    const removeOther = (index: number) => {
         setContactsForm(prev => ({
             ...prev,
-            logistics: prev.logistics.filter((_, i) => i !== index),
+            other: prev.other.filter((_, i) => i !== index),
         }));
     };
 
-    const updateLogistics = (index: number, field: 'name' | 'value', value: string) => {
+    const updateOther = (index: number, field: 'name' | 'value' | 'function', value: string) => {
         setContactsForm(prev => ({
             ...prev,
-            logistics: prev.logistics.map((l, i) => i === index ? { ...l, [field]: value } : l),
+            other: prev.other.map((o, i) => i === index ? { ...o, [field]: value } : o),
         }));
     };
 
@@ -658,7 +711,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     ['company_name', 'discount_percent', 'payment_terms', 'shipping_terms', 'shelf_life_requirement', 'vendor_guide'].includes(k)
                 );
                 const hasContactErrors = errorKeys.some(k =>
-                    k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('logistics')
+                    k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('other')
                 );
                 const hasBrokerErrors = errorKeys.some(k => k.startsWith('broker_contacts'));
 
@@ -711,7 +764,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     )};
     const allContactsErrors = { ...contactsErrors, ...Object.fromEntries(
         Object.entries(promotionErrors).filter(([k]) =>
-            k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('logistics')
+            k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('other')
         )
     )};
     const allBrokerErrors = { ...brokerContactsErrors, ...Object.fromEntries(
@@ -1344,14 +1397,21 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                         )}
                                     </div>
 
-                                    {/* Logistics */}
+                                    {/* Other */}
                                     <div>
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Logistics</h4>
-                                        {prospect.logistics && prospect.logistics.length > 0 ? (
+                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Other</h4>
+                                        {prospect.other && prospect.other.length > 0 ? (
                                             <ul className="space-y-2">
-                                                {prospect.logistics.map((contact, idx) => (
+                                                {prospect.other.map((contact, idx) => (
                                                     <li key={idx} className="text-sm">
-                                                        <div className="text-gray-900">{contact.name}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-gray-900">{contact.name}</span>
+                                                            {contact.function && (
+                                                                <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                                                                    {contact.function}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {contact.value && (
                                                             <div className="text-gray-500">{contact.value}</div>
                                                         )}
@@ -1404,7 +1464,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 <option value="">Categorize...</option>
                                                                 <option value="buyer">Buyer</option>
                                                                 <option value="accounts_payable">Accounts Payable</option>
-                                                                <option value="logistics">Logistics</option>
+                                                                <option value="other">Other</option>
                                                             </select>
                                                         </div>
                                                     </div>
@@ -1467,92 +1527,154 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
 
                                     {/* AP Edit */}
                                     <div>
-                                        <div className="mb-2 flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-gray-700">Accounts Payable</h4>
-                                            <button
-                                                type="button"
-                                                onClick={addAP}
-                                                className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
-                                            >
-                                                <PlusIcon className="h-3 w-3" /> Add
-                                            </button>
+                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Accounts Payable</h4>
+                                        <div className="flex gap-4 mb-3">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="ap_method_edit"
+                                                    checked={contactsForm.ap_method === ''}
+                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: '' }))}
+                                                    className="text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-gray-700">Not set</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="ap_method_edit"
+                                                    checked={contactsForm.ap_method === 'inbox'}
+                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'inbox' }))}
+                                                    className="text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-gray-700">Email inbox</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="ap_method_edit"
+                                                    checked={contactsForm.ap_method === 'portal'}
+                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'portal' }))}
+                                                    className="text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-gray-700">Web portal</span>
+                                            </label>
                                         </div>
-                                        {contactsForm.accounts_payable.length === 0 ? (
-                                            <p className="text-sm text-gray-400">No AP contacts</p>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                {contactsForm.accounts_payable.map((ap, idx) => (
-                                                    <div key={idx} className="flex gap-2">
-                                                        <div className="flex-1">
-                                                            <input
-                                                                type="text"
-                                                                value={ap.name}
-                                                                onChange={(e) => updateAP(idx, 'name', e.target.value)}
-                                                                placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <input
-                                                                type="text"
-                                                                value={ap.value}
-                                                                onChange={(e) => updateAP(idx, 'value', e.target.value)}
-                                                                placeholder="Email or URL (optional)"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
-                                                            />
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeAP(idx)}
-                                                            className="text-red-400 hover:text-red-600"
-                                                        >
-                                                            <XIcon />
-                                                        </button>
+
+                                        {contactsForm.ap_method === 'portal' && (
+                                            <div className="ml-6">
+                                                <input
+                                                    type="url"
+                                                    value={contactsForm.ap_portal_url}
+                                                    onChange={(e) => setContactsForm(prev => ({ ...prev, ap_portal_url: e.target.value }))}
+                                                    placeholder="https://portal.example.com/invoices"
+                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors.ap_portal_url ? 'border-red-300' : 'border-gray-300'}`}
+                                                />
+                                                {contactsErrors.ap_portal_url && (
+                                                    <p className="mt-1 text-sm text-red-600">{contactsErrors.ap_portal_url}</p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {contactsForm.ap_method === 'inbox' && (
+                                            <div className="ml-6">
+                                                <div className="mb-2 flex items-center justify-between">
+                                                    <span className="text-xs text-gray-500">AP contacts</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={addAP}
+                                                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        <PlusIcon className="h-3 w-3" /> Add
+                                                    </button>
+                                                </div>
+                                                {contactsForm.accounts_payable.length === 0 ? (
+                                                    <p className="text-sm text-gray-400">No AP contacts - click Add to create one</p>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {contactsForm.accounts_payable.map((ap, idx) => (
+                                                            <div key={idx} className="flex gap-2">
+                                                                <div className="flex-1">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={ap.name}
+                                                                        onChange={(e) => updateAP(idx, 'name', e.target.value)}
+                                                                        placeholder="Name"
+                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <input
+                                                                        type="email"
+                                                                        value={ap.value}
+                                                                        onChange={(e) => updateAP(idx, 'value', e.target.value)}
+                                                                        placeholder="Email"
+                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeAP(idx)}
+                                                                    className="text-red-400 hover:text-red-600"
+                                                                >
+                                                                    <XIcon />
+                                                                </button>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Logistics Edit */}
+                                    {/* Other Edit */}
                                     <div>
                                         <div className="mb-2 flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-gray-700">Logistics</h4>
+                                            <h4 className="text-sm font-medium text-gray-700">Other</h4>
                                             <button
                                                 type="button"
-                                                onClick={addLogistics}
+                                                onClick={addOther}
                                                 className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
                                             >
                                                 <PlusIcon className="h-3 w-3" /> Add
                                             </button>
                                         </div>
-                                        {contactsForm.logistics.length === 0 ? (
-                                            <p className="text-sm text-gray-400">No logistics contacts</p>
+                                        {contactsForm.other.length === 0 ? (
+                                            <p className="text-sm text-gray-400">No other contacts</p>
                                         ) : (
                                             <div className="space-y-2">
-                                                {contactsForm.logistics.map((logistics, idx) => (
+                                                {contactsForm.other.map((other, idx) => (
                                                     <div key={idx} className="flex gap-2">
                                                         <div className="flex-1">
                                                             <input
                                                                 type="text"
-                                                                value={logistics.name}
-                                                                onChange={(e) => updateLogistics(idx, 'name', e.target.value)}
+                                                                value={other.name}
+                                                                onChange={(e) => updateOther(idx, 'name', e.target.value)}
                                                                 placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`logistics.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            />
+                                                        </div>
+                                                        <div className="w-28">
+                                                            <input
+                                                                type="text"
+                                                                value={other.function || ''}
+                                                                onChange={(e) => updateOther(idx, 'function', e.target.value)}
+                                                                placeholder="Function"
+                                                                className="block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300"
                                                             />
                                                         </div>
                                                         <div className="flex-1">
                                                             <input
                                                                 type="email"
-                                                                value={logistics.value}
-                                                                onChange={(e) => updateLogistics(idx, 'value', e.target.value)}
+                                                                value={other.value}
+                                                                onChange={(e) => updateOther(idx, 'value', e.target.value)}
                                                                 placeholder="Email (optional)"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`logistics.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <button
                                                             type="button"
-                                                            onClick={() => removeLogistics(idx)}
+                                                            onClick={() => removeOther(idx)}
                                                             className="text-red-400 hover:text-red-600"
                                                         >
                                                             <XIcon />

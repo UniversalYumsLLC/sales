@@ -84,7 +84,7 @@ class CustomerController extends Controller
     }
 
     /**
-     * Extract unique domains from contact emails (buyers, logistics, accounts_payable).
+     * Extract unique domains from contact emails (buyers, other, accounts_payable).
      */
     protected function extractDomainsFromContacts(array $data): array
     {
@@ -100,8 +100,8 @@ class CustomerController extends Controller
             }
         }
 
-        // Extract from logistics
-        foreach ($data['logistics'] ?? [] as $contact) {
+        // Extract from other contacts
+        foreach ($data['other'] ?? [] as $contact) {
             if (! empty($contact['email']) && filter_var($contact['email'], FILTER_VALIDATE_EMAIL)) {
                 $domain = strtolower(explode('@', $contact['email'])[1] ?? '');
                 if ($domain) {
@@ -198,10 +198,11 @@ class CustomerController extends Controller
             'accounts_payable.*.name' => ['required_with:accounts_payable', 'string', 'min:2', 'max:100'],
             'accounts_payable.*.value' => ['required_with:accounts_payable', 'string', 'max:500'],
 
-            // Logistics (optional)
-            'logistics' => ['nullable', 'array'],
-            'logistics.*.name' => ['required_with:logistics', 'string', 'min:2', 'max:100'],
-            'logistics.*.email' => ['required_with:logistics', 'email', 'max:255'],
+            // Other contacts (optional)
+            'other' => ['nullable', 'array'],
+            'other.*.name' => ['required_with:other', 'string', 'min:2', 'max:100'],
+            'other.*.email' => ['required_with:other', 'email', 'max:255'],
+            'other.*.function' => ['nullable', 'string', 'max:100'],
         ];
 
         $messages = [
@@ -219,7 +220,7 @@ class CustomerController extends Controller
             'buyers.*.email.required_with' => 'Buyer email is required.',
             'buyers.*.email.email' => 'Buyer email must be a valid email address.',
             'accounts_payable.*.value.required_with' => 'Accounts payable contact value (email or URL) is required.',
-            'logistics.*.email.email' => 'Logistics email must be a valid email address.',
+            'other.*.email.email' => 'Other contact email must be a valid email address.',
             'vendor_guide.url' => 'Vendor guide must be a valid URL.',
             'broker.required' => 'Please select whether this customer uses a broker.',
             'broker_company_name.required' => 'Broker company name is required when using a broker.',
@@ -284,7 +285,7 @@ class CustomerController extends Controller
         $data = array_merge([
             'buyers' => [],
             'accounts_payable' => [],
-            'logistics' => [],
+            'other' => [],
             'broker_contacts' => [],
         ], $validated);
 
