@@ -48,13 +48,15 @@ class GmailService
      */
     public function exchangeCodeForTokens(string $code): array
     {
-        $response = Http::asForm()->post($this->config['token_url'], [
-            'client_id' => $this->config['client_id'],
-            'client_secret' => $this->config['client_secret'],
-            'redirect_uri' => $this->config['redirect_uri'],
-            'grant_type' => 'authorization_code',
-            'code' => $code,
-        ]);
+        $response = Http::asForm()
+            ->timeout(30)
+            ->post($this->config['token_url'], [
+                'client_id' => $this->config['client_id'],
+                'client_secret' => $this->config['client_secret'],
+                'redirect_uri' => $this->config['redirect_uri'],
+                'grant_type' => 'authorization_code',
+                'code' => $code,
+            ]);
 
         if (!$response->successful()) {
             Log::error('Gmail token exchange failed', [
@@ -72,12 +74,14 @@ class GmailService
      */
     public function refreshAccessToken(UserGmailToken $token): void
     {
-        $response = Http::asForm()->post($this->config['token_url'], [
-            'client_id' => $this->config['client_id'],
-            'client_secret' => $this->config['client_secret'],
-            'refresh_token' => $token->refresh_token,
-            'grant_type' => 'refresh_token',
-        ]);
+        $response = Http::asForm()
+            ->timeout(30)
+            ->post($this->config['token_url'], [
+                'client_id' => $this->config['client_id'],
+                'client_secret' => $this->config['client_secret'],
+                'refresh_token' => $token->refresh_token,
+                'grant_type' => 'refresh_token',
+            ]);
 
         if (!$response->successful()) {
             Log::error('Gmail token refresh failed', [
@@ -102,6 +106,7 @@ class GmailService
     public function getGmailEmailAddress(string $accessToken): string
     {
         $response = Http::withToken($accessToken)
+            ->timeout(15)
             ->get($this->config['api_base'] . '/users/me/profile');
 
         if (!$response->successful()) {
@@ -126,8 +131,11 @@ class GmailService
 
     /**
      * Sync emails for a user.
+     *
+     * @param User $user The user to sync emails for
+     * @param bool $forceFullSync If true, ignores last sync and goes back full 365 days
      */
-    public function syncEmails(User $user): GmailSyncHistory
+    public function syncEmails(User $user, bool $forceFullSync = false): GmailSyncHistory
     {
         $token = $user->gmailToken;
         if (!$token) {
@@ -136,26 +144,33 @@ class GmailService
 
         $accessToken = $this->ensureValidToken($token);
 
-        // Determine time range for sync
-        $lastSync = GmailSyncHistory::where('user_id', $user->id)
-            ->where('status', GmailSyncHistory::STATUS_COMPLETED)
-            ->orderBy('emails_to', 'desc')
-            ->first();
-
         $now = now();
-        $overlapMinutes = $this->config['sync_overlap'];
 
-        if ($lastSync) {
-            // Start from last successful sync minus overlap
-            $from = $lastSync->emails_to->subMinutes($overlapMinutes);
-        } else {
-            // Initial sync - go back configured number of days
+        // Determine time range for sync
+        if ($forceFullSync) {
+            // Force full 365-day sync regardless of previous sync history
             $from = $now->copy()->subDays($this->config['initial_sync_days']);
+        } else {
+            $lastSync = GmailSyncHistory::where('user_id', $user->id)
+                ->where('status', GmailSyncHistory::STATUS_COMPLETED)
+                ->orderBy('emails_to', 'desc')
+                ->first();
+
+            $overlapMinutes = $this->config['sync_overlap'];
+
+            if ($lastSync) {
+                // Start from last successful sync minus overlap
+                $from = $lastSync->emails_to->subMinutes($overlapMinutes);
+            } else {
+                // Initial sync - go back configured number of days
+                $from = $now->copy()->subDays($this->config['initial_sync_days']);
+            }
         }
 
         // Create sync history record
         $syncHistory = GmailSyncHistory::create([
             'user_id' => $user->id,
+            'sync_type' => GmailSyncHistory::TYPE_FULL,
             'sync_started_at' => $now,
             'emails_from' => $from,
             'emails_to' => $now,
@@ -200,6 +215,100 @@ class GmailService
         }
 
         return $syncHistory;
+    }
+
+    /**
+     * Sync emails for specific domains only.
+     *
+     * This is used when a new prospect or customer is created to fetch historical
+     * emails for just that entity's domains, without triggering a full sync.
+     *
+     * @param User $user The user to sync emails for
+     * @param array $domains The domains to sync (e.g., ['example.com'])
+     * @param string $entityType 'prospect' or 'customer'
+     * @param int $entityId The ID of the prospect or fulfil_party_id
+     * @return array{fetched: int, matched: int}
+     */
+    public function syncEmailsForDomains(User $user, array $domains, string $entityType, int $entityId): array
+    {
+        $token = $user->gmailToken;
+        if (!$token) {
+            throw new \Exception('User does not have Gmail connected');
+        }
+
+        if (empty($domains)) {
+            return ['fetched' => 0, 'matched' => 0];
+        }
+
+        $accessToken = $this->ensureValidToken($token);
+
+        // Always use the full initial sync period for domain-specific syncs
+        $now = now();
+        $from = $now->copy()->subDays($this->config['initial_sync_days']);
+
+        // Build company domains mapping for just this entity
+        $companyDomains = [];
+        foreach ($domains as $domain) {
+            $companyDomains[strtolower($domain)] = [
+                'type' => $entityType,
+                'id' => $entityId,
+            ];
+        }
+
+        // Also get broker emails if this is a prospect with brokers
+        $brokerEmails = [];
+        if ($entityType === 'prospect') {
+            $brokerContacts = ProspectContact::where('prospect_id', $entityId)
+                ->where('type', ProspectContact::TYPE_BROKER)
+                ->whereNotNull('value')
+                ->get();
+
+            foreach ($brokerContacts as $contact) {
+                if (filter_var($contact->value, FILTER_VALIDATE_EMAIL)) {
+                    $email = strtolower($contact->value);
+                    $brokerEmails[$email] = [
+                        'type' => 'prospect',
+                        'id' => $entityId,
+                    ];
+                }
+            }
+        } elseif ($entityType === 'customer') {
+            $brokerContacts = FulfilBrokerContact::where('fulfil_party_id', $entityId)->get();
+            foreach ($brokerContacts as $contact) {
+                $email = strtolower($contact->email);
+                $brokerEmails[$email] = [
+                    'type' => 'customer',
+                    'id' => $entityId,
+                ];
+            }
+        }
+
+        try {
+            // Fetch emails from Gmail for just these domains
+            $messages = $this->fetchMessagesForDomainsAndEmails($accessToken, $from, $now, $domains, array_keys($brokerEmails));
+            $fetched = count($messages);
+            $matched = 0;
+
+            foreach ($messages as $messageId) {
+                $emailData = $this->fetchMessageDetails($accessToken, $messageId);
+
+                if ($emailData && $this->processEmail($user, $emailData, $companyDomains, $brokerEmails)) {
+                    $matched++;
+                }
+            }
+
+            return ['fetched' => $fetched, 'matched' => $matched];
+
+        } catch (\Exception $e) {
+            Log::error('Gmail domain sync failed', [
+                'user_id' => $user->id,
+                'domains' => $domains,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -292,6 +401,7 @@ class GmailService
             }
 
             $response = Http::withToken($accessToken)
+                ->timeout(30)
                 ->get($this->config['api_base'] . '/users/me/messages', $params);
 
             if (!$response->successful()) {
@@ -327,6 +437,7 @@ class GmailService
         }
 
         $response = Http::withToken($accessToken)
+            ->timeout(15)
             ->get($this->config['api_base'] . '/users/me/messages/' . $messageId, [
                 'format' => 'full',
             ]);
@@ -903,7 +1014,7 @@ class GmailService
         if ($token) {
             // Optionally revoke the token with Google
             try {
-                Http::post('https://oauth2.googleapis.com/revoke', [
+                Http::timeout(10)->post('https://oauth2.googleapis.com/revoke', [
                     'token' => $token->access_token,
                 ]);
             } catch (\Exception $e) {
