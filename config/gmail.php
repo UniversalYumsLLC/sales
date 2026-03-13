@@ -48,8 +48,12 @@ return [
     // Emails are fetched from (last_sync - overlap) to (now)
     'sync_overlap' => (int) env('GMAIL_SYNC_OVERLAP', 2),
 
-    // Maximum number of emails to fetch per sync
+    // Maximum number of emails to fetch per API page (Gmail pagination)
     'max_results_per_sync' => 100,
+
+    // Maximum total messages to fetch per domain query (safety limit)
+    // Set high enough for a full year of emails with many contacts
+    'max_messages_per_query' => 10000,
 
     // How far back to look on initial sync (in days)
     'initial_sync_days' => 365,

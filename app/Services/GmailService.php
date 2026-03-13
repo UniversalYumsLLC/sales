@@ -422,7 +422,7 @@ class GmailService
 
             $pageToken = $data['nextPageToken'] ?? null;
 
-        } while ($pageToken && count($messages) < 500); // Safety limit
+        } while ($pageToken && count($messages) < $this->config['max_messages_per_query']);
 
         return $messages;
     }
