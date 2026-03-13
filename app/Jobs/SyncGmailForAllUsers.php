@@ -34,7 +34,7 @@ class SyncGmailForAllUsers implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param bool $forceFullSync If true, each user sync will go back full 365 days
+     * @param  bool  $forceFullSync  If true, each user sync will go back full 365 days
      */
     public function __construct(
         public bool $forceFullSync = false
@@ -52,6 +52,7 @@ class SyncGmailForAllUsers implements ShouldQueue
 
         if ($salespersons->isEmpty()) {
             Log::info('SyncGmailForAllUsers: No salespersons with Gmail connected');
+
             return;
         }
 

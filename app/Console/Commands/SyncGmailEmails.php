@@ -38,6 +38,7 @@ class SyncGmailEmails extends Command
 
             if ($users->isEmpty()) {
                 $this->error("No salesperson user found with ID {$userId} and Gmail connected.");
+
                 return self::FAILURE;
             }
         } else {
@@ -49,6 +50,7 @@ class SyncGmailEmails extends Command
 
         if ($users->isEmpty()) {
             $this->info('No salesperson users with Gmail connected.');
+
             return self::SUCCESS;
         }
 

@@ -71,12 +71,14 @@ class GmailSyncResult extends Notification
      */
     protected function getMessage(bool $isSuccess, bool $isDomainSync): string
     {
-        if (!$isSuccess) {
+        if (! $isSuccess) {
             $error = $this->syncHistory->error_message ?? 'Unknown error';
             if ($isDomainSync) {
                 $domains = $this->syncHistory->domains ? implode(', ', $this->syncHistory->domains) : 'unknown';
+
                 return "Failed to sync emails for {$domains}: {$error}";
             }
+
             return "Gmail sync failed: {$error}";
         }
 
@@ -86,6 +88,7 @@ class GmailSyncResult extends Notification
         if ($isDomainSync) {
             $domains = $this->syncHistory->domains ? implode(', ', $this->syncHistory->domains) : 'unknown';
             $entityType = $this->syncHistory->entity_type === 'prospect' ? 'prospect' : 'customer';
+
             return "Synced emails for new {$entityType} ({$domains}): {$matched} emails matched.";
         }
 

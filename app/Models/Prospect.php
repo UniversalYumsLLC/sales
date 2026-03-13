@@ -12,8 +12,11 @@ class Prospect extends Model
     use HasFactory;
 
     const STATUS_TARGET = 'target';
+
     const STATUS_CONTACTED = 'contacted';
+
     const STATUS_ENGAGED = 'engaged';
+
     const STATUS_DORMANT = 'dormant';
 
     /**

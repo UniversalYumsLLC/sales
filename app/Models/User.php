@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -14,7 +15,9 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     const ROLE_ADMIN = 'admin';
+
     const ROLE_USER = 'user';
+
     const ROLE_SALESPERSON = 'salesperson';
 
     /**
@@ -98,7 +101,7 @@ class User extends Authenticatable
     /**
      * Get the user's Gmail token.
      */
-    public function gmailToken(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function gmailToken(): HasOne
     {
         return $this->hasOne(UserGmailToken::class);
     }

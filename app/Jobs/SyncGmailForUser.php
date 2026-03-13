@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\GmailSyncHistory;
 use App\Models\User;
 use App\Notifications\GmailSyncResult;
 use App\Services\GmailService;
@@ -42,8 +43,8 @@ class SyncGmailForUser implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param int $userId The user ID to sync
-     * @param bool $forceFullSync If true, ignores last sync and goes back full 365 days
+     * @param  int  $userId  The user ID to sync
+     * @param  bool  $forceFullSync  If true, ignores last sync and goes back full 365 days
      */
     public function __construct(
         public int $userId,
@@ -57,17 +58,19 @@ class SyncGmailForUser implements ShouldQueue
     {
         $user = User::find($this->userId);
 
-        if (!$user) {
+        if (! $user) {
             Log::warning('SyncGmailForUser: User not found', [
                 'user_id' => $this->userId,
             ]);
+
             return;
         }
 
-        if (!$user->gmailToken) {
+        if (! $user->gmailToken) {
             Log::warning('SyncGmailForUser: User does not have Gmail connected', [
                 'user_id' => $this->userId,
             ]);
+
             return;
         }
 
@@ -99,11 +102,11 @@ class SyncGmailForUser implements ShouldQueue
 
             // The syncHistory might have been created and marked as failed by GmailService
             // Try to find it and send a notification
-            $syncHistory = \App\Models\GmailSyncHistory::where('user_id', $user->id)
+            $syncHistory = GmailSyncHistory::where('user_id', $user->id)
                 ->orderBy('id', 'desc')
                 ->first();
 
-            if ($syncHistory && $syncHistory->status === \App\Models\GmailSyncHistory::STATUS_FAILED) {
+            if ($syncHistory && $syncHistory->status === GmailSyncHistory::STATUS_FAILED) {
                 $user->notify(new GmailSyncResult($syncHistory));
             }
 

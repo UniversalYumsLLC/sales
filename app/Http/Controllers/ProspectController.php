@@ -86,7 +86,7 @@ class ProspectController extends Controller
         }, $products);
 
         // Sort by name
-        usort($productOptions, fn($a, $b) => strcasecmp($a['name'] ?? '', $b['name'] ?? ''));
+        usort($productOptions, fn ($a, $b) => strcasecmp($a['name'] ?? '', $b['name'] ?? ''));
 
         return Inertia::render('Prospects/Create', [
             'products' => $productOptions,
@@ -127,12 +127,12 @@ class ProspectController extends Controller
             DB::transaction(function () use ($validated, &$prospect, &$companyUrls) {
                 // Collect domains from contact emails
                 $contactDomains = [];
-                if (!empty($validated['contacts'])) {
+                if (! empty($validated['contacts'])) {
                     foreach ($validated['contacts'] as $contact) {
                         $email = $contact['email'] ?? null;
                         if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
                             $domain = strtolower(explode('@', $email)[1] ?? '');
-                            if (!empty($domain)) {
+                            if (! empty($domain)) {
                                 $contactDomains[] = $domain;
                             }
                         }
@@ -142,7 +142,7 @@ class ProspectController extends Controller
                 // Merge provided company_urls with auto-extracted domains
                 $companyUrls = array_values(array_filter($validated['company_urls'] ?? []));
                 foreach (array_unique($contactDomains) as $domain) {
-                    if (!in_array($domain, $companyUrls)) {
+                    if (! in_array($domain, $companyUrls)) {
                         $companyUrls[] = $domain;
                     }
                 }
@@ -151,13 +151,13 @@ class ProspectController extends Controller
                 $prospect = Prospect::create([
                     'company_name' => $validated['company_name'],
                     'created_by' => Auth::id(),
-                    'company_urls' => !empty($companyUrls) ? $companyUrls : null,
+                    'company_urls' => ! empty($companyUrls) ? $companyUrls : null,
                 ]);
 
                 // Create contacts (all contacts from create form are buyers)
-                if (!empty($validated['contacts'])) {
+                if (! empty($validated['contacts'])) {
                     foreach ($validated['contacts'] as $contact) {
-                        if (!empty($contact['name'])) {
+                        if (! empty($contact['name'])) {
                             ProspectContact::create([
                                 'prospect_id' => $prospect->id,
                                 'type' => ProspectContact::TYPE_BUYER,
@@ -169,7 +169,7 @@ class ProspectController extends Controller
                 }
 
                 // Create product associations
-                if (!empty($validated['product_ids'])) {
+                if (! empty($validated['product_ids'])) {
                     foreach ($validated['product_ids'] as $productId) {
                         ProspectProduct::create([
                             'prospect_id' => $prospect->id,
@@ -180,7 +180,7 @@ class ProspectController extends Controller
             });
 
             // Dispatch Gmail sync job for the new prospect's domains (runs in background)
-            if ($prospect && !empty($companyUrls)) {
+            if ($prospect && ! empty($companyUrls)) {
                 SyncGmailForDomains::dispatch($companyUrls, 'prospect', $prospect->id);
             }
 
@@ -189,7 +189,7 @@ class ProspectController extends Controller
                 ->with('success', "Prospect \"{$validated['company_name']}\" created successfully.");
         } catch (\Exception $e) {
             return back()
-                ->withErrors(['general' => 'Failed to create prospect: ' . $e->getMessage()])
+                ->withErrors(['general' => 'Failed to create prospect: '.$e->getMessage()])
                 ->withInput();
         }
     }
@@ -210,12 +210,13 @@ class ProspectController extends Controller
                 'sku' => $product['sku'],
             ];
         }, $products);
-        usort($productOptions, fn($a, $b) => strcasecmp($a['name'] ?? '', $b['name'] ?? ''));
+        usort($productOptions, fn ($a, $b) => strcasecmp($a['name'] ?? '', $b['name'] ?? ''));
 
         // Map product IDs to product details
         $productsById = collect($productOptions)->keyBy('id');
         $prospectProducts = $prospect->products->map(function ($pp) use ($productsById) {
             $product = $productsById->get($pp->product_id);
+
             return $product ? [
                 'id' => $pp->product_id,
                 'name' => $product['name'],
@@ -238,31 +239,31 @@ class ProspectController extends Controller
                 'broker' => $prospect->broker ?? false,
                 'broker_commission' => $prospect->broker_commission,
                 'broker_company_name' => $prospect->broker_company_name,
-                'broker_contacts' => $prospect->brokerContacts->map(fn($c) => [
+                'broker_contacts' => $prospect->brokerContacts->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'value' => $c->value,
                     'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
                     'last_received_at' => $c->last_received_at?->toIso8601String(),
                 ])->toArray(),
-                'buyers' => $prospect->buyers->map(fn($c) => [
+                'buyers' => $prospect->buyers->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'value' => $c->value,
                     'last_emailed_at' => $c->last_emailed_at?->toIso8601String(),
                     'last_received_at' => $c->last_received_at?->toIso8601String(),
                 ])->toArray(),
-                'accounts_payable' => $prospect->accountsPayable->map(fn($c) => [
+                'accounts_payable' => $prospect->accountsPayable->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'value' => $c->value,
                 ])->toArray(),
-                'logistics' => $prospect->logistics->map(fn($c) => [
+                'logistics' => $prospect->logistics->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'value' => $c->value,
                 ])->toArray(),
-                'uncategorized' => $prospect->uncategorized->map(fn($c) => [
+                'uncategorized' => $prospect->uncategorized->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'value' => $c->value,
@@ -382,7 +383,7 @@ class ProspectController extends Controller
                 if (array_key_exists('broker_company_name', $validated)) {
                     $updateData['broker_company_name'] = $validated['broker_company_name'];
                 }
-                if (!empty($updateData)) {
+                if (! empty($updateData)) {
                     $prospect->update($updateData);
                 }
 
@@ -393,7 +394,7 @@ class ProspectController extends Controller
                 if (isset($validated['buyers'])) {
                     $prospect->buyers()->delete();
                     foreach ($validated['buyers'] as $contact) {
-                        if (!empty($contact['name'])) {
+                        if (! empty($contact['name'])) {
                             ProspectContact::create([
                                 'prospect_id' => $prospect->id,
                                 'type' => ProspectContact::TYPE_BUYER,
@@ -408,7 +409,7 @@ class ProspectController extends Controller
                 if (isset($validated['accounts_payable'])) {
                     $prospect->accountsPayable()->delete();
                     foreach ($validated['accounts_payable'] as $contact) {
-                        if (!empty($contact['name'])) {
+                        if (! empty($contact['name'])) {
                             ProspectContact::create([
                                 'prospect_id' => $prospect->id,
                                 'type' => ProspectContact::TYPE_ACCOUNTS_PAYABLE,
@@ -423,7 +424,7 @@ class ProspectController extends Controller
                 if (isset($validated['logistics'])) {
                     $prospect->logistics()->delete();
                     foreach ($validated['logistics'] as $contact) {
-                        if (!empty($contact['name'])) {
+                        if (! empty($contact['name'])) {
                             ProspectContact::create([
                                 'prospect_id' => $prospect->id,
                                 'type' => ProspectContact::TYPE_LOGISTICS,
@@ -438,7 +439,7 @@ class ProspectController extends Controller
                 if (isset($validated['uncategorized'])) {
                     $prospect->uncategorized()->delete();
                     foreach ($validated['uncategorized'] as $contact) {
-                        if (!empty($contact['name'])) {
+                        if (! empty($contact['name'])) {
                             ProspectContact::create([
                                 'prospect_id' => $prospect->id,
                                 'type' => ProspectContact::TYPE_UNCATEGORIZED,
@@ -453,7 +454,7 @@ class ProspectController extends Controller
                 if (isset($validated['broker_contacts'])) {
                     $prospect->brokerContacts()->delete();
                     foreach ($validated['broker_contacts'] as $contact) {
-                        if (!empty($contact['name'])) {
+                        if (! empty($contact['name'])) {
                             ProspectContact::create([
                                 'prospect_id' => $prospect->id,
                                 'type' => ProspectContact::TYPE_BROKER,
@@ -498,28 +499,28 @@ class ProspectController extends Controller
         $newDomains = [];
 
         foreach ($contactTypes as $type) {
-            if (!isset($validated[$type])) {
+            if (! isset($validated[$type])) {
                 continue;
             }
 
             foreach ($validated[$type] as $contact) {
                 $email = $contact['value'] ?? null;
-                if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     continue;
                 }
 
                 $domain = strtolower(explode('@', $email)[1] ?? '');
-                if (!empty($domain)) {
+                if (! empty($domain)) {
                     $newDomains[] = $domain;
                 }
             }
         }
 
         // Add any new domains that aren't already in company_urls
-        if (!empty($newDomains)) {
+        if (! empty($newDomains)) {
             $existingDomains = $prospect->getEmailDomains();
             foreach (array_unique($newDomains) as $domain) {
-                if (!in_array($domain, $existingDomains)) {
+                if (! in_array($domain, $existingDomains)) {
                     $prospect->addCompanyUrl($domain);
                 }
             }
@@ -674,7 +675,7 @@ class ProspectController extends Controller
      */
     protected function getEmailSnippet(?string $bodyText, int $length = 100): string
     {
-        if (!$bodyText) {
+        if (! $bodyText) {
             return '';
         }
 
@@ -685,7 +686,7 @@ class ProspectController extends Controller
             return $text;
         }
 
-        return substr($text, 0, $length) . '...';
+        return substr($text, 0, $length).'...';
     }
 
     /**
@@ -715,7 +716,7 @@ class ProspectController extends Controller
             $errors['discount_percent'] = 'Discount level is required';
         } else {
             $matchedPriceList = collect($priceLists)->firstWhere('discount_percent', $prospect->discount_percent);
-            if (!$matchedPriceList) {
+            if (! $matchedPriceList) {
                 $errors['discount_percent'] = 'Invalid discount level';
             } else {
                 $priceListId = $matchedPriceList['id'];
@@ -728,7 +729,7 @@ class ProspectController extends Controller
             $errors['payment_terms'] = 'Payment terms is required';
         } else {
             $matchedPaymentTerm = collect($paymentTerms)->firstWhere('name', $prospect->payment_terms);
-            if (!$matchedPaymentTerm) {
+            if (! $matchedPaymentTerm) {
                 $errors['payment_terms'] = 'Invalid payment terms';
             } else {
                 $paymentTermId = $matchedPaymentTerm['id'];
@@ -741,7 +742,7 @@ class ProspectController extends Controller
             $errors['shipping_terms'] = 'Shipping terms is required';
         } else {
             $matchedShippingTerm = collect($shippingTerms)->firstWhere('name', $prospect->shipping_terms);
-            if (!$matchedShippingTerm) {
+            if (! $matchedShippingTerm) {
                 $errors['shipping_terms'] = 'Invalid shipping terms';
             } else {
                 $shippingTermId = $matchedShippingTerm['id'];
@@ -756,7 +757,7 @@ class ProspectController extends Controller
         }
 
         // Validate vendor_guide (if set, must be valid URL)
-        if (!empty($prospect->vendor_guide) && !filter_var($prospect->vendor_guide, FILTER_VALIDATE_URL)) {
+        if (! empty($prospect->vendor_guide) && ! filter_var($prospect->vendor_guide, FILTER_VALIDATE_URL)) {
             $errors['vendor_guide'] = 'Vendor guide must be a valid URL';
         }
 
@@ -769,7 +770,7 @@ class ProspectController extends Controller
                 if (empty($buyer->name) || strlen($buyer->name) < 2) {
                     $errors["buyers.{$index}.name"] = 'Buyer name must be at least 2 characters';
                 }
-                if (empty($buyer->value) || !filter_var($buyer->value, FILTER_VALIDATE_EMAIL)) {
+                if (empty($buyer->value) || ! filter_var($buyer->value, FILTER_VALIDATE_EMAIL)) {
                     $errors["buyers.{$index}.value"] = 'Buyer email is required and must be valid';
                 }
             }
@@ -814,7 +815,7 @@ class ProspectController extends Controller
                     if (empty($brokerContact->name) || strlen($brokerContact->name) < 2) {
                         $errors["broker_contacts.{$index}.name"] = 'Broker contact name must be at least 2 characters';
                     }
-                    if (empty($brokerContact->value) || !filter_var($brokerContact->value, FILTER_VALIDATE_EMAIL)) {
+                    if (empty($brokerContact->value) || ! filter_var($brokerContact->value, FILTER_VALIDATE_EMAIL)) {
                         $errors["broker_contacts.{$index}.value"] = 'Broker contact email is required and must be valid';
                     }
                 }
@@ -822,7 +823,7 @@ class ProspectController extends Controller
         }
 
         // If there are validation errors, return them for Inertia
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             return back()->withErrors($errors);
         }
 
@@ -837,14 +838,14 @@ class ProspectController extends Controller
             'broker' => $prospect->broker ?? false,
             'broker_company_name' => $prospect->broker_company_name,
             'broker_commission' => $prospect->broker_commission,
-            'buyers' => $buyers->map(fn($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
-            'accounts_payable' => $prospect->accountsPayable->map(fn($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
-            'logistics' => $prospect->logistics->map(fn($l) => ['name' => $l->name, 'email' => $l->value])->toArray(),
+            'buyers' => $buyers->map(fn ($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
+            'accounts_payable' => $prospect->accountsPayable->map(fn ($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
+            'logistics' => $prospect->logistics->map(fn ($l) => ['name' => $l->name, 'email' => $l->value])->toArray(),
         ];
 
         // Add broker contacts if broker is enabled
         if ($prospect->broker && $prospect->brokerContacts->isNotEmpty()) {
-            $customerData['broker_contacts'] = $prospect->brokerContacts->map(fn($bc) => [
+            $customerData['broker_contacts'] = $prospect->brokerContacts->map(fn ($bc) => [
                 'name' => $bc->name,
                 'email' => $bc->value,
             ])->toArray();
@@ -869,7 +870,7 @@ class ProspectController extends Controller
             // Create broker contact records for email tracking
             if ($prospect->broker) {
                 foreach ($prospect->brokerContacts as $brokerContact) {
-                    if (!empty($brokerContact->value)) {
+                    if (! empty($brokerContact->value)) {
                         FulfilBrokerContact::create([
                             'fulfil_party_id' => $partyId,
                             'name' => $brokerContact->name,
@@ -883,7 +884,7 @@ class ProspectController extends Controller
 
             // Migrate uncategorized contacts
             foreach ($prospect->uncategorized as $uncategorized) {
-                if (!empty($uncategorized->value)) {
+                if (! empty($uncategorized->value)) {
                     FulfilUncategorizedContact::create([
                         'fulfil_party_id' => $partyId,
                         'name' => $uncategorized->name,
@@ -908,7 +909,7 @@ class ProspectController extends Controller
             DB::rollBack();
 
             return back()->withErrors([
-                'general' => 'Failed to promote prospect to customer: ' . $e->getMessage(),
+                'general' => 'Failed to promote prospect to customer: '.$e->getMessage(),
             ]);
         }
     }

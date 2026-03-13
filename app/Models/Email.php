@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Email extends Model
 {
     const DIRECTION_INBOUND = 'inbound';
+
     const DIRECTION_OUTBOUND = 'outbound';
 
     protected $fillable = [
@@ -87,6 +88,7 @@ class Email extends Model
     public static function extractDomain(string $email): ?string
     {
         $parts = explode('@', $email);
+
         return count($parts) === 2 ? strtolower($parts[1]) : null;
     }
 }

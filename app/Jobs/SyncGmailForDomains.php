@@ -44,9 +44,9 @@ class SyncGmailForDomains implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param array $domains The domains to sync (e.g., ['example.com', 'company.org'])
-     * @param string $entityType The type of entity ('prospect' or 'customer')
-     * @param int $entityId The ID of the prospect or customer
+     * @param  array  $domains  The domains to sync (e.g., ['example.com', 'company.org'])
+     * @param  string  $entityType  The type of entity ('prospect' or 'customer')
+     * @param  int  $entityId  The ID of the prospect or customer
      */
     public function __construct(
         public array $domains,
@@ -64,6 +64,7 @@ class SyncGmailForDomains implements ShouldQueue
                 'entity_type' => $this->entityType,
                 'entity_id' => $this->entityId,
             ]);
+
             return;
         }
 
@@ -76,6 +77,7 @@ class SyncGmailForDomains implements ShouldQueue
             Log::info('SyncGmailForDomains: No salespersons with Gmail connected', [
                 'domains' => $this->domains,
             ]);
+
             return;
         }
 

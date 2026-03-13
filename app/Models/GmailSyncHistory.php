@@ -8,10 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class GmailSyncHistory extends Model
 {
     const STATUS_RUNNING = 'running';
+
     const STATUS_COMPLETED = 'completed';
+
     const STATUS_FAILED = 'failed';
 
     const TYPE_FULL = 'full';
+
     const TYPE_DOMAIN = 'domain';
 
     protected $table = 'gmail_sync_history';
