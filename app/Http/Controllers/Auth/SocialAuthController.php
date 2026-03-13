@@ -108,7 +108,6 @@ class SocialAuthController extends Controller
                 $invite = UserInvite::getByEmail($email);
                 if ($invite) {
                     $role = $invite->role;
-                    $invite->delete(); // Remove invite after use
                 } elseif ($email === 'eli@universalyums.com') {
                     $role = User::ROLE_ADMIN;
                 } else {
@@ -122,6 +121,11 @@ class SocialAuthController extends Controller
                     'avatar' => $socialUser->getAvatar(),
                     'role' => $role,
                 ]);
+
+                // Delete invite only after user is successfully created
+                if ($invite) {
+                    $invite->delete();
+                }
             }
 
             Auth::login($user, true);
