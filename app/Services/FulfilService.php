@@ -680,18 +680,28 @@ class FulfilService
             'earliest_due_date', 'payment_term', 'sales',
         ];
 
-        // Note: Fulfil API max page size is 500
-        $response = $this->request('PUT', 'model/account.invoice/search_read', [
-            'json' => [
-                'filters' => $baseFilters,
-                'fields' => $fields,
-                'limit' => 500,
-                'order' => [['invoice_date', 'DESC']],
-            ],
-        ]);
+        // Paginate through all invoices (Fulfil API max page size is 500)
+        $allInvoices = [];
+        $offset = 0;
+        $pageSize = 500;
+
+        do {
+            $response = $this->request('PUT', 'model/account.invoice/search_read', [
+                'json' => [
+                    'filters' => $baseFilters,
+                    'fields' => $fields,
+                    'limit' => $pageSize,
+                    'offset' => $offset,
+                    'order' => [['invoice_date', 'DESC']],
+                ],
+            ]);
+
+            $allInvoices = array_merge($allInvoices, $response);
+            $offset += $pageSize;
+        } while (count($response) === $pageSize);
 
         // Fetch payment terms
-        $paymentTermIds = array_unique(array_filter(array_column($response, 'payment_term')));
+        $paymentTermIds = array_unique(array_filter(array_column($allInvoices, 'payment_term')));
         $paymentTerms = $this->fetchPaymentTerms($paymentTermIds);
         $paymentTermsById = collect($paymentTerms)->keyBy('id')->toArray();
 
@@ -714,7 +724,7 @@ class FulfilService
                     : null,
                 'sales_order_ids' => $invoice['sales'] ?? [],
             ];
-        }, $response);
+        }, $allInvoices);
     }
 
     // =========================================================================
