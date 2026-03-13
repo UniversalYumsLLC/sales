@@ -85,6 +85,42 @@ resources/js/
 - `SyncGmailForUser`: Full 365-day email sync for a salesperson
 - `SyncGmailForDomains`: Targeted sync for specific domains (on prospect/customer creation)
 - `SyncGmailForAllUsers`: Admin-triggered sync for all salespersons
+- Queue driver: `database` (configured via `QUEUE_CONNECTION`)
+- Dev server runs `php artisan queue:listen` via `composer run dev`
+- Scheduled command: `gmail:sync` runs every 15 minutes
+
+## Coding Standards
+
+### PHP
+
+- **Always use `use` statements** at the top of PHP files. Never use fully-qualified class names inline.
+- Use PHP 8 constructor property promotion in `__construct()`.
+- Always use explicit return type declarations for methods and functions.
+- Use appropriate PHP type hints for method parameters.
+- Prefer PHPDoc blocks over inline comments.
+
+### Frontend HTTP Requests
+
+Always use `axios` for HTTP requests in React/TypeScript code. Never use the native `fetch()` API. Axios is configured with automatic CSRF token handling via the `XSRF-TOKEN` cookie.
+
+### Database
+
+- Prefer `Model::query()` over `DB::` facade for queries.
+- Use Eloquent relationships over raw queries or manual joins.
+- Use eager loading to prevent N+1 query problems.
+- Use Laravel's query builder only for very complex operations that don't fit Eloquent well.
+
+### Scaffolding
+
+Use `php artisan make:*` commands (with `--no-interaction`) to create new files (migrations, controllers, models, etc.) instead of hand-creating them.
+
+### Formatting
+
+Run `vendor/bin/pint --dirty` before finalizing PHP changes to ensure code matches the project's style.
+
+### Testing
+
+Every change should be tested. Run the minimum needed tests with `php artisan test --compact` and use `--filter` to target specific tests.
 
 ## External Integrations
 
