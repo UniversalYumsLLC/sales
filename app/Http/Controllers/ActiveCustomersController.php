@@ -9,8 +9,10 @@ use App\Models\FulfilCustomerMetadata;
 use App\Models\FulfilUncategorizedContact;
 use App\Services\FulfilService;
 use Carbon\Carbon;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -53,7 +55,21 @@ class ActiveCustomersController extends Controller
         $bustCache = $request->boolean('refresh');
         $search = $request->string('search')->trim();
 
-        $customers = $this->getActiveCustomersWithMetrics($bustCache);
+        try {
+            $customers = $this->getActiveCustomersWithMetrics($bustCache);
+        } catch (ConnectionException $e) {
+            Log::error('Fulfil API timeout on Active Customers index', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return Inertia::render('ActiveCustomers/Index', [
+                'customers' => [],
+                'totals' => ['total_customers' => 0, 'open_po_revenue' => 0, 't12m_revenue' => 0],
+                'search' => (string) $search,
+                'lastUpdated' => now()->toIso8601String(),
+                'error' => 'Unable to load data from Fulfil. Please try again in a few minutes.',
+            ]);
+        }
 
         // Filter by search term
         if ($search->isNotEmpty()) {
@@ -86,16 +102,42 @@ class ActiveCustomersController extends Controller
     {
         $bustCache = $request->boolean('refresh');
 
-        $customers = $this->getActiveCustomersWithMetrics($bustCache);
-        $customer = collect($customers)->firstWhere('id', $id);
+        try {
+            $customers = $this->getActiveCustomersWithMetrics($bustCache);
+            $customer = collect($customers)->firstWhere('id', $id);
 
-        if (! $customer) {
-            abort(404, 'Customer not found');
+            if (! $customer) {
+                abort(404, 'Customer not found');
+            }
+
+            // Get detailed data for this customer
+            $salesOrders = $this->fulfil->getSalesOrders(['party_id' => $id], $bustCache);
+            $invoices = $this->fulfil->getInvoices(['party_id' => $id], $bustCache);
+        } catch (ConnectionException $e) {
+            Log::error('Fulfil API timeout on Active Customers show', [
+                'customer_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return Inertia::render('ActiveCustomers/Show', [
+                'customer' => ['id' => $id, 'name' => 'Customer #'.$id],
+                'buyerContacts' => [],
+                'brokerContacts' => [],
+                'localBuyers' => [],
+                'localAP' => [],
+                'localOther' => [],
+                'uncategorizedContacts' => [],
+                'monthlyRevenue' => [],
+                'topProducts' => [],
+                'upcomingOrders' => [],
+                'outstandingInvoices' => [],
+                'lastUpdated' => now()->toIso8601String(),
+                'priceLists' => [],
+                'paymentTerms' => [],
+                'shippingTerms' => [],
+                'error' => 'Unable to load data from Fulfil. Please try again in a few minutes.',
+            ]);
         }
-
-        // Get detailed data for this customer
-        $salesOrders = $this->fulfil->getSalesOrders(['party_id' => $id], $bustCache);
-        $invoices = $this->fulfil->getInvoices(['party_id' => $id], $bustCache);
 
         // Get payment terms from invoices as fallback if customer doesn't have one set
         if (empty($customer['payment_terms'])) {

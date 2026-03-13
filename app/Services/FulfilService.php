@@ -46,6 +46,7 @@ class FulfilService
     {
         $url = "{$this->baseUrl}/{$endpoint}";
         $lastException = null;
+        $startTime = microtime(true);
 
         for ($attempt = 1; $attempt <= $this->maxRetries; $attempt++) {
             $response = Http::timeout(60)
@@ -55,7 +56,20 @@ class FulfilService
                 ])->{$method}($url, $options['json'] ?? $options['query'] ?? []);
 
             if ($response->successful()) {
-                return $response->json();
+                $duration = microtime(true) - $startTime;
+                $result = $response->json();
+
+                // Log slow requests (>15 seconds) for monitoring
+                if ($duration > 15) {
+                    Log::warning('Fulfil API slow request', [
+                        'endpoint' => $endpoint,
+                        'method' => $method,
+                        'duration_seconds' => round($duration, 2),
+                        'record_count' => is_array($result) ? count($result) : 1,
+                    ]);
+                }
+
+                return $result;
             }
 
             // Handle rate limiting (429) with exponential backoff

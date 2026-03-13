@@ -14,3 +14,11 @@ Schedule::command('gmail:sync')
     ->withoutOverlapping()
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/gmail-sync.log'));
+
+// Fulfil cache warming - runs every 45 minutes (cache TTL is 60 min)
+// Keeps cache warm to prevent cold-start timeouts on Active Customers page
+Schedule::command('fulfil:warm-cache')
+    ->cron('*/45 * * * *')
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/fulfil-cache.log'));

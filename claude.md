@@ -193,9 +193,14 @@ npm run build
 $ACTIVATE_RELEASE()
 
 $RESTART_QUEUES()
+
+# Warm Fulfil cache in background to prevent cold-start timeouts
+$FORGE_PHP artisan fulfil:warm-cache >> /dev/null 2>&1 &
 ```
 
 Migrations run automatically during deployment. No manual steps needed after merging PRs.
+
+- **Scheduled Jobs**: Ensure `php artisan schedule:run` is configured in Forge's scheduler (runs every minute)
 
 ## Commands
 ```bash
