@@ -86,7 +86,7 @@ export default function Authenticated({
                                         >
                                             Profile
                                         </Dropdown.Link>
-                                        {user.role === 'salesperson' && (
+                                        {(user.role === 'salesperson' || user.role === 'admin') && (
                                             <Dropdown.Link
                                                 href={route('gmail.index')}
                                             >
@@ -196,7 +196,7 @@ export default function Authenticated({
                             <ResponsiveNavLink href={route('profile.edit')}>
                                 Profile
                             </ResponsiveNavLink>
-                            {user.role === 'salesperson' && (
+                            {(user.role === 'salesperson' || user.role === 'admin') && (
                                 <ResponsiveNavLink href={route('gmail.index')}>
                                     Gmail Integration
                                 </ResponsiveNavLink>
