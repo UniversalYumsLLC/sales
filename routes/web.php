@@ -71,6 +71,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/gmail/sync', [GmailController::class, 'sync'])->name('gmail.sync');
     Route::post('/gmail/full-sync', [GmailController::class, 'fullSync'])->name('gmail.full-sync');
     Route::post('/gmail/full-sync-all', [GmailController::class, 'fullSyncAll'])->name('gmail.full-sync-all');
+    Route::post('/gmail/backfill-domains', [GmailController::class, 'backfillDomains'])->name('gmail.backfill-domains');
 });
 
 // Admin routes

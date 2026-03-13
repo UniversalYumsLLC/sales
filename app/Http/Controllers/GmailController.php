@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SyncGmailForAllUsers;
 use App\Jobs\SyncGmailForUser;
+use App\Models\FulfilCustomerMetadata;
 use App\Models\GmailSyncHistory;
 use App\Models\User;
 use App\Models\UserGmailToken;
+use App\Services\FulfilService;
 use App\Services\GmailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -305,5 +307,117 @@ class GmailController extends Controller
 
         return redirect()->route('gmail.index')
             ->with('success', 'Full 365-day resync started for all salespersons. This may take several minutes.');
+    }
+
+    /**
+     * Backfill company domains from existing customer contacts (admin only).
+     *
+     * This extracts email domains from buyer, logistics, and accounts payable
+     * contacts and populates the company_urls field for customers that don't
+     * have any domains set.
+     */
+    public function backfillDomains(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user->isAdmin()) {
+            abort(403, 'Only admins can backfill company domains.');
+        }
+
+        try {
+            $fulfilService = app(FulfilService::class);
+            $customers = $fulfilService->getActiveCustomers();
+
+            $customersUpdated = 0;
+            $domainsAdded = 0;
+
+            foreach ($customers as $customer) {
+                // Get or check existing metadata
+                $metadata = FulfilCustomerMetadata::find($customer['id']);
+
+                // Skip if customer already has company_urls set
+                if ($metadata && !empty($metadata->company_urls)) {
+                    continue;
+                }
+
+                // Extract domains from contacts
+                $domains = $this->extractDomainsFromCustomer($customer);
+
+                if (empty($domains)) {
+                    continue;
+                }
+
+                // Create or update metadata with domains
+                FulfilCustomerMetadata::updateOrCreate(
+                    ['fulfil_party_id' => $customer['id']],
+                    ['company_urls' => $domains]
+                );
+
+                $customersUpdated++;
+                $domainsAdded += count($domains);
+            }
+
+            return redirect()->route('gmail.index')
+                ->with('success', "Backfill complete: Updated {$customersUpdated} customers with {$domainsAdded} domains.");
+
+        } catch (\Exception $e) {
+            return redirect()->route('gmail.index')
+                ->with('error', 'Failed to backfill domains: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Extract email domains from a customer's contacts.
+     */
+    protected function extractDomainsFromCustomer(array $customer): array
+    {
+        $domains = [];
+
+        // Extract from buyers
+        foreach ($customer['buyers'] ?? [] as $buyer) {
+            $domain = $this->extractDomainFromEmail($buyer['email'] ?? '');
+            if ($domain) {
+                $domains[] = $domain;
+            }
+        }
+
+        // Extract from logistics
+        foreach ($customer['logistics'] ?? [] as $logistics) {
+            $domain = $this->extractDomainFromEmail($logistics['email'] ?? '');
+            if ($domain) {
+                $domains[] = $domain;
+            }
+        }
+
+        // Extract from accounts_payable (value can be email or URL)
+        foreach ($customer['accounts_payable'] ?? [] as $ap) {
+            $value = $ap['value'] ?? '';
+            // Only process if it looks like an email
+            if (str_contains($value, '@')) {
+                $domain = $this->extractDomainFromEmail($value);
+                if ($domain) {
+                    $domains[] = $domain;
+                }
+            }
+        }
+
+        return array_values(array_unique($domains));
+    }
+
+    /**
+     * Extract domain from an email address.
+     */
+    protected function extractDomainFromEmail(string $email): ?string
+    {
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        $parts = explode('@', $email);
+        if (count($parts) !== 2) {
+            return null;
+        }
+
+        return strtolower($parts[1]);
     }
 }

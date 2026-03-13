@@ -52,6 +52,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
     const [syncing, setSyncing] = useState(false);
     const [fullSyncing, setFullSyncing] = useState(false);
     const [fullSyncingAll, setFullSyncingAll] = useState(false);
+    const [backfillingDomains, setBackfillingDomains] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
 
     const handleSync = () => {
@@ -78,6 +79,16 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
         setFullSyncingAll(true);
         router.post(route('gmail.full-sync-all'), {}, {
             onFinish: () => setFullSyncingAll(false),
+        });
+    };
+
+    const handleBackfillDomains = () => {
+        if (!confirm('This will extract email domains from all customer contacts and populate missing company domains. Continue?')) {
+            return;
+        }
+        setBackfillingDomains(true);
+        router.post(route('gmail.backfill-domains'), {}, {
+            onFinish: () => setBackfillingDomains(false),
         });
     };
 
@@ -188,16 +199,36 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Admin Actions</h3>
                                 <p className="text-sm text-gray-600 mb-4">
-                                    Trigger a full 365-day email resync for all salespersons with Gmail connected.
-                                    This is useful if emails were missed or if you need to recover from sync errors.
+                                    Use these actions to maintain email sync data across all customers and salespersons.
                                 </p>
-                                <button
-                                    onClick={handleFullSyncAll}
-                                    disabled={fullSyncingAll}
-                                    className="inline-flex items-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-700 focus:bg-orange-700 active:bg-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
-                                >
-                                    {fullSyncingAll ? 'Starting Resync...' : 'Full Resync All Salespersons (365 days)'}
-                                </button>
+                                <div className="flex flex-wrap gap-4">
+                                    <div className="flex-1 min-w-[280px] p-4 border border-gray-200 rounded-lg">
+                                        <h4 className="text-sm font-medium text-gray-900 mb-2">Full Email Resync</h4>
+                                        <p className="text-xs text-gray-500 mb-3">
+                                            Resync all emails from the past 365 days for all salespersons. Useful for recovering from sync errors.
+                                        </p>
+                                        <button
+                                            onClick={handleFullSyncAll}
+                                            disabled={fullSyncingAll}
+                                            className="inline-flex items-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-700 focus:bg-orange-700 active:bg-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
+                                        >
+                                            {fullSyncingAll ? 'Starting...' : 'Full Resync All (365 days)'}
+                                        </button>
+                                    </div>
+                                    <div className="flex-1 min-w-[280px] p-4 border border-gray-200 rounded-lg">
+                                        <h4 className="text-sm font-medium text-gray-900 mb-2">Backfill Company Domains</h4>
+                                        <p className="text-xs text-gray-500 mb-3">
+                                            Extract email domains from customer contacts and populate missing company domains for email matching.
+                                        </p>
+                                        <button
+                                            onClick={handleBackfillDomains}
+                                            disabled={backfillingDomains}
+                                            className="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
+                                        >
+                                            {backfillingDomains ? 'Processing...' : 'Backfill Domains'}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
