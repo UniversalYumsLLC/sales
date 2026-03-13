@@ -52,7 +52,7 @@ return [
     'max_results_per_sync' => 100,
 
     // How far back to look on initial sync (in days)
-    'initial_sync_days' => 90,
+    'initial_sync_days' => 365,
 
     /*
     |--------------------------------------------------------------------------

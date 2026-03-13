@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncGmailForDomains;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
 use App\Models\FulfilCustomerMetadata;
@@ -120,7 +121,10 @@ class ProspectController extends Controller
         $validated = $validator->validated();
 
         try {
-            DB::transaction(function () use ($validated) {
+            $prospect = null;
+            $companyUrls = [];
+
+            DB::transaction(function () use ($validated, &$prospect, &$companyUrls) {
                 // Collect domains from contact emails
                 $contactDomains = [];
                 if (!empty($validated['contacts'])) {
@@ -174,6 +178,11 @@ class ProspectController extends Controller
                     }
                 }
             });
+
+            // Dispatch Gmail sync job for the new prospect's domains (runs in background)
+            if ($prospect && !empty($companyUrls)) {
+                SyncGmailForDomains::dispatch($companyUrls, 'prospect', $prospect->id);
+            }
 
             return redirect()
                 ->route('prospects.index')

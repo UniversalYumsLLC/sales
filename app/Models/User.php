@@ -80,11 +80,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user can access Gmail integration (salesperson only)
+     * Check if user can access Gmail integration (salesperson or admin)
      */
     public function canAccessGmailIntegration(): bool
     {
-        return $this->isSalesperson();
+        return $this->isSalesperson() || $this->isAdmin();
     }
 
     /**
