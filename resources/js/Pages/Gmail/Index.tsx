@@ -1,9 +1,13 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 interface SyncHistoryItem {
     id: number;
+    sync_type: 'full' | 'domain';
+    entity_type: 'prospect' | 'customer' | null;
+    entity_id: number | null;
+    domains: string[] | null;
     sync_started_at: string;
     sync_completed_at: string | null;
     emails_from: string;
@@ -12,14 +16,29 @@ interface SyncHistoryItem {
     emails_matched: number;
     status: 'running' | 'completed' | 'failed';
     error_message: string | null;
+    user?: {
+        id: number;
+        name: string;
+    };
+}
+
+interface Salesperson {
+    id: number;
+    name: string;
+    email: string;
+    is_connected: boolean;
+    gmail_email: string | null;
+    connected_at: string | null;
 }
 
 interface Props {
+    isAdmin: boolean;
     isConnected: boolean;
     gmailEmail: string | null;
     connectedAt: string | null;
     lastSync: SyncHistoryItem | null;
     syncHistory: SyncHistoryItem[];
+    salespersons: Salesperson[];
 }
 
 interface Flash {
@@ -27,16 +46,38 @@ interface Flash {
     error?: string;
 }
 
-export default function Index({ isConnected, gmailEmail, connectedAt, lastSync, syncHistory }: Props) {
+export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, lastSync, syncHistory, salespersons }: Props) {
     const pageProps = usePage().props as unknown as { flash?: Flash };
     const flash = pageProps.flash;
     const [syncing, setSyncing] = useState(false);
+    const [fullSyncing, setFullSyncing] = useState(false);
+    const [fullSyncingAll, setFullSyncingAll] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
 
     const handleSync = () => {
         setSyncing(true);
         router.post(route('gmail.sync'), {}, {
             onFinish: () => setSyncing(false),
+        });
+    };
+
+    const handleFullSync = () => {
+        if (!confirm('This will resync all emails from the past 365 days. This may take several minutes. Continue?')) {
+            return;
+        }
+        setFullSyncing(true);
+        router.post(route('gmail.full-sync'), {}, {
+            onFinish: () => setFullSyncing(false),
+        });
+    };
+
+    const handleFullSyncAll = () => {
+        if (!confirm('This will resync all emails from the past 365 days for ALL salespersons. This may take a long time. Continue?')) {
+            return;
+        }
+        setFullSyncingAll(true);
+        router.post(route('gmail.full-sync-all'), {}, {
+            onFinish: () => setFullSyncingAll(false),
         });
     };
 
@@ -81,6 +122,229 @@ export default function Index({ isConnected, gmailEmail, connectedAt, lastSync, 
         }
     };
 
+    const getSyncTypeBadge = (sync: SyncHistoryItem) => {
+        if (sync.sync_type === 'full') {
+            return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">Full</span>;
+        }
+        const label = sync.entity_type === 'prospect' ? 'Prospect' : 'Customer';
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">{label}</span>;
+    };
+
+    const getSyncDescription = (sync: SyncHistoryItem) => {
+        if (sync.sync_type === 'full') {
+            return 'Full sync';
+        }
+        const domains = sync.domains?.join(', ') || 'unknown';
+        return domains;
+    };
+
+    // Admin View
+    if (isAdmin) {
+        return (
+            <AuthenticatedLayout
+                header={
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        Gmail Integration - Admin View
+                    </h2>
+                }
+            >
+                <Head title="Gmail Integration - Admin" />
+
+                <div className="py-12">
+                    <div className="mx-auto max-w-6xl space-y-6 sm:px-6 lg:px-8">
+                        {/* Flash Messages */}
+                        {flash?.success && (
+                            <div className="rounded-md bg-green-50 p-4">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-sm font-medium text-green-800">{flash.success}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {flash?.error && (
+                            <div className="rounded-md bg-red-50 p-4">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-sm font-medium text-red-800">{flash.error}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Admin Actions */}
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Admin Actions</h3>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Trigger a full 365-day email resync for all salespersons with Gmail connected.
+                                    This is useful if emails were missed or if you need to recover from sync errors.
+                                </p>
+                                <button
+                                    onClick={handleFullSyncAll}
+                                    disabled={fullSyncingAll}
+                                    className="inline-flex items-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-700 focus:bg-orange-700 active:bg-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
+                                >
+                                    {fullSyncingAll ? 'Starting Resync...' : 'Full Resync All Salespersons (365 days)'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Salesperson Connection Status */}
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Salesperson Gmail Connections</h3>
+
+                                {salespersons.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No salespersons found.</p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Name
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Email
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Status
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Gmail Account
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Connected Since
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {salespersons.map((sp) => (
+                                                    <tr key={sp.id}>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                            {sp.name}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {sp.email}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            {sp.is_connected ? (
+                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                    Connected
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                                    Not Connected
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {sp.gmail_email || '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {sp.connected_at ? formatDate(sp.connected_at) : '-'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* All Sync History */}
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Sync History (All Salespersons)</h3>
+
+                                {syncHistory.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No sync history found.</p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Date
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Salesperson
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Type
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Domains
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Status
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Fetched
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Matched
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Date Range
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {syncHistory.map((sync) => (
+                                                    <tr key={sync.id} className={sync.status === 'failed' ? 'bg-red-50' : ''}>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                                            {formatDate(sync.sync_started_at)}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                                            {sync.user?.name || '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            {getSyncTypeBadge(sync)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate" title={getSyncDescription(sync)}>
+                                                            {getSyncDescription(sync)}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            {getStatusBadge(sync.status)}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {sync.emails_fetched ?? '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {sync.emails_matched ?? '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {new Date(sync.emails_from).toLocaleDateString()} - {new Date(sync.emails_to).toLocaleDateString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </AuthenticatedLayout>
+        );
+    }
+
+    // Salesperson View
     return (
         <AuthenticatedLayout
             header={
@@ -160,13 +424,20 @@ export default function Index({ isConnected, gmailEmail, connectedAt, lastSync, 
                                         </dl>
                                     </div>
 
-                                    <div className="flex gap-3 pt-2">
+                                    <div className="flex flex-wrap gap-3 pt-2">
                                         <button
                                             onClick={handleSync}
-                                            disabled={syncing}
+                                            disabled={syncing || fullSyncing}
                                             className="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
                                         >
                                             {syncing ? 'Syncing...' : 'Sync Now'}
+                                        </button>
+                                        <button
+                                            onClick={handleFullSync}
+                                            disabled={syncing || fullSyncing}
+                                            className="inline-flex items-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-700 focus:bg-orange-700 active:bg-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150"
+                                        >
+                                            {fullSyncing ? 'Starting...' : 'Full Resync (365 days)'}
                                         </button>
                                         <button
                                             onClick={handleDisconnect}
@@ -218,7 +489,7 @@ export default function Index({ isConnected, gmailEmail, connectedAt, lastSync, 
                     </div>
 
                     {/* Sync History */}
-                    {isConnected && syncHistory.length > 0 && (
+                    {syncHistory.length > 0 && (
                         <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Sync History</h3>
@@ -231,33 +502,49 @@ export default function Index({ isConnected, gmailEmail, connectedAt, lastSync, 
                                                     Date
                                                 </th>
                                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Type
+                                                </th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Status
                                                 </th>
                                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Emails
+                                                    Fetched
                                                 </th>
                                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Matched
                                                 </th>
                                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Time Range
+                                                    Date Range
                                                 </th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {syncHistory.map((sync) => (
-                                                <tr key={sync.id}>
+                                                <tr key={sync.id} className={sync.status === 'failed' ? 'bg-red-50' : ''}>
                                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                                         {formatDate(sync.sync_started_at)}
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
+                                                        {getSyncTypeBadge(sync)}
+                                                        {sync.sync_type === 'domain' && sync.domains && (
+                                                            <span className="ml-2 text-xs text-gray-500" title={sync.domains.join(', ')}>
+                                                                {sync.domains.length > 1 ? `${sync.domains[0]} +${sync.domains.length - 1}` : sync.domains[0]}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
                                                         {getStatusBadge(sync.status)}
+                                                        {sync.status === 'failed' && sync.error_message && (
+                                                            <span className="ml-2 text-xs text-red-600" title={sync.error_message}>
+                                                                (hover for details)
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                        {sync.emails_fetched}
+                                                        {sync.emails_fetched ?? '-'}
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                        {sync.emails_matched}
+                                                        {sync.emails_matched ?? '-'}
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                                         {new Date(sync.emails_from).toLocaleDateString()} - {new Date(sync.emails_to).toLocaleDateString()}

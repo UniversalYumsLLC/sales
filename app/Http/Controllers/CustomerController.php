@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncGmailForDomains;
 use App\Services\FulfilService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -62,6 +63,14 @@ class CustomerController extends Controller
         try {
             $customer = $this->fulfil->createCustomer($data);
 
+            // Extract domains from buyer emails for Gmail sync
+            $domains = $this->extractDomainsFromContacts($data);
+
+            // Dispatch Gmail sync job for the new customer's domains (runs in background)
+            if (!empty($domains) && isset($customer['id'])) {
+                SyncGmailForDomains::dispatch($domains, 'customer', $customer['id']);
+            }
+
             // Redirect to index since new customers won't have orders yet
             // and won't appear in the active customers detail view
             return redirect()
@@ -72,6 +81,47 @@ class CustomerController extends Controller
                 ->withErrors(['general' => 'Failed to create customer: ' . $e->getMessage()])
                 ->withInput();
         }
+    }
+
+    /**
+     * Extract unique domains from contact emails (buyers, logistics, accounts_payable).
+     */
+    protected function extractDomainsFromContacts(array $data): array
+    {
+        $domains = [];
+
+        // Extract from buyers
+        foreach ($data['buyers'] ?? [] as $buyer) {
+            if (!empty($buyer['email']) && filter_var($buyer['email'], FILTER_VALIDATE_EMAIL)) {
+                $domain = strtolower(explode('@', $buyer['email'])[1] ?? '');
+                if ($domain) {
+                    $domains[] = $domain;
+                }
+            }
+        }
+
+        // Extract from logistics
+        foreach ($data['logistics'] ?? [] as $contact) {
+            if (!empty($contact['email']) && filter_var($contact['email'], FILTER_VALIDATE_EMAIL)) {
+                $domain = strtolower(explode('@', $contact['email'])[1] ?? '');
+                if ($domain) {
+                    $domains[] = $domain;
+                }
+            }
+        }
+
+        // Extract from accounts_payable (if it's an email)
+        foreach ($data['accounts_payable'] ?? [] as $contact) {
+            $value = $contact['value'] ?? '';
+            if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                $domain = strtolower(explode('@', $value)[1] ?? '');
+                if ($domain) {
+                    $domains[] = $domain;
+                }
+            }
+        }
+
+        return array_values(array_unique($domains));
     }
 
     /**

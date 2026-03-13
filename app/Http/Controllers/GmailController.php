@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncGmailForAllUsers;
+use App\Jobs\SyncGmailForUser;
+use App\Models\GmailSyncHistory;
+use App\Models\User;
 use App\Models\UserGmailToken;
 use App\Services\GmailService;
 use Illuminate\Http\Request;
@@ -21,6 +25,7 @@ class GmailController extends Controller
 
     /**
      * Display the Gmail integration settings page.
+     * Admins see all salespeople's sync history; salespeople see only their own.
      */
     public function index(): Response
     {
@@ -28,42 +33,110 @@ class GmailController extends Controller
 
         // Check if user can access Gmail integration
         if (!$user->canAccessGmailIntegration()) {
-            abort(403, 'Gmail integration is only available for Salesperson accounts.');
+            abort(403, 'Gmail integration is only available for Salesperson and Admin accounts.');
         }
 
-        $gmailToken = $user->gmailToken;
-        $syncHistory = $user->gmailToken
-            ? $user->gmailToken->user->load(['gmailToken'])->gmailToken->user
-                ->hasMany(\App\Models\GmailSyncHistory::class)
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get()
-            : collect();
+        // Admin view - show all salespeople's data
+        if ($user->isAdmin()) {
+            return $this->adminIndex();
+        }
 
-        // Get sync history directly
-        $syncHistory = \App\Models\GmailSyncHistory::where('user_id', $user->id)
+        // Salesperson view - show their own data
+        return $this->salespersonIndex($user);
+    }
+
+    /**
+     * Admin view: Show all salespeople's Gmail sync data.
+     */
+    protected function adminIndex(): Response
+    {
+        // Get all salespeople with their Gmail connection status
+        $salespersons = User::where('role', User::ROLE_SALESPERSON)
+            ->with('gmailToken')
+            ->orderBy('name')
+            ->get()
+            ->map(fn($sp) => [
+                'id' => $sp->id,
+                'name' => $sp->name,
+                'email' => $sp->email,
+                'is_connected' => $sp->gmailToken !== null,
+                'gmail_email' => $sp->gmailToken?->gmail_email,
+                'connected_at' => $sp->gmailToken?->created_at->toIso8601String(),
+            ]);
+
+        // Get all sync history across all salespeople (recent 50)
+        $syncHistory = GmailSyncHistory::with('user')
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get()
+            ->map(fn($sync) => $this->formatSyncHistory($sync, includeUser: true));
+
+        return Inertia::render('Gmail/Index', [
+            'isAdmin' => true,
+            'salespersons' => $salespersons,
+            'syncHistory' => $syncHistory,
+            // These are not applicable for admin view
+            'isConnected' => false,
+            'gmailEmail' => null,
+            'connectedAt' => null,
+            'lastSync' => null,
+        ]);
+    }
+
+    /**
+     * Salesperson view: Show their own Gmail sync data.
+     */
+    protected function salespersonIndex(User $user): Response
+    {
+        $gmailToken = $user->gmailToken;
+
+        // Get sync history for this user
+        $syncHistory = GmailSyncHistory::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(fn($sync) => [
-                'id' => $sync->id,
-                'sync_started_at' => $sync->sync_started_at->toIso8601String(),
-                'sync_completed_at' => $sync->sync_completed_at?->toIso8601String(),
-                'emails_from' => $sync->emails_from->toIso8601String(),
-                'emails_to' => $sync->emails_to->toIso8601String(),
-                'emails_fetched' => $sync->emails_fetched,
-                'emails_matched' => $sync->emails_matched,
-                'status' => $sync->status,
-                'error_message' => $sync->error_message,
-            ]);
+            ->map(fn($sync) => $this->formatSyncHistory($sync));
 
         return Inertia::render('Gmail/Index', [
+            'isAdmin' => false,
             'isConnected' => $gmailToken !== null,
             'gmailEmail' => $gmailToken?->gmail_email,
             'connectedAt' => $gmailToken?->created_at->toIso8601String(),
             'lastSync' => $syncHistory->first(),
             'syncHistory' => $syncHistory,
+            'salespersons' => [], // Not used for salesperson view
         ]);
+    }
+
+    /**
+     * Format a sync history record for the frontend.
+     */
+    protected function formatSyncHistory(GmailSyncHistory $sync, bool $includeUser = false): array
+    {
+        $data = [
+            'id' => $sync->id,
+            'sync_type' => $sync->sync_type,
+            'entity_type' => $sync->entity_type,
+            'entity_id' => $sync->entity_id,
+            'domains' => $sync->domains,
+            'sync_started_at' => $sync->sync_started_at->toIso8601String(),
+            'sync_completed_at' => $sync->sync_completed_at?->toIso8601String(),
+            'emails_from' => $sync->emails_from->toIso8601String(),
+            'emails_to' => $sync->emails_to->toIso8601String(),
+            'emails_fetched' => $sync->emails_fetched,
+            'emails_matched' => $sync->emails_matched,
+            'status' => $sync->status,
+            'error_message' => $sync->error_message,
+        ];
+
+        if ($includeUser) {
+            $data['user'] = [
+                'id' => $sync->user->id,
+                'name' => $sync->user->name,
+            ];
+        }
+
+        return $data;
     }
 
     /**
@@ -136,8 +209,11 @@ class GmailController extends Controller
                 ]
             );
 
+            // Dispatch initial sync job (runs in background since it goes back 365 days)
+            SyncGmailForUser::dispatch($user->id);
+
             return redirect()->route('gmail.index')
-                ->with('success', 'Gmail connected successfully! Initial sync will begin shortly.');
+                ->with('success', 'Gmail connected successfully! Initial sync is running in the background.');
 
         } catch (\Exception $e) {
             return redirect()->route('gmail.index')
@@ -178,20 +254,56 @@ class GmailController extends Controller
                 ->with('error', 'Gmail is not connected.');
         }
 
-        try {
-            $syncHistory = $this->gmail->syncEmails($user);
+        // Dispatch sync job to run in background
+        SyncGmailForUser::dispatch($user->id);
 
-            if ($syncHistory->status === 'completed') {
-                return redirect()->route('gmail.index')
-                    ->with('success', "Sync completed. Fetched {$syncHistory->emails_fetched} emails, matched {$syncHistory->emails_matched} to prospects.");
-            } else {
-                return redirect()->route('gmail.index')
-                    ->with('error', 'Sync failed: ' . $syncHistory->error_message);
-            }
+        return redirect()->route('gmail.index')
+            ->with('success', 'Sync started. Check back shortly for results.');
+    }
 
-        } catch (\Exception $e) {
-            return redirect()->route('gmail.index')
-                ->with('error', 'Sync failed: ' . $e->getMessage());
+    /**
+     * Trigger a full 365-day resync for the current salesperson.
+     */
+    public function fullSync(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user->canAccessGmailIntegration()) {
+            abort(403);
         }
+
+        // Only salespersons can trigger their own full sync
+        if (!$user->isSalesperson()) {
+            abort(403, 'Only salespersons can trigger their own full sync.');
+        }
+
+        if (!$user->hasGmailConnected()) {
+            return redirect()->route('gmail.index')
+                ->with('error', 'Gmail is not connected.');
+        }
+
+        // Dispatch full sync job with force flag
+        SyncGmailForUser::dispatch($user->id, forceFullSync: true);
+
+        return redirect()->route('gmail.index')
+            ->with('success', 'Full 365-day resync started. This may take several minutes.');
+    }
+
+    /**
+     * Trigger a full 365-day resync for all salespersons (admin only).
+     */
+    public function fullSyncAll(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user->isAdmin()) {
+            abort(403, 'Only admins can trigger a full sync for all users.');
+        }
+
+        // Dispatch job to sync all users
+        SyncGmailForAllUsers::dispatch(forceFullSync: true);
+
+        return redirect()->route('gmail.index')
+            ->with('success', 'Full 365-day resync started for all salespersons. This may take several minutes.');
     }
 }

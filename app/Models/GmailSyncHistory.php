@@ -11,10 +11,17 @@ class GmailSyncHistory extends Model
     const STATUS_COMPLETED = 'completed';
     const STATUS_FAILED = 'failed';
 
+    const TYPE_FULL = 'full';
+    const TYPE_DOMAIN = 'domain';
+
     protected $table = 'gmail_sync_history';
 
     protected $fillable = [
         'user_id',
+        'sync_type',
+        'entity_type',
+        'entity_id',
+        'domains',
         'sync_started_at',
         'sync_completed_at',
         'emails_from',
@@ -32,7 +39,31 @@ class GmailSyncHistory extends Model
             'sync_completed_at' => 'datetime',
             'emails_from' => 'datetime',
             'emails_to' => 'datetime',
+            'domains' => 'array',
         ];
+    }
+
+    /**
+     * Check if this is a domain-specific sync.
+     */
+    public function isDomainSync(): bool
+    {
+        return $this->sync_type === self::TYPE_DOMAIN;
+    }
+
+    /**
+     * Get a human-readable description of what was synced.
+     */
+    public function getSyncDescription(): string
+    {
+        if ($this->sync_type === self::TYPE_FULL) {
+            return 'Full sync';
+        }
+
+        $entityLabel = $this->entity_type === 'prospect' ? 'prospect' : 'customer';
+        $domains = $this->domains ? implode(', ', $this->domains) : 'unknown';
+
+        return "Domain sync for {$entityLabel} ({$domains})";
     }
 
     /**

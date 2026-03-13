@@ -63,12 +63,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-    // Gmail Integration (salesperson only - checked in controller)
+    // Gmail Integration (salesperson and admin - checked in controller)
     Route::get('/gmail', [GmailController::class, 'index'])->name('gmail.index');
     Route::get('/gmail/connect', [GmailController::class, 'connect'])->name('gmail.connect');
     Route::get('/gmail/callback', [GmailController::class, 'callback'])->name('gmail.callback');
     Route::post('/gmail/disconnect', [GmailController::class, 'disconnect'])->name('gmail.disconnect');
     Route::post('/gmail/sync', [GmailController::class, 'sync'])->name('gmail.sync');
+    Route::post('/gmail/full-sync', [GmailController::class, 'fullSync'])->name('gmail.full-sync');
+    Route::post('/gmail/full-sync-all', [GmailController::class, 'fullSyncAll'])->name('gmail.full-sync-all');
 });
 
 // Admin routes
