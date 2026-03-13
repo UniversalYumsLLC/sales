@@ -1446,8 +1446,7 @@ class FulfilService
 
         // Process other contacts (also match legacy "Logistics:" entries)
         if (isset($data['other'])) {
-            $existingOther = array_filter($existing, fn ($m) =>
-                str_starts_with($m['name'] ?? '', 'Other:') ||
+            $existingOther = array_filter($existing, fn ($m) => str_starts_with($m['name'] ?? '', 'Other:') ||
                 str_starts_with($m['name'] ?? '', 'Other (') ||
                 str_starts_with($m['name'] ?? '', 'Logistics:')
             );
