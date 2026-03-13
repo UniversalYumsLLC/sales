@@ -69,7 +69,7 @@ class SyncGmailForDomains implements ShouldQueue
         }
 
         // Get all salespersons with Gmail connected
-        $salespersons = User::where('type', 'Salesperson')
+        $salespersons = User::where('role', User::ROLE_SALESPERSON)
             ->whereHas('gmailToken')
             ->get();
 
