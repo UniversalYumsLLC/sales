@@ -46,7 +46,7 @@ class FulfilService
         for ($attempt = 1; $attempt <= $this->maxRetries; $attempt++) {
             $response = Http::timeout(60)
                 ->withHeaders([
-                    'X-API-KEY' => $this->token,
+                    'Authorization' => 'Bearer '.$this->token,
                     'Content-Type' => 'application/json',
                 ])->{$method}($url, $options['json'] ?? $options['query'] ?? []);
 
