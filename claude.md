@@ -1,5 +1,9 @@
 # Sales Application
 
+## Git
+- Default branch: `main` (not `master`)
+- PRs should target `main`
+
 ## Overview
 A tool suite supporting the B2B sales function, integrating with Fulfil ERP for customer data and Gmail for email tracking.
 
@@ -109,6 +113,7 @@ Always use `axios` for HTTP requests in React/TypeScript code. Never use the nat
 - Use Eloquent relationships over raw queries or manual joins.
 - Use eager loading to prevent N+1 query problems.
 - Use Laravel's query builder only for very complex operations that don't fit Eloquent well.
+- **MySQL index name limit**: MySQL enforces a 64-character limit on index/key names. When adding composite indexes or unique constraints on tables with long names, always pass an explicit shorter name as the second argument (e.g., `$table->unique(['col_a', 'col_b'], 'short_custom_name')`). SQLite does not enforce this, so it won't be caught locally without the test.
 
 ### Scaffolding
 
