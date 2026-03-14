@@ -1,5 +1,9 @@
 # Sales Application
 
+## Git
+- Default branch: `main` (not `master`)
+- PRs should target `main`
+
 ## Overview
 A tool suite supporting the B2B sales function, integrating with Fulfil ERP for customer data and Gmail for email tracking.
 
