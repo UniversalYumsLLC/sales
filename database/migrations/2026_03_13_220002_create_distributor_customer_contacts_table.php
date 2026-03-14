@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop if partially created from a prior failed migration (index name was too long for MySQL)
+        Schema::dropIfExists('distributor_customer_contacts');
+
         Schema::create('distributor_customer_contacts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('distributor_customer_id')->constrained()->onDelete('cascade');
@@ -21,7 +24,7 @@ return new class extends Migration
             $table->timestamp('last_received_at')->nullable();
             $table->timestamps();
 
-            $table->unique(['distributor_customer_id', 'email']);
+            $table->unique(['distributor_customer_id', 'email'], 'dist_cust_contacts_cust_id_email_unique');
             $table->index('email');
         });
     }
