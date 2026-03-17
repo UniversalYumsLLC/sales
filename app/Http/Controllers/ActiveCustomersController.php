@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomerSku;
 use App\Models\DistributorCustomer;
 use App\Models\DistributorCustomerContact;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
-use App\Models\LocalCustomerMetadata;
 use App\Models\FulfilUncategorizedContact;
+use App\Models\LocalCustomerMetadata;
 use App\Services\FulfilService;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
@@ -263,7 +264,7 @@ class ActiveCustomersController extends Controller
         $products = $this->fulfil->getProducts($bustCache);
 
         // Get existing SKU mappings for this customer
-        $customerSkus = \App\Models\CustomerSku::getForCustomer($id)
+        $customerSkus = CustomerSku::getForCustomer($id)
             ->map(fn ($sku) => [
                 'id' => $sku->id,
                 'yums_sku' => $sku->yums_sku,

@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SyncGmailForAllUsers;
 use App\Jobs\SyncGmailForUser;
-use App\Models\LocalCustomerMetadata;
 use App\Models\GmailSyncHistory;
+use App\Models\LocalCustomerMetadata;
 use App\Models\User;
 use App\Models\UserGmailToken;
 use App\Services\FulfilService;
