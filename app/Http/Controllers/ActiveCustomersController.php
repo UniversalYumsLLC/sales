@@ -7,7 +7,7 @@ use App\Models\DistributorCustomerContact;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
-use App\Models\FulfilCustomerMetadata;
+use App\Models\LocalCustomerMetadata;
 use App\Models\FulfilUncategorizedContact;
 use App\Services\FulfilService;
 use Carbon\Carbon;
@@ -122,7 +122,12 @@ class ActiveCustomersController extends Controller
             ]);
 
             return Inertia::render('ActiveCustomers/Show', [
-                'customer' => ['id' => $id, 'name' => 'Customer #'.$id],
+                'customer' => ['id' => $id, 'name' => 'Customer #'.$id, 'ar_settings' => [
+                    'edi' => false,
+                    'consolidated_invoicing' => null,
+                    'requires_customer_skus' => false,
+                    'invoice_discount' => null,
+                ]],
                 'buyerContacts' => [],
                 'brokerContacts' => [],
                 'localBuyers' => [],
@@ -137,6 +142,8 @@ class ActiveCustomersController extends Controller
                 'priceLists' => [],
                 'paymentTerms' => [],
                 'shippingTerms' => [],
+                'products' => [],
+                'customerSkus' => [],
                 'error' => 'Unable to load data from Fulfil. Please try again in a few minutes.',
             ]);
         }
@@ -150,12 +157,29 @@ class ActiveCustomersController extends Controller
         }
 
         // Merge in local metadata (company_urls for Gmail matching, broker info, customer type)
-        $localMetadata = FulfilCustomerMetadata::find($id);
+        $localMetadata = LocalCustomerMetadata::find($id);
         $customer['company_urls'] = $localMetadata?->company_urls ?? [];
         $customer['customer_type'] = $localMetadata?->customer_type ?? 'retailer';
         $customer['broker'] = $localMetadata?->broker ?? false;
         $customer['broker_commission'] = $localMetadata?->broker_commission;
         $customer['broker_company_name'] = $localMetadata?->broker_company_name;
+
+        // Get AR automation settings from Fulfil metafields
+        try {
+            $arSettings = $this->fulfil->getCustomerArSettings($id);
+        } catch (\Exception $e) {
+            Log::warning('Failed to fetch AR settings for customer', [
+                'customer_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            $arSettings = [
+                'edi' => false,
+                'consolidated_invoicing' => null,
+                'requires_customer_skus' => false,
+                'invoice_discount' => null,
+            ];
+        }
+        $customer['ar_settings'] = $arSettings;
 
         // Get broker contacts
         $brokerContacts = FulfilBrokerContact::where('fulfil_party_id', $id)->get()->map(fn ($c) => [
@@ -235,6 +259,17 @@ class ActiveCustomersController extends Controller
         // Get outstanding invoices
         $outstandingInvoices = $this->getOutstandingInvoices($invoices);
 
+        // Get products list for SKU mapping dropdown
+        $products = $this->fulfil->getProducts($bustCache);
+
+        // Get existing SKU mappings for this customer
+        $customerSkus = \App\Models\CustomerSku::getForCustomer($id)
+            ->map(fn ($sku) => [
+                'id' => $sku->id,
+                'yums_sku' => $sku->yums_sku,
+                'customer_sku' => $sku->customer_sku,
+            ])->toArray();
+
         return Inertia::render('ActiveCustomers/Show', [
             'customer' => $customer,
             'buyerContacts' => $buyerContacts,
@@ -253,6 +288,9 @@ class ActiveCustomersController extends Controller
             'priceLists' => $this->fulfil->getAllPriceLists($bustCache),
             'paymentTerms' => $this->fulfil->getAllPaymentTerms($bustCache),
             'shippingTerms' => $this->fulfil->getShippingTermsCategories($bustCache),
+            // SKU mapping data
+            'products' => $products,
+            'customerSkus' => $customerSkus,
         ]);
     }
 
@@ -598,7 +636,7 @@ class ActiveCustomersController extends Controller
         }, $request->company_urls)));
 
         // Update or create metadata
-        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        $metadata = LocalCustomerMetadata::findOrCreateForCustomer($id);
         $metadata->company_urls = $urls;
         $metadata->save();
 
@@ -624,7 +662,7 @@ class ActiveCustomersController extends Controller
         }
 
         // Ensure customer metadata exists
-        FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        LocalCustomerMetadata::findOrCreateForCustomer($id);
 
         // Check if contact with this email already exists
         $existing = FulfilUncategorizedContact::where('fulfil_party_id', $id)
@@ -776,7 +814,7 @@ class ActiveCustomersController extends Controller
             ], 422);
         }
 
-        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        $metadata = LocalCustomerMetadata::findOrCreateForCustomer($id);
         $metadata->broker = $request->broker;
         $metadata->broker_commission = $request->broker_commission;
         $metadata->broker_company_name = $request->broker_company_name;
@@ -810,6 +848,54 @@ class ActiveCustomersController extends Controller
     }
 
     /**
+     * Update AR automation settings for a customer.
+     */
+    public function updateArSettings(Request $request, int $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'edi' => ['required', 'boolean'],
+            'consolidated_invoicing' => ['nullable', 'string', 'in:single_invoice,consolidated_invoice'],
+            'requires_customer_skus' => ['required', 'boolean'],
+            'invoice_discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $this->fulfil->updateCustomerArSettings($id, [
+                'edi' => $request->boolean('edi'),
+                'consolidated_invoicing' => $request->input('consolidated_invoicing'),
+                'requires_customer_skus' => $request->boolean('requires_customer_skus'),
+                'invoice_discount' => $request->input('invoice_discount'),
+            ]);
+
+            return response()->json([
+                'message' => 'AR settings updated successfully',
+                'ar_settings' => [
+                    'edi' => $request->boolean('edi'),
+                    'consolidated_invoicing' => $request->input('consolidated_invoicing'),
+                    'requires_customer_skus' => $request->boolean('requires_customer_skus'),
+                    'invoice_discount' => $request->input('invoice_discount'),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to update AR settings for customer', [
+                'customer_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to update AR settings: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Create a broker contact for a customer.
      */
     public function createBrokerContact(Request $request, int $id): JsonResponse
@@ -827,7 +913,7 @@ class ActiveCustomersController extends Controller
         }
 
         // Ensure customer metadata exists
-        FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        LocalCustomerMetadata::findOrCreateForCustomer($id);
 
         // Check if contact with this email already exists
         $existing = FulfilBrokerContact::where('fulfil_party_id', $id)
@@ -1060,7 +1146,7 @@ class ActiveCustomersController extends Controller
             ], 422);
         }
 
-        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        $metadata = LocalCustomerMetadata::findOrCreateForCustomer($id);
         $newType = $request->customer_type;
 
         // Prevent switching to distributor if broker data exists
@@ -1091,7 +1177,7 @@ class ActiveCustomersController extends Controller
      */
     public function createDistributorCustomer(Request $request, int $id): JsonResponse
     {
-        $metadata = FulfilCustomerMetadata::findOrCreateForCustomer($id);
+        $metadata = LocalCustomerMetadata::findOrCreateForCustomer($id);
 
         // Only distributors can have distributor customers
         if (! $metadata->isDistributor()) {

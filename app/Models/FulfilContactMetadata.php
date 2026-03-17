@@ -63,6 +63,6 @@ class FulfilContactMetadata extends Model
      */
     public function customerMetadata()
     {
-        return $this->belongsTo(FulfilCustomerMetadata::class, 'fulfil_party_id', 'fulfil_party_id');
+        return $this->belongsTo(LocalCustomerMetadata::class, 'fulfil_party_id', 'fulfil_party_id');
     }
 }

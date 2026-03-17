@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SyncGmailForAllUsers;
 use App\Jobs\SyncGmailForUser;
-use App\Models\FulfilCustomerMetadata;
+use App\Models\LocalCustomerMetadata;
 use App\Models\GmailSyncHistory;
 use App\Models\User;
 use App\Models\UserGmailToken;
@@ -333,7 +333,7 @@ class GmailController extends Controller
 
             foreach ($customers as $customer) {
                 // Get or check existing metadata
-                $metadata = FulfilCustomerMetadata::find($customer['id']);
+                $metadata = LocalCustomerMetadata::find($customer['id']);
 
                 // Skip if customer already has company_urls set
                 if ($metadata && ! empty($metadata->company_urls)) {
@@ -348,7 +348,7 @@ class GmailController extends Controller
                 }
 
                 // Create or update metadata with domains
-                FulfilCustomerMetadata::updateOrCreate(
+                LocalCustomerMetadata::updateOrCreate(
                     ['fulfil_party_id' => $customer['id']],
                     ['company_urls' => $domains]
                 );

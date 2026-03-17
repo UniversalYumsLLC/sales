@@ -80,10 +80,15 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         broker_commission: '',
         broker_contacts: [] as BrokerContact[],
         buyers: [{ name: '', email: '' }] as Contact[],
-        ap_method: '' as '' | 'inbox' | 'portal',  // How AP is managed
+        ap_method: 'inbox' as 'inbox' | 'portal',  // How AP is managed (required)
         ap_portal_url: '',  // URL when ap_method is 'portal'
-        accounts_payable: [] as APContact[],  // Contacts when ap_method is 'inbox'
+        accounts_payable: [{ name: '', value: '' }] as APContact[],  // AP contacts (required - at least 1)
         other: [] as OtherContact[],
+        // AR Settings
+        ar_edi: false,
+        ar_consolidated_invoicing: '' as '' | 'single_invoice' | 'consolidated_invoice',
+        ar_requires_customer_skus: false,
+        ar_invoice_discount: '',
     });
 
     // Track which fields have been touched
@@ -203,7 +208,8 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
             }
         });
 
-        // AP validation - depends on method
+        // AP validation - always require at least 1 AP contact
+        // Validate portal URL if portal method selected
         if (data.ap_method === 'portal') {
             if (touched.ap_portal_url) {
                 if (!data.ap_portal_url) {
@@ -212,24 +218,28 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                     errors.ap_portal_url = 'Must be a valid URL (https://...)';
                 }
             }
-        } else if (data.ap_method === 'inbox') {
-            data.accounts_payable.forEach((ap, idx) => {
-                if (touched[`accounts_payable.${idx}.name`]) {
-                    if (!ap.name) {
-                        errors[`accounts_payable.${idx}.name`] = 'Name is required';
-                    } else if (ap.name.length < 2) {
-                        errors[`accounts_payable.${idx}.name`] = 'Name must be at least 2 characters';
-                    }
-                }
-                if (touched[`accounts_payable.${idx}.value`]) {
-                    if (!ap.value) {
-                        errors[`accounts_payable.${idx}.value`] = 'Email is required';
-                    } else if (!isValidEmail(ap.value)) {
-                        errors[`accounts_payable.${idx}.value`] = 'Must be a valid email';
-                    }
-                }
-            });
         }
+
+        // AP contacts are always required (at least 1) regardless of method
+        if (data.accounts_payable.length === 0 && touched.accounts_payable) {
+            errors.accounts_payable = 'At least one AP contact is required';
+        }
+        data.accounts_payable.forEach((ap, idx) => {
+            if (touched[`accounts_payable.${idx}.name`]) {
+                if (!ap.name) {
+                    errors[`accounts_payable.${idx}.name`] = 'Name is required';
+                } else if (ap.name.length < 2) {
+                    errors[`accounts_payable.${idx}.name`] = 'Name must be at least 2 characters';
+                }
+            }
+            if (touched[`accounts_payable.${idx}.value`]) {
+                if (!ap.value) {
+                    errors[`accounts_payable.${idx}.value`] = 'Email is required';
+                } else if (!isValidEmail(ap.value)) {
+                    errors[`accounts_payable.${idx}.value`] = 'Must be a valid email';
+                }
+            }
+        });
 
         // Other contacts validation
         data.other.forEach((other, idx) => {
@@ -248,6 +258,14 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                 }
             }
         });
+
+        // AR Settings validation
+        if (touched.ar_invoice_discount && data.ar_invoice_discount) {
+            const discount = parseFloat(data.ar_invoice_discount);
+            if (isNaN(discount) || discount < 0 || discount > 100) {
+                errors.ar_invoice_discount = 'Must be between 0 and 100';
+            }
+        }
 
         setValidationErrors(errors);
     }, [data, touched]);
@@ -320,6 +338,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
     };
 
     const removeAP = (index: number) => {
+        // Prevent removing the last AP contact (at least 1 required)
+        if (data.accounts_payable.length <= 1) return;
+
         setData('accounts_payable', data.accounts_payable.filter((_, i) => i !== index));
         setTouched(prev => {
             const newTouched = { ...prev };
@@ -415,22 +436,29 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         const hasInvalidBuyer = data.buyers.some(b => !b.name || b.name.length < 2 || !isValidEmail(b.email));
         if (hasInvalidBuyer) return false;
 
-        // AP validation depends on method
+        // AP validation - at least 1 valid AP contact is always required
+        if (data.accounts_payable.length === 0) return false;
+        const hasInvalidAP = data.accounts_payable.some(ap =>
+            !ap.name || ap.name.length < 2 || !isValidEmail(ap.value)
+        );
+        if (hasInvalidAP) return false;
+
+        // If portal method, also require valid portal URL
         if (data.ap_method === 'portal') {
             if (!data.ap_portal_url || !isValidUrl(data.ap_portal_url)) return false;
-        } else if (data.ap_method === 'inbox') {
-            const hasInvalidAP = data.accounts_payable.some(ap =>
-                !ap.name || ap.name.length < 2 || !isValidEmail(ap.value)
-            );
-            if (hasInvalidAP) return false;
         }
-        // If ap_method is '', that's fine - no AP required
 
         // Other: if any exist, they must be valid
         const hasInvalidOther = data.other.some(o =>
             !o.name || o.name.length < 2 || !isValidEmail(o.email)
         );
         if (hasInvalidOther) return false;
+
+        // AR invoice discount: if provided, must be valid
+        if (data.ar_invoice_discount) {
+            const discount = parseFloat(data.ar_invoice_discount);
+            if (isNaN(discount) || discount < 0 || discount > 100) return false;
+        }
 
         return true;
     };
@@ -460,12 +488,12 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
             allTouched[`buyers.${idx}.name`] = true;
             allTouched[`buyers.${idx}.email`] = true;
         });
-        if (data.ap_method === 'inbox') {
-            data.accounts_payable.forEach((_, idx) => {
-                allTouched[`accounts_payable.${idx}.name`] = true;
-                allTouched[`accounts_payable.${idx}.value`] = true;
-            });
-        }
+        // AP contacts are always required
+        allTouched.accounts_payable = true;
+        data.accounts_payable.forEach((_, idx) => {
+            allTouched[`accounts_payable.${idx}.name`] = true;
+            allTouched[`accounts_payable.${idx}.value`] = true;
+        });
         data.other.forEach((_, idx) => {
             allTouched[`other.${idx}.name`] = true;
             allTouched[`other.${idx}.email`] = true;
@@ -473,14 +501,11 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         setTouched(allTouched);
 
         if (isFormValid()) {
-            // Transform portal URL into accounts_payable format before submitting
+            // If portal method, prepend portal URL to accounts_payable
             if (data.ap_method === 'portal' && data.ap_portal_url) {
-                setData('accounts_payable', [{ name: 'AP Portal', value: data.ap_portal_url }]);
+                const portalEntry = { name: 'AP Portal', value: data.ap_portal_url };
+                setData('accounts_payable', [portalEntry, ...data.accounts_payable]);
                 // Need to wait for state update, so use setTimeout
-                setTimeout(() => post(route('customers.store')), 0);
-            } else if (data.ap_method === '') {
-                // Clear accounts_payable if no method selected
-                setData('accounts_payable', []);
                 setTimeout(() => post(route('customers.store')), 0);
             } else {
                 post(route('customers.store'));
@@ -889,23 +914,14 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         {/* Accounts Payable */}
                         <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
                             <div className="p-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Accounts Payable</h3>
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                    Accounts Payable <span className="text-red-500">*</span>
+                                </h3>
 
                                 {/* AP Method Selection */}
                                 <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">How is AP managed?</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Does customer use an AP portal?</label>
                                     <div className="flex gap-4">
-                                        <label className="flex items-center">
-                                            <input
-                                                type="radio"
-                                                name="ap_method"
-                                                value=""
-                                                checked={data.ap_method === ''}
-                                                onChange={() => setData('ap_method', '')}
-                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                            />
-                                            <span className="ml-2 text-sm text-gray-700">Not set</span>
-                                        </label>
                                         <label className="flex items-center">
                                             <input
                                                 type="radio"
@@ -915,7 +931,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 onChange={() => setData('ap_method', 'inbox')}
                                                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span className="ml-2 text-sm text-gray-700">Email inbox</span>
+                                            <span className="ml-2 text-sm text-gray-700">No - Email only</span>
                                         </label>
                                         <label className="flex items-center">
                                             <input
@@ -926,15 +942,17 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 onChange={() => setData('ap_method', 'portal')}
                                                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span className="ml-2 text-sm text-gray-700">Web portal</span>
+                                            <span className="ml-2 text-sm text-gray-700">Yes - Uses web portal</span>
                                         </label>
                                     </div>
                                 </div>
 
                                 {/* Portal URL input (when portal is selected) */}
                                 {data.ap_method === 'portal' && (
-                                    <div className="mt-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Portal URL</label>
+                                    <div className="mb-4 p-4 bg-gray-50 rounded-md">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Portal URL <span className="text-red-500">*</span>
+                                        </label>
                                         <input
                                             type="url"
                                             value={data.ap_portal_url}
@@ -946,71 +964,74 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                         {getError('ap_portal_url') && (
                                             <p className="mt-1 text-sm text-red-600">{getError('ap_portal_url')}</p>
                                         )}
-                                        <p className="mt-1 text-xs text-gray-500">This will create a contact named "AP Portal" with this URL.</p>
                                     </div>
                                 )}
 
-                                {/* AP Contacts (when inbox is selected) */}
-                                {data.ap_method === 'inbox' && (
-                                    <div className="mt-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="block text-sm font-medium text-gray-700">AP Contacts</label>
-                                            <button
-                                                type="button"
-                                                onClick={addAP}
-                                                className="text-sm text-indigo-600 hover:text-indigo-800"
-                                            >
-                                                + Add Contact
-                                            </button>
-                                        </div>
+                                {/* AP Contacts (always required) */}
+                                <div className="mt-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-sm font-medium text-gray-700">
+                                            AP Contacts <span className="text-red-500">*</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={addAP}
+                                            className="text-sm text-indigo-600 hover:text-indigo-800"
+                                        >
+                                            + Add Contact
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-3">
+                                        At least one AP contact is required{data.ap_method === 'portal' ? ' (in addition to the portal URL)' : ''}.
+                                    </p>
+                                    {getError('accounts_payable') && (
+                                        <p className="mb-2 text-sm text-red-600">{getError('accounts_payable')}</p>
+                                    )}
 
-                                        {data.accounts_payable.length === 0 ? (
-                                            <p className="text-sm text-gray-500">No AP contacts added. Click "Add Contact" to add one.</p>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {data.accounts_payable.map((ap, index) => (
-                                                    <div key={index} className="flex gap-4">
-                                                        <div className="flex-1">
-                                                            <input
-                                                                type="text"
-                                                                value={ap.name}
-                                                                onChange={(e) => updateAP(index, 'name', e.target.value)}
-                                                                onBlur={() => markTouched(`accounts_payable.${index}.name`)}
-                                                                className={getInputClass(`accounts_payable.${index}.name`, ap.name)}
-                                                                placeholder="Contact name"
-                                                            />
-                                                            {getError(`accounts_payable.${index}.name`) && (
-                                                                <p className="mt-1 text-sm text-red-600">{getError(`accounts_payable.${index}.name`)}</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <input
-                                                                type="email"
-                                                                value={ap.value}
-                                                                onChange={(e) => updateAP(index, 'value', e.target.value)}
-                                                                onBlur={() => markTouched(`accounts_payable.${index}.value`)}
-                                                                className={getInputClass(`accounts_payable.${index}.value`, ap.value, isValidEmail(ap.value))}
-                                                                placeholder="Email address"
-                                                            />
-                                                            {getError(`accounts_payable.${index}.value`) && (
-                                                                <p className="mt-1 text-sm text-red-600">{getError(`accounts_payable.${index}.value`)}</p>
-                                                            )}
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeAP(index)}
-                                                            className="text-red-500 hover:text-red-700"
-                                                        >
-                                                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                ))}
+                                    <div className="space-y-4">
+                                        {data.accounts_payable.map((ap, index) => (
+                                            <div key={index} className="flex gap-4">
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="text"
+                                                        value={ap.name}
+                                                        onChange={(e) => updateAP(index, 'name', e.target.value)}
+                                                        onBlur={() => markTouched(`accounts_payable.${index}.name`)}
+                                                        className={getInputClass(`accounts_payable.${index}.name`, ap.name)}
+                                                        placeholder="Contact name"
+                                                    />
+                                                    {getError(`accounts_payable.${index}.name`) && (
+                                                        <p className="mt-1 text-sm text-red-600">{getError(`accounts_payable.${index}.name`)}</p>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="email"
+                                                        value={ap.value}
+                                                        onChange={(e) => updateAP(index, 'value', e.target.value)}
+                                                        onBlur={() => markTouched(`accounts_payable.${index}.value`)}
+                                                        className={getInputClass(`accounts_payable.${index}.value`, ap.value, isValidEmail(ap.value))}
+                                                        placeholder="Email address"
+                                                    />
+                                                    {getError(`accounts_payable.${index}.value`) && (
+                                                        <p className="mt-1 text-sm text-red-600">{getError(`accounts_payable.${index}.value`)}</p>
+                                                    )}
+                                                </div>
+                                                {data.accounts_payable.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAP(index)}
+                                                        className="text-red-500 hover:text-red-700"
+                                                    >
+                                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
 
@@ -1082,6 +1103,73 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Invoicing Preferences (AR Settings) */}
+                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Invoicing Preferences</h3>
+                                <p className="text-sm text-gray-500 mb-4">Configure AR automation settings for this customer (optional)</p>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div>
+                                        <label className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.ar_edi}
+                                                onChange={(e) => setData('ar_edi', e.target.checked)}
+                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700">EDI Enabled</span>
+                                        </label>
+                                        <p className="mt-1 text-xs text-gray-500">Customer uses EDI for orders</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Consolidation</label>
+                                        <select
+                                            value={data.ar_consolidated_invoicing}
+                                            onChange={(e) => setData('ar_consolidated_invoicing', e.target.value as '' | 'single_invoice' | 'consolidated_invoice')}
+                                            className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        >
+                                            <option value="">One per shipment (default)</option>
+                                            <option value="single_invoice">One per shipment</option>
+                                            <option value="consolidated_invoice">Consolidate same-day shipments</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.ar_requires_customer_skus}
+                                                onChange={(e) => setData('ar_requires_customer_skus', e.target.checked)}
+                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700">Requires Customer SKUs</span>
+                                        </label>
+                                        <p className="mt-1 text-xs text-gray-500">Show customer SKUs on invoice</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Discount (%)</label>
+                                        <input
+                                            type="number"
+                                            value={data.ar_invoice_discount}
+                                            onChange={(e) => setData('ar_invoice_discount', e.target.value)}
+                                            onBlur={() => markTouched('ar_invoice_discount')}
+                                            placeholder="0"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            className={getInputClass('ar_invoice_discount', data.ar_invoice_discount)}
+                                        />
+                                        {getError('ar_invoice_discount') && (
+                                            <p className="mt-1 text-sm text-red-600">{getError('ar_invoice_discount')}</p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

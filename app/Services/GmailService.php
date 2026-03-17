@@ -7,7 +7,7 @@ use App\Models\DistributorCustomerContact;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
 use App\Models\FulfilContactMetadata;
-use App\Models\FulfilCustomerMetadata;
+use App\Models\LocalCustomerMetadata;
 use App\Models\FulfilUncategorizedContact;
 use App\Models\GmailSyncHistory;
 use App\Models\Prospect;
@@ -942,7 +942,7 @@ class GmailService
         }
 
         // Get customer domains from metadata
-        $customerMetadata = FulfilCustomerMetadata::whereNotNull('company_urls')->get();
+        $customerMetadata = LocalCustomerMetadata::whereNotNull('company_urls')->get();
         foreach ($customerMetadata as $metadata) {
             foreach ($metadata->getEmailDomains() as $domain) {
                 // Don't overwrite prospect domains (prospect takes priority if both have same domain)

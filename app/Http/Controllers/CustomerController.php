@@ -71,6 +71,35 @@ class CustomerController extends Controller
                 SyncGmailForDomains::dispatch($domains, 'customer', $customer['id']);
             }
 
+            // Save AR settings to Fulfil metafields if any were provided
+            if (isset($customer['id'])) {
+                $arSettings = [];
+                if (isset($data['ar_edi'])) {
+                    $arSettings['edi'] = $data['ar_edi'];
+                }
+                if (isset($data['ar_consolidated_invoicing']) && $data['ar_consolidated_invoicing']) {
+                    $arSettings['consolidated_invoicing'] = $data['ar_consolidated_invoicing'];
+                }
+                if (isset($data['ar_requires_customer_skus'])) {
+                    $arSettings['requires_customer_skus'] = $data['ar_requires_customer_skus'];
+                }
+                if (isset($data['ar_invoice_discount']) && $data['ar_invoice_discount'] !== '' && $data['ar_invoice_discount'] !== null) {
+                    $arSettings['invoice_discount'] = (float) $data['ar_invoice_discount'];
+                }
+
+                if (! empty($arSettings)) {
+                    try {
+                        $this->fulfil->updateCustomerArSettings($customer['id'], $arSettings);
+                    } catch (\Exception $e) {
+                        // Log but don't fail the customer creation
+                        \Log::warning('Failed to save AR settings for new customer', [
+                            'customer_id' => $customer['id'],
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
             // Redirect to index since new customers won't have orders yet
             // and won't appear in the active customers detail view
             return redirect()
@@ -203,6 +232,12 @@ class CustomerController extends Controller
             'other.*.name' => ['required_with:other', 'string', 'min:2', 'max:100'],
             'other.*.email' => ['required_with:other', 'email', 'max:255'],
             'other.*.function' => ['nullable', 'string', 'max:100'],
+
+            // AR Settings (optional)
+            'ar_edi' => ['nullable', 'boolean'],
+            'ar_consolidated_invoicing' => ['nullable', 'string', 'in:single_invoice,consolidated_invoice'],
+            'ar_requires_customer_skus' => ['nullable', 'boolean'],
+            'ar_invoice_discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
 
         $messages = [

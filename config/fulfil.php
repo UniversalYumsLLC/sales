@@ -104,4 +104,35 @@ return [
         'season' => 47,
         'sales_channel' => 48,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Contact Metafield IDs (AR Automation)
+    |--------------------------------------------------------------------------
+    |
+    | Metafield IDs for AR automation features on Contact records.
+    | These IDs differ between sandbox and production environments.
+    | Use `php artisan fulfil:discover-metafields` to discover IDs.
+    |
+    | Metafield codes:
+    | - edi: Boolean - Do we communicate with customer via EDI?
+    | - consolidated_invoicing: Selection - How customer receives invoices
+    | - requires_customer_skus: Boolean - Customer requires their SKUs on invoices
+    | - invoice_discount: Float - Discounts applied at invoice level
+    |
+    */
+    'metafields' => [
+        'sandbox' => [
+            'edi' => env('FULFIL_SANDBOX_METAFIELD_EDI'),
+            'consolidated_invoicing' => env('FULFIL_SANDBOX_METAFIELD_CONSOLIDATED_INVOICING'),
+            'requires_customer_skus' => env('FULFIL_SANDBOX_METAFIELD_REQUIRES_CUSTOMER_SKUS'),
+            'invoice_discount' => env('FULFIL_SANDBOX_METAFIELD_INVOICE_DISCOUNT'),
+        ],
+        'production' => [
+            'edi' => env('FULFIL_PRODUCTION_METAFIELD_EDI'),
+            'consolidated_invoicing' => env('FULFIL_PRODUCTION_METAFIELD_CONSOLIDATED_INVOICING'),
+            'requires_customer_skus' => env('FULFIL_PRODUCTION_METAFIELD_REQUIRES_CUSTOMER_SKUS'),
+            'invoice_discount' => env('FULFIL_PRODUCTION_METAFIELD_INVOICE_DISCOUNT'),
+        ],
+    ],
 ];

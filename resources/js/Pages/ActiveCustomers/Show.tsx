@@ -67,6 +67,13 @@ interface OtherContact {
     function?: string;
 }
 
+interface ArSettings {
+    edi: boolean;
+    consolidated_invoicing: 'single_invoice' | 'consolidated_invoice' | null;
+    requires_customer_skus: boolean;
+    invoice_discount: number | null;
+}
+
 interface Customer {
     id: number;
     name: string;
@@ -86,6 +93,7 @@ interface Customer {
     broker: boolean;
     broker_commission: number | null;
     broker_company_name: string | null;
+    ar_settings?: ArSettings;
 }
 
 interface PriceList {
@@ -142,6 +150,18 @@ interface Flash {
     error?: string;
 }
 
+interface Product {
+    id: number;
+    code: string;
+    rec_name: string;
+}
+
+interface CustomerSku {
+    id: number;
+    yums_sku: string;
+    customer_sku: string;
+}
+
 interface Props {
     customer: Customer;
     buyerContacts: BuyerContact[];
@@ -159,6 +179,8 @@ interface Props {
     priceLists: PriceList[];
     paymentTerms: PaymentTerm[];
     shippingTerms: ShippingTerm[];
+    products: Product[];
+    customerSkus: CustomerSku[];
     error?: string;
 }
 
@@ -174,6 +196,13 @@ interface CustomerDetailsForm {
     broker_company_name: string;
 }
 
+interface ArSettingsForm {
+    edi: boolean;
+    consolidated_invoicing: 'single_invoice' | 'consolidated_invoice' | '';
+    requires_customer_skus: boolean;
+    invoice_discount: string;
+}
+
 interface BrokerContactForm {
     name: string;
     email: string;
@@ -181,9 +210,9 @@ interface BrokerContactForm {
 
 interface ContactsForm {
     buyers: Contact[];
-    ap_method: '' | 'inbox' | 'portal';
+    ap_method: 'inbox' | 'portal';  // Required - no empty option
     ap_portal_url: string;
-    accounts_payable: APContact[];
+    accounts_payable: APContact[];  // At least 1 required
     other: OtherContact[];
 }
 
@@ -292,6 +321,8 @@ export default function Show({
     priceLists,
     paymentTerms,
     shippingTerms,
+    products,
+    customerSkus: initialCustomerSkus,
     error,
 }: Props) {
     // Flash messages
@@ -356,6 +387,18 @@ export default function Show({
     const [customerType, setCustomerType] = useState<'retailer' | 'distributor'>(customer.customer_type || 'retailer');
     const [changingCustomerType, setChangingCustomerType] = useState(false);
 
+    // AR settings state
+    const [editingArSettings, setEditingArSettings] = useState(false);
+    const [arSettingsForm, setArSettingsForm] = useState<ArSettingsForm>({
+        edi: customer.ar_settings?.edi ?? false,
+        consolidated_invoicing: customer.ar_settings?.consolidated_invoicing ?? '',
+        requires_customer_skus: customer.ar_settings?.requires_customer_skus ?? false,
+        invoice_discount: customer.ar_settings?.invoice_discount?.toString() ?? '',
+    });
+
+    // Customer SKU state
+    const [customerSkus, setCustomerSkus] = useState<CustomerSku[]>(initialCustomerSkus || []);
+
     // Distributor customers state
     const [localDistributorCustomers, setLocalDistributorCustomers] = useState<DistributorCustomer[]>(distributorCustomers || []);
     const [newDistributorCustomerName, setNewDistributorCustomerName] = useState('');
@@ -365,17 +408,27 @@ export default function Show({
     const [deletingDC, setDeletingDC] = useState(false);
 
     // Derive AP method from existing data
-    const deriveApMethod = (): { method: '' | 'inbox' | 'portal'; portalUrl: string; contacts: APContact[] } => {
+    const deriveApMethod = (): { method: 'inbox' | 'portal'; portalUrl: string; contacts: APContact[] } => {
         const apContacts = customer.accounts_payable || [];
         // Check if there's an "AP Portal" entry with a URL
         const portalEntry = apContacts.find(ap => ap.name === 'AP Portal' && ap.value?.startsWith('http'));
+        // Get non-portal contacts (regular AP contacts with emails)
+        const regularContacts = apContacts.filter(ap => ap.name !== 'AP Portal' || !ap.value?.startsWith('http'));
+
         if (portalEntry) {
-            return { method: 'portal', portalUrl: portalEntry.value, contacts: [] };
+            // Has portal - return portal URL and non-portal contacts
+            return {
+                method: 'portal',
+                portalUrl: portalEntry.value,
+                contacts: regularContacts.length > 0 ? regularContacts : [{ name: '', value: '' }],
+            };
         }
-        if (apContacts.length > 0) {
-            return { method: 'inbox', portalUrl: '', contacts: [...apContacts] };
-        }
-        return { method: '', portalUrl: '', contacts: [] };
+        // No portal - just inbox with contacts
+        return {
+            method: 'inbox',
+            portalUrl: '',
+            contacts: regularContacts.length > 0 ? regularContacts : [{ name: '', value: '' }],
+        };
     };
 
     const initialApState = deriveApMethod();
@@ -447,22 +500,25 @@ export default function Show({
             });
         }
 
-        // Validate AP based on method
+        // Validate AP - at least 1 AP contact always required
         if (contactsForm.ap_method === 'portal') {
             if (!contactsForm.ap_portal_url || !isValidUrl(contactsForm.ap_portal_url)) {
                 errors.ap_portal_url = 'Valid portal URL is required (https://...)';
             }
-        } else if (contactsForm.ap_method === 'inbox') {
-            contactsForm.accounts_payable.forEach((ap, idx) => {
-                if (!ap.name || ap.name.length < 2) {
-                    errors[`accounts_payable.${idx}.name`] = 'Name is required';
-                }
-                if (!ap.value || !isValidEmail(ap.value)) {
-                    errors[`accounts_payable.${idx}.value`] = 'Valid email is required';
-                }
-            });
         }
-        // If method is '', that's fine - no AP required
+
+        // AP contacts are always required (at least 1) regardless of method
+        if (contactsForm.accounts_payable.length === 0) {
+            errors.accounts_payable = 'At least one AP contact is required';
+        }
+        contactsForm.accounts_payable.forEach((ap, idx) => {
+            if (!ap.name || ap.name.length < 2) {
+                errors[`accounts_payable.${idx}.name`] = 'Name is required';
+            }
+            if (!ap.value || !isValidEmail(ap.value)) {
+                errors[`accounts_payable.${idx}.value`] = 'Valid email is required';
+            }
+        });
 
         // Validate other contacts (optional, but if provided must be valid)
         contactsForm.other.forEach((other, idx) => {
@@ -563,14 +619,12 @@ export default function Show({
     const saveContacts = async () => {
         if (Object.keys(contactsErrors).length > 0) return;
 
-        // Transform AP data based on method
-        let accountsPayable: APContact[] = [];
+        // Build accounts_payable array - always include AP contacts, optionally prepend portal
+        let accountsPayable: APContact[] = [...contactsForm.accounts_payable];
         if (contactsForm.ap_method === 'portal' && contactsForm.ap_portal_url) {
-            accountsPayable = [{ name: 'AP Portal', value: contactsForm.ap_portal_url }];
-        } else if (contactsForm.ap_method === 'inbox') {
-            accountsPayable = contactsForm.accounts_payable;
+            // Prepend portal URL to AP contacts
+            accountsPayable = [{ name: 'AP Portal', value: contactsForm.ap_portal_url }, ...accountsPayable];
         }
-        // If method is '', send empty array
 
         setSaving(true);
         try {
@@ -606,6 +660,165 @@ export default function Show({
         }
     };
 
+    // AR Settings functions
+    const cancelArSettingsEdit = () => {
+        setArSettingsForm({
+            edi: customer.ar_settings?.edi ?? false,
+            consolidated_invoicing: customer.ar_settings?.consolidated_invoicing ?? '',
+            requires_customer_skus: customer.ar_settings?.requires_customer_skus ?? false,
+            invoice_discount: customer.ar_settings?.invoice_discount?.toString() ?? '',
+        });
+        setEditingArSettings(false);
+    };
+
+    const saveArSettings = async () => {
+        setSaving(true);
+        try {
+            const response = await fetch(route('customers.ar-settings.update', customer.id), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    edi: arSettingsForm.edi,
+                    consolidated_invoicing: arSettingsForm.consolidated_invoicing || null,
+                    requires_customer_skus: arSettingsForm.requires_customer_skus,
+                    invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
+                }),
+            });
+
+            if (response.ok) {
+                setEditingArSettings(false);
+                setNotification({ type: 'success', message: 'AR settings updated successfully' });
+                router.reload({ only: ['customer'] });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to save AR settings' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to save AR settings. Please try again.' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Customer SKU management functions
+    const [newSkuYums, setNewSkuYums] = useState('');
+    const [newSkuCustomer, setNewSkuCustomer] = useState('');
+    const [addingSku, setAddingSku] = useState(false);
+
+    const addCustomerSku = async () => {
+        if (!newSkuYums || !newSkuCustomer) return;
+
+        setAddingSku(true);
+        try {
+            const response = await fetch(route('customers.skus.store', customer.id), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    yums_sku: newSkuYums,
+                    customer_sku: newSkuCustomer,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setCustomerSkus(prev => [...prev, data.sku]);
+                setNewSkuYums('');
+                setNewSkuCustomer('');
+                setNotification({ type: 'success', message: 'SKU mapping added successfully' });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to add SKU mapping' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to add SKU mapping. Please try again.' });
+        } finally {
+            setAddingSku(false);
+        }
+    };
+
+    const deleteCustomerSku = async (skuId: number) => {
+        if (!confirm('Are you sure you want to delete this SKU mapping?')) return;
+
+        try {
+            const response = await fetch(route('customers.skus.destroy', { customerId: customer.id, skuId }), {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (response.ok) {
+                setCustomerSkus(prev => prev.filter(s => s.id !== skuId));
+                setNotification({ type: 'success', message: 'SKU mapping deleted successfully' });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to delete SKU mapping' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to delete SKU mapping. Please try again.' });
+        }
+    };
+
+    // Get available products (not yet mapped)
+    const availableProducts = products.filter(
+        p => !customerSkus.some(s => s.yums_sku === p.code)
+    );
+
+    // Invoice PDF handlers
+    const handleDownloadPdf = (invoiceId: number, invoiceNumber: string | null) => {
+        // Open the download URL in a new window/tab to trigger the download
+        window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
+    };
+
+    const handleRegeneratePdf = async (invoiceId: number, invoiceNumber: string | null) => {
+        try {
+            setNotification({ type: 'success', message: `Regenerating PDF for invoice ${invoiceNumber || invoiceId}...` });
+
+            const response = await fetch(route('invoices.pdf.regenerate', { id: invoiceId }), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'Accept': 'application/pdf',
+                },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Failed to regenerate PDF' }));
+                if (errorData.error === 'sku_mapping_required' && errorData.unmapped_skus) {
+                    setNotification({
+                        type: 'error',
+                        message: `Cannot generate PDF: unmapped SKUs: ${errorData.unmapped_skus.join(', ')}. Please add the missing SKU mappings.`
+                    });
+                } else {
+                    setNotification({ type: 'error', message: errorData.message || 'Failed to regenerate PDF' });
+                }
+                return;
+            }
+
+            // Handle the PDF blob response
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${invoiceNumber || `invoice-${invoiceId}`}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            setNotification({ type: 'success', message: `PDF regenerated for invoice ${invoiceNumber || invoiceId}` });
+        } catch (error) {
+            console.error('Error regenerating PDF:', error);
+            setNotification({ type: 'error', message: 'Failed to regenerate PDF. Please try again.' });
+        }
+    };
+
     // Contact management functions
     const addBuyer = () => {
         setContactsForm(prev => ({
@@ -638,6 +851,9 @@ export default function Show({
     };
 
     const removeAP = (index: number) => {
+        // Prevent removing the last AP contact (at least 1 required)
+        if (contactsForm.accounts_payable.length <= 1) return;
+
         setContactsForm(prev => ({
             ...prev,
             accounts_payable: prev.accounts_payable.filter((_, i) => i !== index),
@@ -1919,45 +2135,43 @@ export default function Show({
 
                                     {/* AP Edit */}
                                     <div>
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Accounts Payable</h4>
+                                        <h4 className="mb-2 text-sm font-medium text-gray-700">
+                                            Accounts Payable <span className="text-red-500">*</span>
+                                        </h4>
 
                                         {/* AP Method Selection */}
-                                        <div className="mb-3 flex gap-4">
-                                            <label className="flex items-center">
-                                                <input
-                                                    type="radio"
-                                                    name="ap_method_edit"
-                                                    checked={contactsForm.ap_method === ''}
-                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: '' }))}
-                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                                />
-                                                <span className="ml-2 text-sm text-gray-700">Not set</span>
-                                            </label>
-                                            <label className="flex items-center">
-                                                <input
-                                                    type="radio"
-                                                    name="ap_method_edit"
-                                                    checked={contactsForm.ap_method === 'inbox'}
-                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'inbox' }))}
-                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                                />
-                                                <span className="ml-2 text-sm text-gray-700">Email inbox</span>
-                                            </label>
-                                            <label className="flex items-center">
-                                                <input
-                                                    type="radio"
-                                                    name="ap_method_edit"
-                                                    checked={contactsForm.ap_method === 'portal'}
-                                                    onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'portal' }))}
-                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                                />
-                                                <span className="ml-2 text-sm text-gray-700">Web portal</span>
-                                            </label>
+                                        <div className="mb-3">
+                                            <p className="text-xs text-gray-500 mb-2">Does customer use an AP portal?</p>
+                                            <div className="flex gap-4">
+                                                <label className="flex items-center">
+                                                    <input
+                                                        type="radio"
+                                                        name="ap_method_edit"
+                                                        checked={contactsForm.ap_method === 'inbox'}
+                                                        onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'inbox' }))}
+                                                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                    />
+                                                    <span className="ml-2 text-sm text-gray-700">No - Email only</span>
+                                                </label>
+                                                <label className="flex items-center">
+                                                    <input
+                                                        type="radio"
+                                                        name="ap_method_edit"
+                                                        checked={contactsForm.ap_method === 'portal'}
+                                                        onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'portal' }))}
+                                                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                    />
+                                                    <span className="ml-2 text-sm text-gray-700">Yes - Uses web portal</span>
+                                                </label>
+                                            </div>
                                         </div>
 
                                         {/* Portal URL (when portal selected) */}
                                         {contactsForm.ap_method === 'portal' && (
-                                            <div>
+                                            <div className="mb-3 p-3 bg-gray-50 rounded-md">
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    Portal URL <span className="text-red-500">*</span>
+                                                </label>
                                                 <input
                                                     type="url"
                                                     value={contactsForm.ap_portal_url}
@@ -1968,59 +2182,60 @@ export default function Show({
                                                 {contactsErrors.ap_portal_url && (
                                                     <p className="mt-1 text-sm text-red-600">{contactsErrors.ap_portal_url}</p>
                                                 )}
-                                                <p className="mt-1 text-xs text-gray-500">Will be saved as contact "AP Portal"</p>
                                             </div>
                                         )}
 
-                                        {/* AP Contacts (when inbox selected) */}
-                                        {contactsForm.ap_method === 'inbox' && (
-                                            <div>
-                                                <div className="mb-2 flex items-center justify-end">
-                                                    <button
-                                                        type="button"
-                                                        onClick={addAP}
-                                                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
-                                                    >
-                                                        <PlusIcon className="h-3 w-3" /> Add Contact
-                                                    </button>
-                                                </div>
-                                                {contactsForm.accounts_payable.length === 0 ? (
-                                                    <p className="text-sm text-gray-400">No AP contacts. Click "Add Contact" to add one.</p>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        {contactsForm.accounts_payable.map((ap, idx) => (
-                                                            <div key={idx} className="flex gap-2">
-                                                                <div className="flex-1">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={ap.name}
-                                                                        onChange={(e) => updateAP(idx, 'name', e.target.value)}
-                                                                        placeholder="Name"
-                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
-                                                                    />
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <input
-                                                                        type="email"
-                                                                        value={ap.value}
-                                                                        onChange={(e) => updateAP(idx, 'value', e.target.value)}
-                                                                        placeholder="Email"
-                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
-                                                                    />
-                                                                </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeAP(idx)}
-                                                                    className="text-red-400 hover:text-red-600"
-                                                                >
-                                                                    <XIcon />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                        {/* AP Contacts (always required) */}
+                                        <div>
+                                            <div className="mb-2 flex items-center justify-between">
+                                                <span className="text-xs text-gray-500">
+                                                    At least one AP contact required{contactsForm.ap_method === 'portal' ? ' (in addition to portal)' : ''}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={addAP}
+                                                    className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                >
+                                                    <PlusIcon className="h-3 w-3" /> Add Contact
+                                                </button>
                                             </div>
-                                        )}
+                                            {contactsErrors.accounts_payable && (
+                                                <p className="mb-2 text-sm text-red-600">{contactsErrors.accounts_payable}</p>
+                                            )}
+                                            <div className="space-y-2">
+                                                {contactsForm.accounts_payable.map((ap, idx) => (
+                                                    <div key={idx} className="flex gap-2">
+                                                        <div className="flex-1">
+                                                            <input
+                                                                type="text"
+                                                                value={ap.name}
+                                                                onChange={(e) => updateAP(idx, 'name', e.target.value)}
+                                                                placeholder="Name"
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <input
+                                                                type="email"
+                                                                value={ap.value}
+                                                                onChange={(e) => updateAP(idx, 'value', e.target.value)}
+                                                                placeholder="Email"
+                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            />
+                                                        </div>
+                                                        {contactsForm.accounts_payable.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeAP(idx)}
+                                                                className="text-red-400 hover:text-red-600"
+                                                            >
+                                                                <XIcon />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Other Edit */}
@@ -2079,6 +2294,140 @@ export default function Show({
                                                 ))}
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* AR Settings (Accounts Receivable Automation) */}
+                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-medium text-gray-900">Invoicing Preferences</h3>
+                                    <p className="text-sm text-gray-500">AR automation settings for this customer</p>
+                                </div>
+                                {!editingArSettings ? (
+                                    <button
+                                        onClick={() => setEditingArSettings(true)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                        title="Edit"
+                                    >
+                                        <PencilIcon />
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={cancelArSettingsEdit}
+                                            className="text-gray-400 hover:text-gray-600"
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={saveArSettings}
+                                            className="rounded bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+                                            disabled={saving}
+                                        >
+                                            {saving ? 'Saving...' : 'Save'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {!editingArSettings ? (
+                                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                                    <div>
+                                        <dt className="text-sm font-medium text-gray-500">EDI Enabled</dt>
+                                        <dd className="mt-1 text-sm text-gray-900">
+                                            {customer.ar_settings?.edi ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-sm font-medium text-gray-500">Invoice Consolidation</dt>
+                                        <dd className="mt-1 text-sm text-gray-900">
+                                            {customer.ar_settings?.consolidated_invoicing === 'consolidated_invoice'
+                                                ? 'Same-day shipments'
+                                                : 'One per shipment'}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-sm font-medium text-gray-500">Requires Customer SKUs</dt>
+                                        <dd className="mt-1 text-sm text-gray-900">
+                                            {customer.ar_settings?.requires_customer_skus ? (
+                                                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-sm font-medium text-gray-500">Invoice Discount</dt>
+                                        <dd className="mt-1 text-sm text-gray-900">
+                                            {customer.ar_settings?.invoice_discount
+                                                ? `${customer.ar_settings.invoice_discount}%`
+                                                : '-'}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                                    <div>
+                                        <label className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={arSettingsForm.edi}
+                                                onChange={(e) => setArSettingsForm(prev => ({ ...prev, edi: e.target.checked }))}
+                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700">EDI Enabled</span>
+                                        </label>
+                                        <p className="mt-1 text-xs text-gray-500">Customer uses EDI for orders</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Consolidation</label>
+                                        <select
+                                            value={arSettingsForm.consolidated_invoicing}
+                                            onChange={(e) => setArSettingsForm(prev => ({
+                                                ...prev,
+                                                consolidated_invoicing: e.target.value as 'single_invoice' | 'consolidated_invoice' | ''
+                                            }))}
+                                            className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        >
+                                            <option value="">One per shipment</option>
+                                            <option value="single_invoice">One per shipment</option>
+                                            <option value="consolidated_invoice">Same-day shipments</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={arSettingsForm.requires_customer_skus}
+                                                onChange={(e) => setArSettingsForm(prev => ({ ...prev, requires_customer_skus: e.target.checked }))}
+                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700">Requires Customer SKUs</span>
+                                        </label>
+                                        <p className="mt-1 text-xs text-gray-500">Show customer SKUs on invoice</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Discount (%)</label>
+                                        <input
+                                            type="number"
+                                            value={arSettingsForm.invoice_discount}
+                                            onChange={(e) => setArSettingsForm(prev => ({ ...prev, invoice_discount: e.target.value }))}
+                                            placeholder="0"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -2396,6 +2745,7 @@ export default function Show({
                                             <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Total</th>
                                             <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Balance</th>
                                             <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Status</th>
+                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
@@ -2410,6 +2760,28 @@ export default function Show({
                                                     <td className={`py-2 text-right text-sm ${status.className}`}>
                                                         {status.text}
                                                     </td>
+                                                    <td className="py-2 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleDownloadPdf(invoice.id, invoice.number)}
+                                                                className="text-indigo-600 hover:text-indigo-900 text-sm"
+                                                                title="Download PDF"
+                                                            >
+                                                                <svg className="h-4 w-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRegeneratePdf(invoice.id, invoice.number)}
+                                                                className="text-gray-400 hover:text-gray-600 text-sm"
+                                                                title="Regenerate PDF"
+                                                            >
+                                                                <svg className="h-4 w-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
@@ -2417,6 +2789,85 @@ export default function Show({
                                 </table>
                             ) : (
                                 <p className="text-sm text-gray-500">No outstanding invoices</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Customer SKU Mapping */}
+                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="p-6">
+                            <div className="mb-4">
+                                <h3 className="text-lg font-medium text-gray-900">Customer SKU Mapping</h3>
+                                <p className="text-sm text-gray-500">
+                                    Map Yums SKUs to this customer's internal SKUs for invoices
+                                </p>
+                            </div>
+
+                            {/* Add new mapping */}
+                            <div className="mb-4 flex gap-4 items-end p-4 bg-gray-50 rounded-md">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Yums SKU</label>
+                                    <select
+                                        value={newSkuYums}
+                                        onChange={(e) => setNewSkuYums(e.target.value)}
+                                        className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    >
+                                        <option value="">Select a product...</option>
+                                        {availableProducts.map(p => (
+                                            <option key={p.id} value={p.code}>
+                                                {p.code} - {p.rec_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer SKU</label>
+                                    <input
+                                        type="text"
+                                        value={newSkuCustomer}
+                                        onChange={(e) => setNewSkuCustomer(e.target.value)}
+                                        placeholder="Enter customer's SKU"
+                                        className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <button
+                                    onClick={addCustomerSku}
+                                    disabled={!newSkuYums || !newSkuCustomer || addingSku}
+                                    className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    {addingSku ? 'Adding...' : 'Add Mapping'}
+                                </button>
+                            </div>
+
+                            {/* Existing mappings */}
+                            {customerSkus.length > 0 ? (
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead>
+                                        <tr>
+                                            <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">Yums SKU</th>
+                                            <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">Customer SKU</th>
+                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {customerSkus.map((sku) => (
+                                            <tr key={sku.id}>
+                                                <td className="py-2 text-sm text-gray-900">{sku.yums_sku}</td>
+                                                <td className="py-2 text-sm text-gray-900">{sku.customer_sku}</td>
+                                                <td className="py-2 text-right">
+                                                    <button
+                                                        onClick={() => deleteCustomerSku(sku.id)}
+                                                        className="text-red-500 hover:text-red-700 text-sm"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <p className="text-sm text-gray-500">No SKU mappings configured. Add a mapping above to get started.</p>
                             )}
                         </div>
                     </div>

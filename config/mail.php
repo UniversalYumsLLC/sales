@@ -115,4 +115,16 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | AR Email From Address
+    |--------------------------------------------------------------------------
+    |
+    | This address is used for AR Automation emails. It should be the
+    | accountsreceivable@universalyums.com Google Group address.
+    |
+    */
+
+    'ar_from_address' => env('MAIL_AR_FROM_ADDRESS', 'accountsreceivable@universalyums.com'),
+
 ];

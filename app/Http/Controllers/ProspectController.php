@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\SyncGmailForDomains;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
-use App\Models\FulfilCustomerMetadata;
+use App\Models\LocalCustomerMetadata;
 use App\Models\FulfilUncategorizedContact;
 use App\Models\Prospect;
 use App\Models\ProspectContact;
@@ -862,7 +862,7 @@ class ProspectController extends Controller
             $partyId = $result['id'];
 
             // Create local metadata
-            $metadata = FulfilCustomerMetadata::create([
+            $metadata = LocalCustomerMetadata::create([
                 'fulfil_party_id' => $partyId,
                 'company_urls' => $prospect->company_urls ?? [],
                 'broker' => $prospect->broker ?? false,

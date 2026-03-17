@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class FulfilCustomerMetadata extends Model
+class LocalCustomerMetadata extends Model
 {
     /**
      * The primary key for the model.
@@ -19,7 +19,7 @@ class FulfilCustomerMetadata extends Model
     /**
      * The table associated with the model.
      */
-    protected $table = 'fulfil_customer_metadata';
+    protected $table = 'local_customer_metadata';
 
     const CUSTOMER_TYPE_RETAILER = 'retailer';
 
@@ -177,5 +177,29 @@ class FulfilCustomerMetadata extends Model
         }
 
         return array_unique($domains);
+    }
+
+    /**
+     * Get invoices for this customer.
+     */
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class, 'fulfil_party_id', 'fulfil_party_id');
+    }
+
+    /**
+     * Get email records for this customer.
+     */
+    public function emailRecords()
+    {
+        return $this->hasMany(EmailRecord::class, 'fulfil_party_id', 'fulfil_party_id');
+    }
+
+    /**
+     * Get customer SKU mappings for this customer.
+     */
+    public function customerSkus()
+    {
+        return $this->hasMany(CustomerSku::class, 'fulfil_party_id', 'fulfil_party_id');
     }
 }

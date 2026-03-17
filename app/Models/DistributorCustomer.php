@@ -26,7 +26,7 @@ class DistributorCustomer extends Model
      */
     public function distributor(): BelongsTo
     {
-        return $this->belongsTo(FulfilCustomerMetadata::class, 'fulfil_party_id', 'fulfil_party_id');
+        return $this->belongsTo(LocalCustomerMetadata::class, 'fulfil_party_id', 'fulfil_party_id');
     }
 
     /**

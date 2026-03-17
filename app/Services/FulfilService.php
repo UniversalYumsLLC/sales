@@ -20,7 +20,16 @@ class FulfilService
 
     public function __construct(?string $environment = null)
     {
-        $env = $environment ?? config('fulfil.default');
+        // If no environment specified, check Test Mode to determine which to use
+        if ($environment === null) {
+            $testMode = app(TestModeService::class);
+            $env = $testMode->getFulfilEnvironment();
+        } else {
+            $env = $environment;
+        }
+
+        // Fall back to config default if still not set
+        $env = $env ?? config('fulfil.default');
         $config = config("fulfil.environments.{$env}");
 
         if (! $config['subdomain'] || ! $config['token']) {
@@ -208,6 +217,38 @@ class FulfilService
         }
         if (is_array($value) && isset($value['year'], $value['month'], $value['day'])) {
             return sprintf('%04d-%02d-%02d', $value['year'], $value['month'], $value['day']);
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse Fulfil DateTime objects to string (Y-m-d H:i:s format)
+     *
+     * Fulfil API can return datetimes in multiple formats:
+     * - String: "2024-01-15T10:30:00"
+     * - Object: {"__class__": "datetime", "year": 2024, "month": 1, "day": 15, "hour": 10, ...}
+     * - Array: {"year": 2024, "month": 1, "day": 15, "hour": 10, "minute": 30, "second": 0}
+     */
+    protected function parseDateTime(mixed $value): ?string
+    {
+        if (is_null($value)) {
+            return null;
+        }
+        if (is_string($value)) {
+            // Handle ISO format strings
+            return str_replace('T', ' ', substr($value, 0, 19));
+        }
+        if (is_array($value) && isset($value['year'], $value['month'], $value['day'])) {
+            return sprintf(
+                '%04d-%02d-%02d %02d:%02d:%02d',
+                $value['year'],
+                $value['month'],
+                $value['day'],
+                $value['hour'] ?? 0,
+                $value['minute'] ?? 0,
+                $value['second'] ?? 0
+            );
         }
 
         return null;
@@ -678,6 +719,7 @@ class FulfilService
             'id', 'number', 'party', 'state',
             'total_amount', 'balance', 'invoice_date',
             'earliest_due_date', 'payment_term', 'sales',
+            'create_date', 'write_date',
         ];
 
         // Paginate through all invoices (Fulfil API max page size is 500)
@@ -719,12 +761,277 @@ class FulfilService
                 'amount_paid' => $totalAmount !== null && $balance !== null ? $totalAmount - $balance : null,
                 'invoice_date' => $this->parseDate($invoice['invoice_date'] ?? null),
                 'due_date' => $this->parseDate($invoice['earliest_due_date'] ?? null),
+                'create_date' => $this->parseDate($invoice['create_date'] ?? null),
+                'write_date' => $this->parseDateTime($invoice['write_date'] ?? null),
                 'payment_terms' => isset($paymentTermsById[$invoice['payment_term'] ?? null])
                     ? $paymentTermsById[$invoice['payment_term']]['name']
                     : null,
                 'sales_order_ids' => $invoice['sales'] ?? [],
             ];
         }, $allInvoices);
+    }
+
+    /**
+     * Get detailed invoice data for PDF generation.
+     *
+     * Fetches all data needed to build an InvoicePdfDto:
+     * - Invoice core fields (number, date, state, amounts)
+     * - Bill-to address from invoice_address
+     * - Ship-to address from first customer shipment
+     * - Sales person name from employee
+     * - Payment term name
+     * - Order number from origins or linked sales orders
+     * - Line items with account codes for filtering
+     *
+     * @param  int  $invoiceId  The Fulfil invoice ID
+     * @return array Transformed invoice data ready for InvoicePdfDto::fromFulfil()
+     *
+     * @throws \RuntimeException if invoice not found
+     */
+    public function getInvoiceForPdf(int $invoiceId): array
+    {
+        // Fetch the invoice with all needed relations
+        $invoice = $this->request('GET', "model/account.invoice/{$invoiceId}", [
+            'query' => [
+                'fields' => implode(',', [
+                    'id', 'number', 'party', 'state', 'reference',
+                    'total_amount', 'balance', 'balance_due',
+                    'invoice_date', 'invoice_address',
+                    'payment_term', 'employee', 'origins',
+                    'lines', 'sales', 'customer_shipments',
+                ]),
+            ],
+        ]);
+
+        if (empty($invoice) || ! isset($invoice['id'])) {
+            throw new \RuntimeException("Invoice {$invoiceId} not found");
+        }
+
+        // Build the transformed data structure
+        $data = [
+            'id' => $invoice['id'],
+            'number' => $invoice['number'] ?? '',
+            'party_id' => $invoice['party'] ?? null,
+            'state' => $invoice['state'] ?? '',
+            'reference' => $invoice['reference'] ?? null,
+            'total_amount' => $this->parseDecimal($invoice['total_amount'] ?? null),
+            'balance' => $this->parseDecimal($invoice['balance'] ?? null),
+            'balance_due' => $this->parseDecimal($invoice['balance_due'] ?? $invoice['balance'] ?? null),
+            'invoice_date' => $this->parseDate($invoice['invoice_date'] ?? null),
+            'origins' => $invoice['origins'] ?? '',
+            'invoice_address' => null,
+            'customer_shipments' => [],
+            'sales_person_name' => '',
+            'payment_term_name' => '',
+            'order_number' => '',
+            'lines' => [],
+        ];
+
+        // Fetch bill-to address
+        if ($invoice['invoice_address']) {
+            $data['invoice_address'] = $this->fetchAddressForPdf($invoice['invoice_address']);
+        }
+
+        // Fetch ship-to from first customer shipment
+        $shipmentIds = $invoice['customer_shipments'] ?? [];
+        if (! empty($shipmentIds)) {
+            $shipment = $this->fetchShipmentForPdf($shipmentIds[0]);
+            if ($shipment) {
+                $data['customer_shipments'][] = $shipment;
+            }
+        }
+
+        // Fetch employee (sales person) name
+        if ($invoice['employee']) {
+            $employee = $this->request('GET', "model/company.employee/{$invoice['employee']}", [
+                'query' => ['fields' => 'party'],
+            ]);
+            if ($employee && $employee['party']) {
+                $party = $this->request('GET', "model/party.party/{$employee['party']}", [
+                    'query' => ['fields' => 'name'],
+                ]);
+                $data['sales_person_name'] = $party['name'] ?? '';
+            }
+        }
+
+        // Fetch payment term name
+        if ($invoice['payment_term']) {
+            $paymentTerm = $this->request('GET', "model/account.invoice.payment_term/{$invoice['payment_term']}", [
+                'query' => ['fields' => 'name'],
+            ]);
+            $data['payment_term_name'] = $paymentTerm['name'] ?? '';
+        }
+
+        // Build order number from origins or first sales order
+        $data['order_number'] = $invoice['origins'] ?? '';
+        if (empty($data['order_number']) && ! empty($invoice['sales'])) {
+            $salesOrder = $this->request('GET', "model/sale.sale/{$invoice['sales'][0]}", [
+                'query' => ['fields' => 'number'],
+            ]);
+            $data['order_number'] = $salesOrder['number'] ?? '';
+        }
+
+        // Fetch invoice lines with account codes
+        $lineIds = $invoice['lines'] ?? [];
+        if (! empty($lineIds)) {
+            $data['lines'] = $this->fetchInvoiceLinesForPdf($lineIds);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Fetch address details for PDF rendering.
+     */
+    protected function fetchAddressForPdf(int $addressId): array
+    {
+        $address = $this->request('GET', "model/party.address/{$addressId}", [
+            'query' => [
+                'fields' => 'party,street,street2,city,subdivision,zip,country',
+            ],
+        ]);
+
+        if (empty($address)) {
+            return [];
+        }
+
+        $result = [
+            'street' => $address['street'] ?? '',
+            'street2' => $address['street2'] ?? null,
+            'city' => $address['city'] ?? '',
+            'zip' => $address['zip'] ?? '',
+            'party_name' => '',
+            'subdivision_code' => '',
+            'country_name' => '',
+        ];
+
+        // Fetch party name
+        if ($address['party']) {
+            $party = $this->request('GET', "model/party.party/{$address['party']}", [
+                'query' => ['fields' => 'name'],
+            ]);
+            $result['party_name'] = $party['name'] ?? '';
+        }
+
+        // Fetch subdivision (state) code
+        if ($address['subdivision']) {
+            $subdivision = $this->request('GET', "model/country.subdivision/{$address['subdivision']}", [
+                'query' => ['fields' => 'code'],
+            ]);
+            // Code is often like "US-NJ", we want just "NJ"
+            $code = $subdivision['code'] ?? '';
+            $result['subdivision_code'] = str_contains($code, '-') ? explode('-', $code)[1] : $code;
+        }
+
+        // Fetch country name
+        if ($address['country']) {
+            $country = $this->request('GET', "model/country.country/{$address['country']}", [
+                'query' => ['fields' => 'name'],
+            ]);
+            $result['country_name'] = $country['name'] ?? '';
+        }
+
+        return $result;
+    }
+
+    /**
+     * Fetch customer shipment details for PDF rendering.
+     */
+    protected function fetchShipmentForPdf(int $shipmentId): ?array
+    {
+        $shipment = $this->request('GET', "model/stock.shipment.out/{$shipmentId}", [
+            'query' => [
+                'fields' => 'warehouse,delivery_address',
+            ],
+        ]);
+
+        if (empty($shipment)) {
+            return null;
+        }
+
+        $result = [
+            'warehouse_name' => '',
+            'delivery_party_name' => '',
+            'delivery_address' => [],
+        ];
+
+        // Fetch warehouse name
+        if ($shipment['warehouse']) {
+            $warehouse = $this->request('GET', "model/stock.location/{$shipment['warehouse']}", [
+                'query' => ['fields' => 'name'],
+            ]);
+            $result['warehouse_name'] = $warehouse['name'] ?? '';
+        }
+
+        // Fetch delivery address
+        if ($shipment['delivery_address']) {
+            $deliveryAddress = $this->fetchAddressForPdf($shipment['delivery_address']);
+            $result['delivery_party_name'] = $deliveryAddress['party_name'] ?? '';
+            $result['delivery_address'] = $deliveryAddress;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Fetch invoice lines with product codes and account codes for PDF.
+     *
+     * @param  array  $lineIds  Invoice line IDs
+     * @return array Transformed line data with account_code for filtering
+     */
+    protected function fetchInvoiceLinesForPdf(array $lineIds): array
+    {
+        if (empty($lineIds)) {
+            return [];
+        }
+
+        // Fetch lines in batches
+        $lines = $this->batchFetchByIds(
+            'model/account.invoice.line',
+            $lineIds,
+            'id,product,description,quantity,unit_price,amount,account'
+        );
+
+        if (empty($lines)) {
+            return [];
+        }
+
+        // Collect product and account IDs
+        $productIds = array_unique(array_filter(array_column($lines, 'product')));
+        $accountIds = array_unique(array_filter(array_column($lines, 'account')));
+
+        // Batch fetch products for SKU codes
+        $products = [];
+        if (! empty($productIds)) {
+            $productData = $this->batchFetchByIds('model/product.product', $productIds, 'id,code');
+            $products = collect($productData)->keyBy('id')->toArray();
+        }
+
+        // Batch fetch accounts for account codes (to filter discount lines)
+        $accounts = [];
+        if (! empty($accountIds)) {
+            $accountData = $this->batchFetchByIds('model/account.account', $accountIds, 'id,code');
+            $accounts = collect($accountData)->keyBy('id')->toArray();
+        }
+
+        // Transform lines
+        return array_map(function ($line) use ($products, $accounts) {
+            $productId = $line['product'] ?? null;
+            $accountId = $line['account'] ?? null;
+
+            return [
+                'product_code' => $productId && isset($products[$productId])
+                    ? ($products[$productId]['code'] ?? '')
+                    : '',
+                'description' => $line['description'] ?? '',
+                'quantity' => $this->parseDecimal($line['quantity'] ?? null) ?? 0,
+                'unit_price' => $this->parseDecimal($line['unit_price'] ?? null) ?? 0,
+                'amount' => $this->parseDecimal($line['amount'] ?? null) ?? 0,
+                'account_code' => $accountId && isset($accounts[$accountId])
+                    ? ($accounts[$accountId]['code'] ?? '')
+                    : '',
+            ];
+        }, $lines);
     }
 
     // =========================================================================
@@ -1634,6 +1941,368 @@ class FulfilService
             $this->request('DELETE', 'model/party.contact_mechanism', [
                 'json' => $toDelete,
             ]);
+        }
+    }
+
+    // =========================================================================
+    // METAFIELDS (AR Automation)
+    // =========================================================================
+
+    /**
+     * Get the current environment name.
+     */
+    public function getEnvironment(): string
+    {
+        // Determine environment from base URL
+        if (str_contains($this->baseUrl, 'sandbox')) {
+            return 'sandbox';
+        }
+
+        return 'production';
+    }
+
+    /**
+     * Debug method to dump raw metafield data from contacts.
+     */
+    public function debugContactMetafields(int $limit = 20): array
+    {
+        $contacts = $this->request('PUT', 'model/party.party/search_read', [
+            'json' => [
+                [['is_customer', '=', true]],
+                0,
+                $limit,
+                null,
+                ['id', 'name', 'metafields'],
+            ],
+        ]);
+
+        $result = [];
+        foreach ($contacts as $contact) {
+            if (! empty($contact['metafields'])) {
+                $result[] = [
+                    'id' => $contact['id'],
+                    'name' => $contact['name'],
+                    'metafields' => $contact['metafields'],
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get metafield IDs for the current environment.
+     * Falls back to discovering IDs by code if not configured.
+     */
+    protected function getMetafieldIds(): array
+    {
+        $env = $this->getEnvironment();
+        $ids = config("fulfil.metafields.{$env}", []);
+
+        // If IDs are configured, use them
+        if (! empty(array_filter($ids))) {
+            return $ids;
+        }
+
+        // Otherwise, try to discover them (useful when sandbox refreshes)
+        Log::info('Metafield IDs not configured, attempting discovery', ['environment' => $env]);
+
+        return $this->discoverMetafieldIdsByCode();
+    }
+
+    /**
+     * Discover metafield IDs by querying contacts that have values.
+     * Returns array of code => field_id mappings.
+     */
+    protected function discoverMetafieldIdsByCode(): array
+    {
+        $cacheKey = 'metafield_ids_'.$this->getEnvironment();
+
+        return Cache::remember($cacheKey, 3600, function () {
+            $contactsWithMetafields = $this->debugContactMetafields(50);
+
+            $ids = [];
+            foreach ($contactsWithMetafields as $contact) {
+                foreach ($contact['metafields'] as $mf) {
+                    $code = $mf['code'] ?? null;
+                    $fieldId = $mf['field'] ?? null;
+                    if ($code && $fieldId && ! isset($ids[$code])) {
+                        $ids[$code] = $fieldId;
+                    }
+                }
+            }
+
+            if (! empty($ids)) {
+                Log::info('Discovered metafield IDs by code', ['ids' => $ids]);
+            }
+
+            return $ids;
+        });
+    }
+
+    /**
+     * Discover all Contact metafield definitions from Fulfil.
+     *
+     * Used to find the metafield IDs for AR automation fields.
+     */
+    public function discoverContactMetafields(): array
+    {
+        // Try ir.model.field with metafield-related filters
+        $modelFieldEndpoints = [
+            ['model/ir.model.field/search_read', [['model.model', '=', 'party.party'], ['name', 'ilike', '%metafield%']]],
+            ['model/ir.model.field/search_read', [['model.model', '=', 'party.party']]],
+        ];
+
+        foreach ($modelFieldEndpoints as [$endpoint, $filters]) {
+            try {
+                $response = $this->request('PUT', $endpoint, [
+                    'json' => [
+                        $filters,
+                        null, // offset
+                        100,  // limit
+                        null, // order
+                        ['id', 'name', 'field_description', 'ttype', 'model'],
+                    ],
+                ]);
+
+                // Filter for metafield-like entries
+                $metafields = array_filter($response, function ($field) {
+                    $name = strtolower($field['name'] ?? '');
+                    $desc = strtolower($field['field_description'] ?? '');
+
+                    return str_contains($name, 'metafield') ||
+                           str_contains($name, 'edi') ||
+                           str_contains($name, 'consolidated') ||
+                           str_contains($name, 'invoice_discount') ||
+                           str_contains($name, 'customer_sku') ||
+                           str_contains($desc, 'metafield');
+                });
+
+                if (! empty($metafields)) {
+                    return array_values(array_map(function ($f) {
+                        return [
+                            'id' => $f['id'],
+                            'code' => $f['name'] ?? 'unknown',
+                            'name' => $f['field_description'] ?? $f['name'] ?? 'Unknown',
+                            'type' => $f['ttype'] ?? 'unknown',
+                        ];
+                    }, $metafields));
+                }
+            } catch (\Exception $e) {
+                Log::debug('Model field query failed', [
+                    'endpoint' => $endpoint,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Try getting metafields directly from contacts endpoint
+        // This queries for metafield definitions, not values
+        try {
+            $response = $this->request('GET', 'model/party.party/fields', []);
+            if (isset($response['metafields'])) {
+                Log::info('Found metafields field definition', ['def' => $response['metafields']]);
+            }
+        } catch (\Exception $e) {
+            Log::debug('Fields endpoint failed', ['error' => $e->getMessage()]);
+        }
+
+        // Try to read metafields from multiple contacts to find any that have values
+        try {
+            $contacts = $this->request('PUT', 'model/party.party/search_read', [
+                'json' => [
+                    [['is_customer', '=', true]],
+                    0,    // offset
+                    10,   // limit - check a few contacts
+                    null, // order
+                    ['id', 'name', 'metafields'],
+                ],
+            ]);
+
+            $allMetafields = [];
+            foreach ($contacts as $contact) {
+                if (! empty($contact['metafields'])) {
+                    foreach ($contact['metafields'] as $mf) {
+                        $fieldId = $mf['field'] ?? null;
+                        if ($fieldId && ! isset($allMetafields[$fieldId])) {
+                            $allMetafields[$fieldId] = [
+                                'id' => $fieldId,
+                                'code' => $mf['code'] ?? 'field_'.$fieldId,
+                                'name' => $mf['name'] ?? 'Metafield '.$fieldId,
+                                'type' => $mf['type'] ?? 'unknown',
+                                'sample_value' => $mf['value'] ?? null,
+                            ];
+                        }
+                    }
+                }
+            }
+
+            if (! empty($allMetafields)) {
+                return array_values($allMetafields);
+            }
+        } catch (\Exception $e) {
+            Log::debug('Sample contacts metafield query failed', ['error' => $e->getMessage()]);
+        }
+
+        return [];
+    }
+
+    /**
+     * Get metafield values for a contact.
+     *
+     * @param  int  $partyId  The Fulfil party ID
+     * @return array Associative array of metafield code => value
+     */
+    public function getContactMetafields(int $partyId): array
+    {
+        $metafieldIds = $this->getMetafieldIds();
+
+        if (empty($metafieldIds)) {
+            return [];
+        }
+
+        // Fetch the contact with metafields
+        $response = $this->request('PUT', 'model/party.party/search_read', [
+            'json' => [
+                [['id', '=', $partyId]],
+                null, // offset
+                1,    // limit
+                null, // order
+                ['id', 'metafields'],
+            ],
+        ]);
+
+        if (empty($response)) {
+            return [];
+        }
+
+        $contact = $response[0];
+        $metafields = $contact['metafields'] ?? [];
+
+        // Map metafield IDs to codes
+        $idToCode = array_flip(array_filter($metafieldIds));
+        $result = [];
+
+        foreach ($metafields as $mf) {
+            $fieldId = $mf['field'] ?? null;
+            if ($fieldId && isset($idToCode[$fieldId])) {
+                $code = $idToCode[$fieldId];
+                $result[$code] = $mf['value'] ?? null;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Update metafield values for a contact.
+     *
+     * @param  int  $partyId  The Fulfil party ID
+     * @param  array  $values  Associative array of metafield code => value
+     */
+    public function updateContactMetafields(int $partyId, array $values): void
+    {
+        $metafieldIds = $this->getMetafieldIds();
+
+        if (empty($metafieldIds)) {
+            Log::warning('No metafield IDs configured for Fulfil environment', [
+                'environment' => $this->getEnvironment(),
+            ]);
+
+            return;
+        }
+
+        $setMetafields = [];
+
+        foreach ($values as $code => $value) {
+            $fieldId = $metafieldIds[$code] ?? null;
+
+            if (! $fieldId) {
+                Log::warning('Metafield ID not configured', [
+                    'code' => $code,
+                    'environment' => $this->getEnvironment(),
+                ]);
+
+                continue;
+            }
+
+            $setMetafields[] = [
+                'field' => (int) $fieldId,
+                'value' => $value,
+            ];
+        }
+
+        if (empty($setMetafields)) {
+            return;
+        }
+
+        $this->request('PUT', "model/party.party/{$partyId}", [
+            'json' => [
+                'metafields' => [
+                    'set' => $setMetafields,
+                ],
+            ],
+        ]);
+
+        Log::info('Updated contact metafields', [
+            'party_id' => $partyId,
+            'metafields' => array_keys($values),
+        ]);
+    }
+
+    /**
+     * Get AR automation settings for a customer.
+     *
+     * Returns an array with:
+     * - edi: bool
+     * - consolidated_invoicing: string|null (single_invoice, consolidated_invoice)
+     * - requires_customer_skus: bool
+     * - invoice_discount: float|null
+     */
+    public function getCustomerArSettings(int $partyId): array
+    {
+        $metafields = $this->getContactMetafields($partyId);
+
+        return [
+            'edi' => (bool) ($metafields['edi'] ?? false),
+            'consolidated_invoicing' => $metafields['consolidated_invoicing'] ?? null,
+            'requires_customer_skus' => (bool) ($metafields['requires_customer_skus'] ?? false),
+            'invoice_discount' => isset($metafields['invoice_discount'])
+                ? (float) $metafields['invoice_discount']
+                : null,
+        ];
+    }
+
+    /**
+     * Update AR automation settings for a customer.
+     *
+     * @param  int  $partyId  The Fulfil party ID
+     * @param  array  $settings  Array with keys: edi, consolidated_invoicing, requires_customer_skus, invoice_discount
+     */
+    public function updateCustomerArSettings(int $partyId, array $settings): void
+    {
+        $values = [];
+
+        if (array_key_exists('edi', $settings)) {
+            $values['edi'] = $settings['edi'] ? 'true' : 'false';
+        }
+
+        if (array_key_exists('consolidated_invoicing', $settings)) {
+            $values['consolidated_invoicing'] = $settings['consolidated_invoicing'];
+        }
+
+        if (array_key_exists('requires_customer_skus', $settings)) {
+            $values['requires_customer_skus'] = $settings['requires_customer_skus'] ? 'true' : 'false';
+        }
+
+        if (array_key_exists('invoice_discount', $settings)) {
+            $values['invoice_discount'] = $settings['invoice_discount'] !== null
+                ? (string) $settings['invoice_discount']
+                : null;
+        }
+
+        if (! empty($values)) {
+            $this->updateContactMetafields($partyId, $values);
         }
     }
 }

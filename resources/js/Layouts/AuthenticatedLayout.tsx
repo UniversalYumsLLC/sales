@@ -94,11 +94,23 @@ export default function Authenticated({
                                             </Dropdown.Link>
                                         )}
                                         {user.role === 'admin' && (
-                                            <Dropdown.Link
-                                                href={route('admin.users')}
-                                            >
-                                                User Management
-                                            </Dropdown.Link>
+                                            <>
+                                                <Dropdown.Link
+                                                    href={route('admin.users')}
+                                                >
+                                                    User Management
+                                                </Dropdown.Link>
+                                                <Dropdown.Link
+                                                    href={route('admin.settings')}
+                                                >
+                                                    Admin Settings
+                                                </Dropdown.Link>
+                                                <Dropdown.Link
+                                                    href={route('admin.email-templates')}
+                                                >
+                                                    Email Templates
+                                                </Dropdown.Link>
+                                            </>
                                         )}
                                         <Dropdown.Link
                                             href={route('logout')}
@@ -202,9 +214,17 @@ export default function Authenticated({
                                 </ResponsiveNavLink>
                             )}
                             {user.role === 'admin' && (
-                                <ResponsiveNavLink href={route('admin.users')}>
-                                    User Management
-                                </ResponsiveNavLink>
+                                <>
+                                    <ResponsiveNavLink href={route('admin.users')}>
+                                        User Management
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink href={route('admin.settings')}>
+                                        Admin Settings
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink href={route('admin.email-templates')}>
+                                        Email Templates
+                                    </ResponsiveNavLink>
+                                </>
                             )}
                             <ResponsiveNavLink
                                 method="post"

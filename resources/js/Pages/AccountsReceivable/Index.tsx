@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
+import { Menu, Transition } from '@headlessui/react';
 
 interface Invoice {
     id: number;
@@ -71,9 +72,23 @@ function getInvoiceUrl(subdomain: string, invoiceId: number): string {
     return `https://${subdomain}.fulfil.io/v2/erp/model/account.invoice/${invoiceId}`;
 }
 
+// Email types for resend functionality
+const EMAIL_TYPES = [
+    { key: 'initial_invoice', label: 'Initial Invoice' },
+    { key: 'initial_invoice_ap_portal', label: 'Initial Invoice (AP Portal)' },
+    { key: 'invoice_modified', label: 'Invoice Modified' },
+    { key: 'invoice_modified_ap_portal', label: 'Invoice Modified (AP Portal)' },
+    { key: 'due_reminder', label: 'Due Reminder' },
+    { key: 'overdue_notification', label: 'Overdue Notification' },
+    { key: 'overdue_followup', label: 'Overdue Followup' },
+] as const;
+
 export default function Index({ customers, totals, search, lastUpdated, fulfilSubdomain }: Props) {
     const [searchTerm, setSearchTerm] = useState(search);
     const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null);
+    const [sendingEmail, setSendingEmail] = useState<string | null>(null); // invoiceId_emailType
+    const [downloadingPdf, setDownloadingPdf] = useState<number | null>(null);
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -86,6 +101,47 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
 
     const toggleExpanded = (customerId: number) => {
         setExpandedCustomer(expandedCustomer === customerId ? null : customerId);
+    };
+
+    const handleDownloadPdf = async (invoiceId: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDownloadingPdf(invoiceId);
+        try {
+            window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
+        } finally {
+            setTimeout(() => setDownloadingPdf(null), 1000);
+        }
+    };
+
+    const handleResendEmail = async (invoiceId: number, emailType: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const key = `${invoiceId}_${emailType}`;
+        setSendingEmail(key);
+        setMessage(null);
+
+        try {
+            const response = await fetch(route('invoices.resend-email', { id: invoiceId }), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ email_type: emailType }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setMessage({ type: 'success', text: `Email sent successfully` });
+            } else {
+                setMessage({ type: 'error', text: data.message || 'Failed to send email' });
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to send email' });
+        } finally {
+            setSendingEmail(null);
+            setTimeout(() => setMessage(null), 5000);
+        }
     };
 
     return (
@@ -105,6 +161,34 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
             }
         >
             <Head title="Accounts Receivable" />
+
+            {/* Toast Notification */}
+            {message && (
+                <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-md shadow-lg ${
+                    message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                }`}>
+                    <div className="flex items-center gap-2">
+                        {message.type === 'success' ? (
+                            <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        )}
+                        <span className="text-sm font-medium">{message.text}</span>
+                        <button
+                            onClick={() => setMessage(null)}
+                            className="ml-2 text-gray-400 hover:text-gray-600"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -226,6 +310,9 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                                                             <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">
                                                                 Status
                                                             </th>
+                                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">
+                                                                Actions
+                                                            </th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-200">
@@ -257,6 +344,73 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                                                                     </td>
                                                                     <td className={`py-2 text-right text-sm ${status.className}`}>
                                                                         {status.text}
+                                                                    </td>
+                                                                    <td className="py-2 text-right text-sm">
+                                                                        <div className="flex items-center justify-end gap-2">
+                                                                            {/* Download PDF Button */}
+                                                                            <button
+                                                                                onClick={(e) => handleDownloadPdf(invoice.id, e)}
+                                                                                disabled={downloadingPdf === invoice.id}
+                                                                                className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                                                                                title="Download PDF"
+                                                                            >
+                                                                                {downloadingPdf === invoice.id ? (
+                                                                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                                                                    </svg>
+                                                                                ) : (
+                                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                                    </svg>
+                                                                                )}
+                                                                            </button>
+
+                                                                            {/* Resend Email Dropdown */}
+                                                                            <Menu as="div" className="relative inline-block text-left">
+                                                                                <Menu.Button
+                                                                                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-indigo-600 border border-transparent rounded hover:bg-indigo-700 disabled:opacity-50"
+                                                                                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                                                                >
+                                                                                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                                                    </svg>
+                                                                                    Resend
+                                                                                    <svg className="w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                                    </svg>
+                                                                                </Menu.Button>
+                                                                                <Transition
+                                                                                    as={Fragment}
+                                                                                    enter="transition ease-out duration-100"
+                                                                                    enterFrom="transform opacity-0 scale-95"
+                                                                                    enterTo="transform opacity-100 scale-100"
+                                                                                    leave="transition ease-in duration-75"
+                                                                                    leaveFrom="transform opacity-100 scale-100"
+                                                                                    leaveTo="transform opacity-0 scale-95"
+                                                                                >
+                                                                                    <Menu.Items className="absolute right-0 z-10 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                                                                        <div className="py-1">
+                                                                                            {EMAIL_TYPES.map((emailType) => (
+                                                                                                <Menu.Item key={emailType.key}>
+                                                                                                    {({ active }) => (
+                                                                                                        <button
+                                                                                                            onClick={(e) => handleResendEmail(invoice.id, emailType.key, e)}
+                                                                                                            disabled={sendingEmail === `${invoice.id}_${emailType.key}`}
+                                                                                                            className={`${
+                                                                                                                active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                                                                                            } block w-full px-4 py-2 text-left text-sm disabled:opacity-50`}
+                                                                                                        >
+                                                                                                            {sendingEmail === `${invoice.id}_${emailType.key}` ? 'Sending...' : emailType.label}
+                                                                                                        </button>
+                                                                                                    )}
+                                                                                                </Menu.Item>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </Menu.Items>
+                                                                                </Transition>
+                                                                            </Menu>
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                             );
