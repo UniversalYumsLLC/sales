@@ -50,8 +50,8 @@ class AccountsReceivableController extends Controller
             'total_severely_overdue' => array_sum(array_column($customers, 'total_severely_overdue')),
         ];
 
-        // Get Fulfil subdomain for building invoice URLs
-        $fulfilEnv = config('fulfil.default');
+        // Get Fulfil subdomain for building invoice URLs (use actual environment from service)
+        $fulfilEnv = $this->fulfil->getEnvironment();
         $fulfilSubdomain = config("fulfil.environments.{$fulfilEnv}.subdomain");
 
         return Inertia::render('AccountsReceivable/Index', [
@@ -60,6 +60,7 @@ class AccountsReceivableController extends Controller
             'search' => (string) $search,
             'lastUpdated' => now()->toIso8601String(),
             'fulfilSubdomain' => $fulfilSubdomain,
+            'fulfilEnvironment' => $fulfilEnv,
         ]);
     }
 

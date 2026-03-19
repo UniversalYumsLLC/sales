@@ -58,8 +58,8 @@ class AdminEmailLogController extends Controller
             ];
         });
 
-        // Get Fulfil subdomain for building URLs
-        $fulfilEnv = config('fulfil.default');
+        // Get Fulfil subdomain for building URLs (use actual environment from service)
+        $fulfilEnv = $this->fulfil->getEnvironment();
         $fulfilSubdomain = config("fulfil.environments.{$fulfilEnv}.subdomain");
 
         return Inertia::render('Admin/EmailLog', [

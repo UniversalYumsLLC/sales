@@ -18,6 +18,8 @@ class FulfilService
 
     protected int $maxRetries;
 
+    protected string $environment;
+
     public function __construct(?string $environment = null)
     {
         // If no environment specified, check Test Mode to determine which to use
@@ -30,6 +32,7 @@ class FulfilService
 
         // Fall back to config default if still not set
         $env = $env ?? config('fulfil.default');
+        $this->environment = $env;
         $config = config("fulfil.environments.{$env}");
 
         if (! $config['subdomain'] || ! $config['token']) {
@@ -41,6 +44,19 @@ class FulfilService
         $this->cacheTtl = config('fulfil.cache.ttl', 3600);
         $this->cachePrefix = config('fulfil.cache.prefix', 'fulfil_');
         $this->maxRetries = config('fulfil.rate_limit.max_retries', 3);
+
+        Log::debug('FulfilService initialized', [
+            'environment' => $env,
+            'subdomain' => $config['subdomain'],
+        ]);
+    }
+
+    /**
+     * Get the current Fulfil environment.
+     */
+    public function getEnvironment(): string
+    {
+        return $this->environment;
     }
 
     /**
