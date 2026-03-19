@@ -182,6 +182,16 @@ class FulfilService
     }
 
     /**
+     * Clear all cache entries matching a prefix pattern (e.g., 'invoices_', 'sales_orders_')
+     * Uses database query since we're using database cache driver
+     */
+    public function clearCachePattern(string $pattern): void
+    {
+        $fullPattern = $this->cachePrefix.$pattern;
+        \DB::table('cache')->where('key', 'like', $fullPattern.'%')->delete();
+    }
+
+    /**
      * Parse Fulfil Decimal objects to float
      */
     protected function parseDecimal(mixed $value): ?float
@@ -547,7 +557,8 @@ class FulfilService
         $cacheKey = 'sales_orders_'.md5(json_encode($filters));
 
         if ($bustCache) {
-            $this->clearCache($cacheKey);
+            // Clear ALL sales order caches, not just this specific filter combination
+            $this->clearCachePattern('sales_orders_');
         }
 
         return $this->cached($cacheKey, function () use ($filters) {
@@ -726,7 +737,8 @@ class FulfilService
         $cacheKey = 'invoices_'.md5(json_encode($filters));
 
         if ($bustCache) {
-            $this->clearCache($cacheKey);
+            // Clear ALL invoice caches, not just this specific filter combination
+            $this->clearCachePattern('invoices_');
         }
 
         return $this->cached($cacheKey, function () use ($filters) {
