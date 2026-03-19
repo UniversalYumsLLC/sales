@@ -48,7 +48,7 @@ test('connect forbidden for basic user', function () {
     $response->assertStatus(403);
 });
 
-test('disconnect removes token', function () {
+test('disconnect calls service and redirects', function () {
     $user = User::factory()->salesperson()->create();
     UserGmailToken::factory()->create(['user_id' => $user->id]);
 
@@ -58,7 +58,8 @@ test('disconnect removes token', function () {
 
     $response = $this->actingAs($user)->post('/gmail/disconnect');
 
-    $response->assertRedirect(route('gmail.index'));
+    $response->assertRedirect(route('gmail.index'))
+        ->assertSessionHas('success');
 });
 
 test('fullSyncAll requires admin', function () {
@@ -81,12 +82,13 @@ test('sync requires gmail connection', function () {
     $user = User::factory()->salesperson()->create();
 
     $this->mock(GmailService::class, function ($mock) {
-        // No methods should be called
+        $mock->shouldNotReceive('syncEmails');
     });
 
     $response = $this->actingAs($user)->post('/gmail/sync');
 
-    $response->assertRedirect(route('gmail.index'));
+    $response->assertRedirect(route('gmail.index'))
+        ->assertSessionHas('error');
 });
 
 test('disconnect forbidden for basic user', function () {

@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\EmailRecord;
 use App\Models\Invoice;
+use App\Models\LocalCustomerMetadata;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -19,7 +20,8 @@ class EmailRecordFactory extends Factory
     public function definition(): array
     {
         return [
-            'fulfil_party_id' => fake()->randomNumber(5),
+            // Derive both from the same customer to keep data consistent
+            'fulfil_party_id' => fn () => LocalCustomerMetadata::factory()->create()->fulfil_party_id,
             'invoice_id' => Invoice::factory(),
             'email_type' => EmailRecord::TYPE_INITIAL_INVOICE,
             'sent_at' => now(),

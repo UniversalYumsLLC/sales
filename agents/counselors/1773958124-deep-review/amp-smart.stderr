@@ -1,0 +1,1 @@
+Error: 402 {"type":"error","error":{"type":"unknown_error","message":"Execute mode (amp -x) and the Amp SDK require paid credits and cannot use Amp's ad-supported free-tier, because ads cannot be displayed in non-interactive contexts. Add credits at https://ampcode.com/pay to continue."}}

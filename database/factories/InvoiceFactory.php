@@ -21,7 +21,9 @@ class InvoiceFactory extends Factory
         return [
             'fulfil_id' => fake()->unique()->randomNumber(6),
             'number' => 'INV-'.fake()->unique()->randomNumber(6),
-            'fulfil_party_id' => LocalCustomerMetadata::factory(),
+            // LocalCustomerMetadata uses non-standard PK (fulfil_party_id), so we must
+            // explicitly resolve the key rather than relying on Laravel's factory magic.
+            'fulfil_party_id' => fn () => LocalCustomerMetadata::factory()->create()->fulfil_party_id,
             'due_date' => now()->addDays(30),
             'created_date' => now(),
             'last_modified_date' => now(),

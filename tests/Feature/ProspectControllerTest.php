@@ -131,9 +131,25 @@ test('invalid status transition is rejected', function () {
 });
 
 test('contact categorization works', function () {
-    // Skip on SQLite: ENUM CHECK constraint from migration doesn't support 'uncategorized'
-    // The MySQL-specific ALTER migration is skipped for SQLite
-    $this->markTestSkipped('SQLite ENUM CHECK constraint does not include uncategorized type');
+    // SQLite ENUM CHECK constraint from migration doesn't support 'uncategorized' type.
+    // The MySQL-specific ALTER migration that adds this type is skipped for SQLite.
+    if (DB::connection()->getDriverName() === 'sqlite') {
+        $this->markTestSkipped('SQLite ENUM CHECK constraint does not include uncategorized type');
+    }
+
+    $user = User::factory()->create();
+    $prospect = Prospect::factory()->create();
+    $contact = ProspectContact::factory()->uncategorized()->create([
+        'prospect_id' => $prospect->id,
+    ]);
+
+    $response = $this->actingAs($user)->patchJson(
+        "/prospects/{$prospect->id}/contacts/{$contact->id}/categorize",
+        ['type' => 'buyer']
+    );
+
+    $response->assertStatus(200);
+    expect($contact->fresh()->type)->toBe(ProspectContact::TYPE_BUYER);
 });
 
 test('only uncategorized contacts can be categorized', function () {

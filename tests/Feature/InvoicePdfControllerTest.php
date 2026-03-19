@@ -18,21 +18,22 @@ test('regenerate route requires auth', function () {
 
 test('download route accessible when authenticated', function () {
     $user = User::factory()->create();
+    $tmpFile = tempnam(sys_get_temp_dir(), 'test_pdf_');
 
-    $this->mock(InvoicePdfService::class, function ($mock) {
-        $mock->shouldReceive('getOrGenerate')->with(123)->andReturn('invoices/INV-123.pdf');
-        $mock->shouldReceive('getFullPath')->andReturn('/tmp/test.pdf');
-    });
+    try {
+        file_put_contents($tmpFile, 'fake pdf content');
 
-    // Create a temp file to satisfy the download response
-    file_put_contents('/tmp/test.pdf', 'fake pdf content');
+        $this->mock(InvoicePdfService::class, function ($mock) use ($tmpFile) {
+            $mock->shouldReceive('getOrGenerate')->with(123)->andReturn('invoices/INV-123.pdf');
+            $mock->shouldReceive('getFullPath')->andReturn($tmpFile);
+        });
 
-    $response = $this->actingAs($user)->get('/invoices/123/pdf/download');
+        $response = $this->actingAs($user)->get('/invoices/123/pdf/download');
 
-    // Clean up
-    @unlink('/tmp/test.pdf');
-
-    $response->assertStatus(200);
+        $response->assertStatus(200);
+    } finally {
+        @unlink($tmpFile);
+    }
 });
 
 test('regenerate route accessible when authenticated', function () {

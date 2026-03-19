@@ -19,7 +19,8 @@ class CustomerSkuFactory extends Factory
     public function definition(): array
     {
         return [
-            'fulfil_party_id' => LocalCustomerMetadata::factory(),
+            // LocalCustomerMetadata uses non-standard PK (fulfil_party_id)
+            'fulfil_party_id' => fn () => LocalCustomerMetadata::factory()->create()->fulfil_party_id,
             'yums_sku' => 'YUMS-'.fake()->unique()->randomNumber(4),
             'customer_sku' => 'CUST-'.fake()->unique()->randomNumber(4),
         ];

@@ -17,9 +17,11 @@ class EmailTemplateFactory extends Factory
      */
     public function definition(): array
     {
+        $key = fake()->unique()->randomElement(EmailTemplate::getValidKeys());
+
         return [
-            'key' => EmailTemplate::TYPE_INITIAL_INVOICE,
-            'name' => 'Initial Invoice',
+            'key' => $key,
+            'name' => ucwords(str_replace('_', ' ', $key)),
             'subject' => 'Invoice {{invoice_number}} from Universal Yums',
             'body' => 'Dear {{customer_name}}, please find attached invoice {{invoice_number}}.',
         ];

@@ -77,7 +77,6 @@ test('isEnabled returns the correct test mode state', function () {
     expect($service->isEnabled())->toBeFalse();
 
     Setting::set('ar_test_mode', true);
-    // Clear cache so the new value is picked up
-    Cache::forget('setting_ar_test_mode');
+    // Setting::set() already clears cache internally
     expect($service->isEnabled())->toBeTrue();
 });
