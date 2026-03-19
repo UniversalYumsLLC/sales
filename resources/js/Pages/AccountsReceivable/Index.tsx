@@ -87,7 +87,7 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
     const [searchTerm, setSearchTerm] = useState(search);
     const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null);
     const [sendingEmail, setSendingEmail] = useState<string | null>(null); // invoiceId_emailType
-    const [downloadingPdf, setDownloadingPdf] = useState<number | null>(null);
+    const [regeneratingPdf, setRegeneratingPdf] = useState<number | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const handleSearch = (e: React.FormEvent) => {
@@ -103,13 +103,34 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
         setExpandedCustomer(expandedCustomer === customerId ? null : customerId);
     };
 
-    const handleDownloadPdf = async (invoiceId: number, e: React.MouseEvent) => {
+    const handleRegeneratePdf = async (invoiceId: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        setDownloadingPdf(invoiceId);
+        setRegeneratingPdf(invoiceId);
+        setMessage(null);
+
         try {
-            window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
+            const response = await fetch(route('invoices.pdf.regenerate', { id: invoiceId }), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setMessage({ type: 'success', text: 'PDF regenerated successfully' });
+                // Open the newly generated PDF
+                window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
+            } else {
+                setMessage({ type: 'error', text: data.message || 'Failed to regenerate PDF' });
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to regenerate PDF' });
         } finally {
-            setTimeout(() => setDownloadingPdf(null), 1000);
+            setRegeneratingPdf(null);
+            setTimeout(() => setMessage(null), 5000);
         }
     };
 
@@ -162,30 +183,39 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
         >
             <Head title="Accounts Receivable" />
 
-            {/* Toast Notification */}
+            {/* Notification Banner */}
             {message && (
-                <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-md shadow-lg ${
-                    message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-                }`}>
-                    <div className="flex items-center gap-2">
-                        {message.type === 'success' ? (
-                            <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        )}
-                        <span className="text-sm font-medium">{message.text}</span>
-                        <button
-                            onClick={() => setMessage(null)}
-                            className="ml-2 text-gray-400 hover:text-gray-600"
-                        >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                <div className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6`}>
+                    <div className={`rounded-md p-4 ${
+                        message.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    }`}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {message.type === 'success' ? (
+                                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                )}
+                                <span className={`text-sm font-medium ${
+                                    message.type === 'success' ? 'text-green-800' : 'text-red-800'
+                                }`}>{message.text}</span>
+                            </div>
+                            <button
+                                onClick={() => setMessage(null)}
+                                className={`rounded-md p-1.5 ${
+                                    message.type === 'success' ? 'text-green-500 hover:bg-green-100' : 'text-red-500 hover:bg-red-100'
+                                }`}
+                            >
+                                <span className="sr-only">Dismiss</span>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -347,14 +377,14 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                                                                     </td>
                                                                     <td className="py-2 text-right text-sm">
                                                                         <div className="flex items-center justify-end gap-2">
-                                                                            {/* Download PDF Button */}
+                                                                            {/* Generate PDF Button */}
                                                                             <button
-                                                                                onClick={(e) => handleDownloadPdf(invoice.id, e)}
-                                                                                disabled={downloadingPdf === invoice.id}
+                                                                                onClick={(e) => handleRegeneratePdf(invoice.id, e)}
+                                                                                disabled={regeneratingPdf === invoice.id}
                                                                                 className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
-                                                                                title="Download PDF"
+                                                                                title="Generate PDF"
                                                                             >
-                                                                                {downloadingPdf === invoice.id ? (
+                                                                                {regeneratingPdf === invoice.id ? (
                                                                                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                                                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>

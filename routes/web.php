@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountsReceivableController;
 use App\Http\Controllers\ActiveCustomersController;
+use App\Http\Controllers\AdminEmailLogController;
 use App\Http\Controllers\AdminSettingsController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerSkuController;
@@ -118,6 +119,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Email Templates
     Route::get('/admin/email-templates', [EmailTemplateController::class, 'index'])->name('admin.email-templates');
     Route::put('/admin/email-templates/{key}', [EmailTemplateController::class, 'update'])->name('admin.email-templates.update');
+
+    // Email Activity Log
+    Route::get('/admin/email-log', [AdminEmailLogController::class, 'index'])->name('admin.email-log');
 });
 
 require __DIR__.'/auth.php';

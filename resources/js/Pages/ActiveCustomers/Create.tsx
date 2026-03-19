@@ -576,7 +576,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                                     <div>
                                         <label htmlFor="sale_price_list" className="block text-sm font-medium text-gray-700">
-                                            Discount Level <span className="text-red-500">*</span>
+                                            Discount on Price List <span className="text-red-500">*</span>
                                         </label>
                                         <select
                                             id="sale_price_list"
@@ -1121,7 +1121,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 onChange={(e) => setData('ar_edi', e.target.checked)}
                                                 className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                             />
-                                            <span className="ml-2 text-sm text-gray-700">EDI Enabled</span>
+                                            <span className="ml-2 text-sm text-gray-700">EDI</span>
                                         </label>
                                         <p className="mt-1 text-xs text-gray-500">Customer uses EDI for orders</p>
                                     </div>
@@ -1133,7 +1133,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                             onChange={(e) => setData('ar_consolidated_invoicing', e.target.value as '' | 'single_invoice' | 'consolidated_invoice')}
                                             className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         >
-                                            <option value="">One per shipment (default)</option>
+                                            <option value="">Select...</option>
                                             <option value="single_invoice">One per shipment</option>
                                             <option value="consolidated_invoice">Consolidate same-day shipments</option>
                                         </select>
@@ -1153,7 +1153,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Discount (%)</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Addl Discount on Invoice Total (%)</label>
                                         <input
                                             type="number"
                                             value={data.ar_invoice_discount}

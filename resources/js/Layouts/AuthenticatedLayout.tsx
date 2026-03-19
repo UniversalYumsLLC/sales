@@ -110,6 +110,11 @@ export default function Authenticated({
                                                 >
                                                     Email Templates
                                                 </Dropdown.Link>
+                                                <Dropdown.Link
+                                                    href={route('admin.email-log')}
+                                                >
+                                                    Email Log
+                                                </Dropdown.Link>
                                             </>
                                         )}
                                         <Dropdown.Link
@@ -223,6 +228,9 @@ export default function Authenticated({
                                     </ResponsiveNavLink>
                                     <ResponsiveNavLink href={route('admin.email-templates')}>
                                         Email Templates
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink href={route('admin.email-log')}>
+                                        Email Log
                                     </ResponsiveNavLink>
                                 </>
                             )}

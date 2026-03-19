@@ -152,8 +152,8 @@ interface Flash {
 
 interface Product {
     id: number;
-    code: string;
-    rec_name: string;
+    sku: string;
+    name: string;
 }
 
 interface CustomerSku {
@@ -406,6 +406,19 @@ export default function Show({
     const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(new Set());
     const [deleteConfirmDC, setDeleteConfirmDC] = useState<DistributorCustomer | null>(null);
     const [deletingDC, setDeletingDC] = useState(false);
+    // Distributor customer editing state
+    const [editingDCId, setEditingDCId] = useState<number | null>(null);
+    const [editingDCName, setEditingDCName] = useState('');
+    const [editingDCUrls, setEditingDCUrls] = useState<string[]>([]);
+    const [savingDC, setSavingDC] = useState(false);
+    // Distributor customer contact state
+    const [newDCContactEmail, setNewDCContactEmail] = useState('');
+    const [addingDCContact, setAddingDCContact] = useState(false);
+    const [editingDCContactId, setEditingDCContactId] = useState<number | null>(null);
+    const [editingDCContactName, setEditingDCContactName] = useState('');
+    const [editingDCContactType, setEditingDCContactType] = useState('');
+    const [savingDCContact, setSavingDCContact] = useState(false);
+    const [deletingDCContactId, setDeletingDCContactId] = useState<number | null>(null);
 
     // Derive AP method from existing data
     const deriveApMethod = (): { method: 'inbox' | 'portal'; portalUrl: string; contacts: APContact[] } => {
@@ -584,6 +597,7 @@ export default function Show({
 
         setSaving(true);
         try {
+            // Save customer details
             const response = await fetch(route('customers.update', customer.id), {
                 method: 'PUT',
                 headers: {
@@ -601,13 +615,34 @@ export default function Show({
                 }),
             });
 
-            if (response.ok) {
+            if (!response.ok) {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
+                return;
+            }
+
+            // Also save AR settings
+            const arResponse = await fetch(route('customers.ar-settings.update', customer.id), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    edi: arSettingsForm.edi,
+                    consolidated_invoicing: arSettingsForm.consolidated_invoicing || null,
+                    requires_customer_skus: arSettingsForm.requires_customer_skus,
+                    invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
+                }),
+            });
+
+            if (arResponse.ok) {
                 setEditingDetails(false);
                 setNotification({ type: 'success', message: 'Customer details updated successfully' });
                 router.reload({ only: ['customer'] });
             } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
+                const data = await arResponse.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to save AR settings' });
             }
         } catch (error) {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
@@ -767,7 +802,7 @@ export default function Show({
 
     // Get available products (not yet mapped)
     const availableProducts = products.filter(
-        p => !customerSkus.some(s => s.yums_sku === p.code)
+        p => !customerSkus.some(s => s.yums_sku === p.sku)
     );
 
     // Invoice PDF handlers
@@ -1155,6 +1190,175 @@ export default function Show({
         }
     };
 
+    const startEditingDC = (dc: DistributorCustomer) => {
+        setEditingDCId(dc.id);
+        setEditingDCName(dc.name);
+        setEditingDCUrls([...dc.company_urls, '']); // Add empty slot for new URL
+        setExpandedDistributorCustomers(prev => new Set(prev).add(dc.id));
+    };
+
+    const cancelEditingDC = () => {
+        setEditingDCId(null);
+        setEditingDCName('');
+        setEditingDCUrls([]);
+    };
+
+    const saveDistributorCustomer = async () => {
+        if (!editingDCId) return;
+
+        setSavingDC(true);
+        try {
+            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: editingDCId }), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    name: editingDCName.trim(),
+                    company_urls: editingDCUrls.filter(u => u.trim()),
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setLocalDistributorCustomers(prev => prev.map(dc =>
+                    dc.id === editingDCId ? { ...dc, name: data.distributor_customer.name, company_urls: data.distributor_customer.company_urls } : dc
+                ));
+                setNotification({ type: 'success', message: 'Distributor customer updated' });
+                cancelEditingDC();
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to update' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to update distributor customer' });
+        } finally {
+            setSavingDC(false);
+        }
+    };
+
+    const addDCUrl = () => {
+        setEditingDCUrls(prev => [...prev, '']);
+    };
+
+    const updateDCUrl = (index: number, value: string) => {
+        setEditingDCUrls(prev => prev.map((url, i) => i === index ? value : url));
+    };
+
+    const removeDCUrl = (index: number) => {
+        setEditingDCUrls(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Distributor customer contact management
+    const addDistributorCustomerContact = async (dcId: number) => {
+        if (!newDCContactEmail.trim()) return;
+
+        setAddingDCContact(true);
+        try {
+            const response = await fetch(route('distributor-customers.contacts.create', { distributorCustomerId: dcId }), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ email: newDCContactEmail.trim() }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setLocalDistributorCustomers(prev => prev.map(dc =>
+                    dc.id === dcId ? { ...dc, contacts: [...(dc.contacts || []), data.contact] } : dc
+                ));
+                setNewDCContactEmail('');
+                setNotification({ type: 'success', message: 'Contact added' });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to add contact' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to add contact' });
+        } finally {
+            setAddingDCContact(false);
+        }
+    };
+
+    const startEditingDCContact = (contact: DistributorCustomerContact) => {
+        setEditingDCContactId(contact.id);
+        setEditingDCContactName(contact.name || '');
+        setEditingDCContactType(contact.type);
+    };
+
+    const cancelEditingDCContact = () => {
+        setEditingDCContactId(null);
+        setEditingDCContactName('');
+        setEditingDCContactType('');
+    };
+
+    const saveDistributorCustomerContact = async (dcId: number) => {
+        if (!editingDCContactId) return;
+
+        setSavingDCContact(true);
+        try {
+            const response = await fetch(route('distributor-customers.contacts.update', { distributorCustomerId: dcId, contactId: editingDCContactId }), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    name: editingDCContactName.trim(),
+                    type: editingDCContactType,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setLocalDistributorCustomers(prev => prev.map(dc =>
+                    dc.id === dcId ? {
+                        ...dc,
+                        contacts: dc.contacts.map(c => c.id === editingDCContactId ? data.contact : c)
+                    } : dc
+                ));
+                setNotification({ type: 'success', message: 'Contact updated' });
+                cancelEditingDCContact();
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to update contact' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to update contact' });
+        } finally {
+            setSavingDCContact(false);
+        }
+    };
+
+    const deleteDistributorCustomerContact = async (dcId: number, contactId: number) => {
+        setDeletingDCContactId(contactId);
+        try {
+            const response = await fetch(route('distributor-customers.contacts.delete', { distributorCustomerId: dcId, contactId }), {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (response.ok) {
+                setLocalDistributorCustomers(prev => prev.map(dc =>
+                    dc.id === dcId ? { ...dc, contacts: dc.contacts.filter(c => c.id !== contactId) } : dc
+                ));
+                setNotification({ type: 'success', message: 'Contact deleted' });
+            } else {
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
+            }
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to delete contact' });
+        } finally {
+            setDeletingDCContactId(null);
+        }
+    };
+
     // Company URL management
     const addCompanyUrl = () => {
         setCompanyUrlsForm(prev => [...prev, '']);
@@ -1380,161 +1584,171 @@ export default function Show({
                                 )}
                             </div>
 
-                            {!editingDetails ? (
-                                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Company Name</dt>
-                                        <dd className="text-sm text-gray-900">{customer.name}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Discount</dt>
-                                        <dd className="text-sm text-gray-900">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Company Name</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">{customer.name}</div>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="text"
+                                                value={detailsForm.name}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, name: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            />
+                                            {detailsErrors.name && <p className="mt-1 text-xs text-red-600">{detailsErrors.name}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Discount on Price List</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.discount_percent !== null ? `${customer.discount_percent}%` : '-'}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Payment Terms</dt>
-                                        <dd className="text-sm text-gray-900">{customer.payment_terms || '-'}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Shipping Terms</dt>
-                                        <dd className="text-sm text-gray-900">{customer.shipping_terms || '-'}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Shelf Life Requirement</dt>
-                                        <dd className="text-sm text-gray-900">
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={detailsForm.sale_price_list}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, sale_price_list: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.sale_price_list ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            >
+                                                <option value="">Select...</option>
+                                                {priceLists.map((pl) => (
+                                                    <option key={pl.id} value={pl.id}>{pl.discount_percent}% Discount</option>
+                                                ))}
+                                            </select>
+                                            {detailsErrors.sale_price_list && <p className="mt-1 text-xs text-red-600">{detailsErrors.sale_price_list}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Payment Terms</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">{customer.payment_terms || '-'}</div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={detailsForm.customer_payment_term}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, customer_payment_term: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.customer_payment_term ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            >
+                                                <option value="">Select...</option>
+                                                {paymentTerms.map((pt) => (
+                                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                                ))}
+                                            </select>
+                                            {detailsErrors.customer_payment_term && <p className="mt-1 text-xs text-red-600">{detailsErrors.customer_payment_term}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Shipping Terms</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">{customer.shipping_terms || '-'}</div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={detailsForm.shipping_terms_category_id}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, shipping_terms_category_id: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.shipping_terms_category_id ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            >
+                                                <option value="">Select...</option>
+                                                {shippingTerms.map((st) => (
+                                                    <option key={st.id} value={st.id}>{st.name}</option>
+                                                ))}
+                                            </select>
+                                            {detailsErrors.shipping_terms_category_id && <p className="mt-1 text-xs text-red-600">{detailsErrors.shipping_terms_category_id}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Shelf Life Requirement</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.shelf_life_requirement ? `${customer.shelf_life_requirement} days` : '-'}
-                                        </dd>
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                        <dt className="text-sm font-medium text-gray-500">Vendor Guide</dt>
-                                        <dd className="text-sm text-gray-900">
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="number"
+                                                value={detailsForm.shelf_life_requirement}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, shelf_life_requirement: e.target.value }))}
+                                                min="30"
+                                                max="365"
+                                                placeholder="days"
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            />
+                                            {detailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{detailsErrors.shelf_life_requirement}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Vendor Guide</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.vendor_guide ? (
-                                                <a href={customer.vendor_guide} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800">
+                                                <a href={customer.vendor_guide} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 truncate block">
                                                     {customer.vendor_guide}
                                                 </a>
                                             ) : '-'}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Broker</dt>
-                                        <dd className="text-sm text-gray-900">
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="url"
+                                                value={detailsForm.vendor_guide}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, vendor_guide: e.target.value }))}
+                                                placeholder="https://..."
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            />
+                                            {detailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{detailsErrors.vendor_guide}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Customer Type</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {customerType === 'distributor' ? 'Distributor' : 'Retailer'}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={customerType}
+                                                onChange={(e) => handleCustomerTypeChange(e.target.value as 'retailer' | 'distributor')}
+                                                disabled={changingCustomerType}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
+                                            >
+                                                <option value="retailer">Retailer</option>
+                                                <option value="distributor">Distributor</option>
+                                            </select>
+                                        </>
+                                    )}
+                                </div>
+
+                                {customerType === 'retailer' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Uses Broker</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.broker ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
-                                                    Yes
-                                                </span>
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">Yes</span>
                                             ) : 'No'}
-                                        </dd>
-                                    </div>
-                                </dl>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Company Name</label>
-                                        <input
-                                            type="text"
-                                            value={detailsForm.name}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, name: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        />
-                                        {detailsErrors.name && <p className="mt-1 text-xs text-red-600">{detailsErrors.name}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Discount Level</label>
-                                        <select
-                                            value={detailsForm.sale_price_list}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, sale_price_list: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.sale_price_list ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        >
-                                            <option value="">Select...</option>
-                                            {priceLists.map((pl) => (
-                                                <option key={pl.id} value={pl.id}>{pl.discount_percent}% Discount</option>
-                                            ))}
-                                        </select>
-                                        {detailsErrors.sale_price_list && <p className="mt-1 text-xs text-red-600">{detailsErrors.sale_price_list}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Payment Terms</label>
-                                        <select
-                                            value={detailsForm.customer_payment_term}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, customer_payment_term: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.customer_payment_term ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        >
-                                            <option value="">Select...</option>
-                                            {paymentTerms.map((pt) => (
-                                                <option key={pt.id} value={pt.id}>{pt.name}</option>
-                                            ))}
-                                        </select>
-                                        {detailsErrors.customer_payment_term && <p className="mt-1 text-xs text-red-600">{detailsErrors.customer_payment_term}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Shipping Terms</label>
-                                        <select
-                                            value={detailsForm.shipping_terms_category_id}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, shipping_terms_category_id: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.shipping_terms_category_id ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        >
-                                            <option value="">Select...</option>
-                                            {shippingTerms.map((st) => (
-                                                <option key={st.id} value={st.id}>{st.name}</option>
-                                            ))}
-                                        </select>
-                                        {detailsErrors.shipping_terms_category_id && <p className="mt-1 text-xs text-red-600">{detailsErrors.shipping_terms_category_id}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Shelf Life Requirement (days)</label>
-                                        <input
-                                            type="number"
-                                            value={detailsForm.shelf_life_requirement}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, shelf_life_requirement: e.target.value }))}
-                                            min="30"
-                                            max="365"
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        />
-                                        {detailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{detailsErrors.shelf_life_requirement}</p>}
-                                    </div>
-
-                                    <div className="sm:col-span-2 lg:col-span-1">
-                                        <label className="block text-sm font-medium text-gray-700">Vendor Guide URL</label>
-                                        <input
-                                            type="url"
-                                            value={detailsForm.vendor_guide}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, vendor_guide: e.target.value }))}
-                                            placeholder="https://..."
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        />
-                                        {detailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{detailsErrors.vendor_guide}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Customer Type</label>
-                                        <select
-                                            value={customerType}
-                                            onChange={(e) => handleCustomerTypeChange(e.target.value as 'retailer' | 'distributor')}
-                                            disabled={changingCustomerType}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
-                                        >
-                                            <option value="retailer">Retailer</option>
-                                            <option value="distributor">Distributor</option>
-                                        </select>
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            {customerType === 'distributor' ? 'Distributors can have sub-customers' : 'Retailers can have broker relationships'}
-                                        </p>
-                                    </div>
-
-                                    {customerType === 'retailer' && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Uses Broker</label>
+                                        </div>
+                                    ) : (
                                         <select
                                             value={detailsForm.broker}
                                             onChange={(e) => {
                                                 const newValue = e.target.value;
                                                 setDetailsForm(prev => ({ ...prev, broker: newValue }));
-                                                // If switching to TRUE and no broker contacts, add one
                                                 if (newValue === 'true' && brokerContactsForm.length === 0) {
                                                     setBrokerContactsForm([{ name: '', email: '' }]);
                                                 }
@@ -1545,11 +1759,106 @@ export default function Show({
                                             <option value="false">No</option>
                                             <option value="true">Yes</option>
                                         </select>
-                                    </div>
                                     )}
-
                                 </div>
-                            )}
+                                )}
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">EDI</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {customer.ar_settings?.edi ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 py-2">
+                                            <label className="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={arSettingsForm.edi}
+                                                    onChange={(e) => setArSettingsForm(prev => ({ ...prev, edi: e.target.checked }))}
+                                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Invoice Consolidation</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {customer.ar_settings?.consolidated_invoicing === 'consolidated_invoice'
+                                                ? 'Consolidate same-day shipments'
+                                                : 'One per shipment'}
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={arSettingsForm.consolidated_invoicing}
+                                            onChange={(e) => setArSettingsForm(prev => ({
+                                                ...prev,
+                                                consolidated_invoicing: e.target.value as 'single_invoice' | 'consolidated_invoice' | ''
+                                            }))}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        >
+                                            <option value="">Select...</option>
+                                            <option value="single_invoice">One per shipment</option>
+                                            <option value="consolidated_invoice">Consolidate same-day shipments</option>
+                                        </select>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Requires Customer SKUs</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {customer.ar_settings?.requires_customer_skus ? (
+                                                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 py-2">
+                                            <label className="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={arSettingsForm.requires_customer_skus}
+                                                    onChange={(e) => setArSettingsForm(prev => ({ ...prev, requires_customer_skus: e.target.checked }))}
+                                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Addl Discount on Invoice Total</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {customer.ar_settings?.invoice_discount
+                                                ? `${customer.ar_settings.invoice_discount}%`
+                                                : '-'}
+                                        </div>
+                                    ) : (
+                                        <input
+                                            type="number"
+                                            value={arSettingsForm.invoice_discount}
+                                            onChange={(e) => setArSettingsForm(prev => ({ ...prev, invoice_discount: e.target.value }))}
+                                            placeholder="0"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1794,44 +2103,219 @@ export default function Show({
                                                         ({dc.contacts?.length || 0} contacts, {dc.company_urls?.length || 0} domains)
                                                     </span>
                                                 </div>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirmDC(dc); }}
-                                                    className="text-red-400 hover:text-red-600 p-1"
-                                                    title="Delete"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); startEditingDC(dc); }}
+                                                        className="text-gray-400 hover:text-gray-600 p-1"
+                                                        title="Edit"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                        </svg>
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmDC(dc); }}
+                                                        className="text-red-400 hover:text-red-600 p-1"
+                                                        title="Delete"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
                                             </div>
                                             {expandedDistributorCustomers.has(dc.id) && (
-                                                <div className="border-t border-gray-200 p-3 bg-gray-50">
-                                                    <div className="text-sm text-gray-600">
-                                                        <p className="font-medium mb-2">Email Domains:</p>
-                                                        {dc.company_urls?.length > 0 ? (
-                                                            <div className="flex flex-wrap gap-1 mb-3">
-                                                                {dc.company_urls.map((url, idx) => (
-                                                                    <span key={idx} className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
-                                                                        {url}
-                                                                    </span>
+                                                <div className="border-t border-gray-200 p-4 bg-gray-50">
+                                                    {editingDCId === dc.id ? (
+                                                        /* Edit Mode */
+                                                        <div className="space-y-4">
+                                                            {/* Name */}
+                                                            <div>
+                                                                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editingDCName}
+                                                                    onChange={(e) => setEditingDCName(e.target.value)}
+                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm"
+                                                                />
+                                                            </div>
+                                                            {/* Email Domains */}
+                                                            <div>
+                                                                <label className="block text-sm font-medium text-gray-700 mb-1">Email Domains</label>
+                                                                <div className="space-y-2">
+                                                                    {editingDCUrls.map((url, idx) => (
+                                                                        <div key={idx} className="flex gap-2">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={url}
+                                                                                onChange={(e) => updateDCUrl(idx, e.target.value)}
+                                                                                placeholder="example.com"
+                                                                                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm"
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => removeDCUrl(idx)}
+                                                                                className="text-red-400 hover:text-red-600 p-2"
+                                                                                title="Remove"
+                                                                            >
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                                </svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                    <button
+                                                                        onClick={addDCUrl}
+                                                                        className="text-sm text-teal-600 hover:text-teal-800"
+                                                                    >
+                                                                        + Add domain
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            {/* Save/Cancel buttons */}
+                                                            <div className="flex justify-end gap-2 pt-2">
+                                                                <button
+                                                                    onClick={cancelEditingDC}
+                                                                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    onClick={saveDistributorCustomer}
+                                                                    disabled={savingDC || !editingDCName.trim()}
+                                                                    className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
+                                                                >
+                                                                    {savingDC ? 'Saving...' : 'Save'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        /* View Mode */
+                                                        <div className="text-sm text-gray-600">
+                                                            <p className="font-medium mb-2">Email Domains:</p>
+                                                            {dc.company_urls?.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1 mb-4">
+                                                                    {dc.company_urls.map((url, idx) => (
+                                                                        <span key={idx} className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
+                                                                            {url}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-gray-400 text-xs mb-4">No domains configured</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Contacts Section - Always visible */}
+                                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                                        <p className="font-medium text-sm text-gray-700 mb-3">Contacts ({dc.contacts?.length || 0})</p>
+
+                                                        {/* Add new contact */}
+                                                        <div className="flex gap-2 mb-3">
+                                                            <input
+                                                                type="email"
+                                                                value={newDCContactEmail}
+                                                                onChange={(e) => setNewDCContactEmail(e.target.value)}
+                                                                placeholder="Enter email address..."
+                                                                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm"
+                                                                onKeyDown={(e) => e.key === 'Enter' && addDistributorCustomerContact(dc.id)}
+                                                            />
+                                                            <button
+                                                                onClick={() => addDistributorCustomerContact(dc.id)}
+                                                                disabled={!newDCContactEmail.trim() || addingDCContact}
+                                                                className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
+                                                            >
+                                                                {addingDCContact ? 'Adding...' : 'Add'}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Contact list */}
+                                                        {dc.contacts?.length > 0 ? (
+                                                            <div className="space-y-2">
+                                                                {dc.contacts.map((contact) => (
+                                                                    <div key={contact.id} className="flex items-center justify-between bg-white rounded border border-gray-200 p-2">
+                                                                        {editingDCContactId === contact.id ? (
+                                                                            /* Editing contact */
+                                                                            <div className="flex-1 flex items-center gap-2">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={editingDCContactName}
+                                                                                    onChange={(e) => setEditingDCContactName(e.target.value)}
+                                                                                    placeholder="Name"
+                                                                                    className="flex-1 rounded border-gray-300 text-sm"
+                                                                                />
+                                                                                <span className="text-xs text-gray-500">{contact.email}</span>
+                                                                                <select
+                                                                                    value={editingDCContactType}
+                                                                                    onChange={(e) => setEditingDCContactType(e.target.value)}
+                                                                                    className="rounded border-gray-300 text-xs"
+                                                                                >
+                                                                                    <option value="uncategorized">Uncategorized</option>
+                                                                                    <option value="buyer">Buyer</option>
+                                                                                    <option value="accounts_payable">Accounts Payable</option>
+                                                                                    <option value="other">Other</option>
+                                                                                </select>
+                                                                                <button
+                                                                                    onClick={() => saveDistributorCustomerContact(dc.id)}
+                                                                                    disabled={savingDCContact}
+                                                                                    className="text-teal-600 hover:text-teal-800 p-1"
+                                                                                >
+                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                                    </svg>
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={cancelEditingDCContact}
+                                                                                    className="text-gray-400 hover:text-gray-600 p-1"
+                                                                                >
+                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                                    </svg>
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            /* Viewing contact */
+                                                                            <>
+                                                                                <div className="flex-1">
+                                                                                    <span className="text-sm text-gray-900">{contact.name || <span className="italic text-gray-400">No name</span>}</span>
+                                                                                    <span className="text-sm text-gray-500 ml-2">{contact.email}</span>
+                                                                                    <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                                                        contact.type === 'buyer' ? 'bg-blue-100 text-blue-800' :
+                                                                                        contact.type === 'accounts_payable' ? 'bg-purple-100 text-purple-800' :
+                                                                                        contact.type === 'other' ? 'bg-gray-100 text-gray-800' :
+                                                                                        'bg-yellow-100 text-yellow-800'
+                                                                                    }`}>
+                                                                                        {contact.type === 'accounts_payable' ? 'AP' : contact.type}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <button
+                                                                                        onClick={() => startEditingDCContact(contact)}
+                                                                                        className="text-gray-400 hover:text-gray-600 p-1"
+                                                                                        title="Edit"
+                                                                                    >
+                                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                                        </svg>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => deleteDistributorCustomerContact(dc.id, contact.id)}
+                                                                                        disabled={deletingDCContactId === contact.id}
+                                                                                        className="text-red-400 hover:text-red-600 p-1 disabled:opacity-50"
+                                                                                        title="Delete"
+                                                                                    >
+                                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                        </svg>
+                                                                                    </button>
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <p className="text-gray-400 text-xs mb-3">No domains configured</p>
-                                                        )}
-                                                        <p className="font-medium mb-2">Contacts ({dc.contacts?.length || 0}):</p>
-                                                        {dc.contacts?.length > 0 ? (
-                                                            <ul className="space-y-1">
-                                                                {dc.contacts.map((c) => (
-                                                                    <li key={c.id} className="text-xs">
-                                                                        <span className="text-gray-900">{c.name || <span className="italic text-gray-400">No name</span>}</span>
-                                                                        <span className="text-gray-500"> - {c.email}</span>
-                                                                        <span className="ml-2 text-gray-400">({c.type})</span>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        ) : (
-                                                            <p className="text-gray-400 text-xs">No contacts discovered yet</p>
+                                                            <p className="text-gray-400 text-xs">No contacts yet. Add one above or they will be discovered via Gmail sync.</p>
                                                         )}
                                                     </div>
                                                 </div>
@@ -2300,140 +2784,6 @@ export default function Show({
                         </div>
                     </div>
 
-                    {/* AR Settings (Accounts Receivable Automation) */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        <div className="p-6">
-                            <div className="mb-4 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-medium text-gray-900">Invoicing Preferences</h3>
-                                    <p className="text-sm text-gray-500">AR automation settings for this customer</p>
-                                </div>
-                                {!editingArSettings ? (
-                                    <button
-                                        onClick={() => setEditingArSettings(true)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                        title="Edit"
-                                    >
-                                        <PencilIcon />
-                                    </button>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={cancelArSettingsEdit}
-                                            className="text-gray-400 hover:text-gray-600"
-                                            disabled={saving}
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={saveArSettings}
-                                            className="rounded bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
-                                            disabled={saving}
-                                        >
-                                            {saving ? 'Saving...' : 'Save'}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {!editingArSettings ? (
-                                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">EDI Enabled</dt>
-                                        <dd className="mt-1 text-sm text-gray-900">
-                                            {customer.ar_settings?.edi ? (
-                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
-                                            ) : (
-                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
-                                            )}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Invoice Consolidation</dt>
-                                        <dd className="mt-1 text-sm text-gray-900">
-                                            {customer.ar_settings?.consolidated_invoicing === 'consolidated_invoice'
-                                                ? 'Same-day shipments'
-                                                : 'One per shipment'}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Requires Customer SKUs</dt>
-                                        <dd className="mt-1 text-sm text-gray-900">
-                                            {customer.ar_settings?.requires_customer_skus ? (
-                                                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Yes</span>
-                                            ) : (
-                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
-                                            )}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Invoice Discount</dt>
-                                        <dd className="mt-1 text-sm text-gray-900">
-                                            {customer.ar_settings?.invoice_discount
-                                                ? `${customer.ar_settings.invoice_discount}%`
-                                                : '-'}
-                                        </dd>
-                                    </div>
-                                </dl>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                                    <div>
-                                        <label className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={arSettingsForm.edi}
-                                                onChange={(e) => setArSettingsForm(prev => ({ ...prev, edi: e.target.checked }))}
-                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <span className="ml-2 text-sm text-gray-700">EDI Enabled</span>
-                                        </label>
-                                        <p className="mt-1 text-xs text-gray-500">Customer uses EDI for orders</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Consolidation</label>
-                                        <select
-                                            value={arSettingsForm.consolidated_invoicing}
-                                            onChange={(e) => setArSettingsForm(prev => ({
-                                                ...prev,
-                                                consolidated_invoicing: e.target.value as 'single_invoice' | 'consolidated_invoice' | ''
-                                            }))}
-                                            className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        >
-                                            <option value="">One per shipment</option>
-                                            <option value="single_invoice">One per shipment</option>
-                                            <option value="consolidated_invoice">Same-day shipments</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={arSettingsForm.requires_customer_skus}
-                                                onChange={(e) => setArSettingsForm(prev => ({ ...prev, requires_customer_skus: e.target.checked }))}
-                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <span className="ml-2 text-sm text-gray-700">Requires Customer SKUs</span>
-                                        </label>
-                                        <p className="mt-1 text-xs text-gray-500">Show customer SKUs on invoice</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Discount (%)</label>
-                                        <input
-                                            type="number"
-                                            value={arSettingsForm.invoice_discount}
-                                            onChange={(e) => setArSettingsForm(prev => ({ ...prev, invoice_discount: e.target.value }))}
-                                            placeholder="0"
-                                            min="0"
-                                            max="100"
-                                            step="0.01"
-                                            className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
                     {/* Company URLs (for Gmail matching) */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="p-6">
@@ -2814,8 +3164,8 @@ export default function Show({
                                     >
                                         <option value="">Select a product...</option>
                                         {availableProducts.map(p => (
-                                            <option key={p.id} value={p.code}>
-                                                {p.code} - {p.rec_name}
+                                            <option key={p.id} value={p.sku}>
+                                                {p.sku} - {p.name}
                                             </option>
                                         ))}
                                     </select>

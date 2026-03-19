@@ -75,17 +75,14 @@ class InvoicePdfController extends Controller
      *
      * @param  int  $id  Fulfil invoice ID
      */
-    public function regenerate(int $id): BinaryFileResponse|JsonResponse
+    public function regenerate(int $id): JsonResponse
     {
         try {
             $storagePath = $this->pdfService->regenerate($id);
-            $fullPath = $this->pdfService->getFullPath($storagePath);
 
-            // Extract invoice number from filename for Content-Disposition
-            $filename = basename($storagePath);
-
-            return response()->download($fullPath, $filename, [
-                'Content-Type' => 'application/pdf',
+            return response()->json([
+                'message' => 'PDF regenerated successfully',
+                'path' => $storagePath,
             ]);
         } catch (InvoicePdfException $e) {
             Log::warning('Invoice PDF regeneration failed: SKU mapping error', [

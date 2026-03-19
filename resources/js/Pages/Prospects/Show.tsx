@@ -905,7 +905,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                         )}
                                     </div>
                                     <div>
-                                        <dt className="text-sm font-medium text-gray-500">Discount</dt>
+                                        <dt className="text-sm font-medium text-gray-500">Discount on Price List</dt>
                                         <dd className="text-sm text-gray-900">
                                             {prospect.discount_percent !== null ? `${prospect.discount_percent}%` : '-'}
                                         </dd>
@@ -998,7 +998,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Discount Level <span className="text-red-500">*</span></label>
+                                        <label className="block text-sm font-medium text-gray-700">Discount on Price List <span className="text-red-500">*</span></label>
                                         <select
                                             value={detailsForm.discount_percent}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, discount_percent: e.target.value }))}

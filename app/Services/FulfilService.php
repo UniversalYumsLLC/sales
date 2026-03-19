@@ -277,6 +277,44 @@ class FulfilService
     }
 
     /**
+     * Get a single customer by party ID.
+     *
+     * Returns the same structure as getActiveCustomers() but for a single customer.
+     */
+    public function getCustomer(int $partyId): ?array
+    {
+        $fields = [
+            'id', 'name', 'code', 'active',
+            'contact_mechanisms', 'categories',
+            'sale_price_list', 'customer_payment_term',
+            'account_manager', 'is_customer',
+            'receivable', 'receivable_today',
+        ];
+
+        try {
+            $contact = $this->request('GET', "model/party.party/{$partyId}", [
+                'query' => ['fields' => implode(',', $fields)],
+            ]);
+
+            if (empty($contact)) {
+                return null;
+            }
+
+            // Enrich with related data
+            $enriched = $this->enrichContacts([$contact]);
+
+            return $enriched[0] ?? null;
+        } catch (\Exception $e) {
+            Log::warning('Failed to fetch customer from Fulfil', [
+                'party_id' => $partyId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Fetch contacts that have an account manager assigned
      */
     protected function fetchContactsWithAccountManager(): array
@@ -887,7 +925,7 @@ class FulfilService
     {
         $address = $this->request('GET', "model/party.address/{$addressId}", [
             'query' => [
-                'fields' => 'party,street,street2,city,subdivision,zip,country',
+                'fields' => 'party,street,city,subdivision,zip,country',
             ],
         ]);
 
@@ -897,7 +935,7 @@ class FulfilService
 
         $result = [
             'street' => $address['street'] ?? '',
-            'street2' => $address['street2'] ?? null,
+            'street2' => null, // Field not available in Fulfil API
             'city' => $address['city'] ?? '',
             'zip' => $address['zip'] ?? '',
             'party_name' => '',
@@ -2185,6 +2223,10 @@ class FulfilService
 
         foreach ($metafields as $mf) {
             $fieldId = $mf['field'] ?? null;
+            // Handle case where field is an array [id, name] instead of just id
+            if (is_array($fieldId)) {
+                $fieldId = $fieldId[0] ?? null;
+            }
             if ($fieldId && isset($idToCode[$fieldId])) {
                 $code = $idToCode[$fieldId];
                 $result[$code] = $mf['value'] ?? null;

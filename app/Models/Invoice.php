@@ -94,6 +94,9 @@ class Invoice extends Model
      */
     public static function syncFromFulfil(array $data): self
     {
+        // Ensure the customer metadata exists first (for foreign key constraint)
+        LocalCustomerMetadata::findOrCreateForCustomer($data['party_id']);
+
         return self::updateOrCreate(
             ['fulfil_id' => $data['id']],
             [

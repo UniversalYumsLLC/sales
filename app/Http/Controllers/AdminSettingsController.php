@@ -22,6 +22,13 @@ class AdminSettingsController extends Controller
      */
     public function index(): Response
     {
+        $isLocal = app()->environment('local');
+
+        // Auto-enable test mode in local environment
+        if ($isLocal && ! $this->testMode->isEnabled()) {
+            $this->testMode->enable();
+        }
+
         return Inertia::render('Admin/Settings', [
             'settings' => [
                 'ar_test_mode' => $this->testMode->isEnabled(),
@@ -29,6 +36,10 @@ class AdminSettingsController extends Controller
             'testModeInfo' => [
                 'allowedDomain' => $this->testMode->getAllowedDomain(),
                 'fulfilEnvironment' => $this->testMode->getFulfilEnvironment(),
+            ],
+            'environment' => [
+                'isLocal' => $isLocal,
+                'name' => app()->environment(),
             ],
         ]);
     }

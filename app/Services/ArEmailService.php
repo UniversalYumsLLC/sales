@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\ArInvoiceEmail;
 use App\Models\EmailRecord;
 use App\Models\EmailTemplate;
+use App\Models\Invoice;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -291,20 +292,29 @@ class ArEmailService
 
     /**
      * Record the sent email.
+     *
+     * @param  int|null  $fulfilInvoiceId  The Fulfil invoice ID (not local DB ID)
      */
     protected function recordEmail(
         string $templateKey,
         ?int $customerId,
-        ?int $invoiceId,
+        ?int $fulfilInvoiceId,
         ?string $pdfPath
     ): void {
         if (! $customerId) {
             return;
         }
 
+        // Look up the local invoice ID from the Fulfil ID
+        $localInvoiceId = null;
+        if ($fulfilInvoiceId) {
+            $invoice = Invoice::where('fulfil_id', $fulfilInvoiceId)->first();
+            $localInvoiceId = $invoice?->id;
+        }
+
         EmailRecord::create([
             'fulfil_party_id' => $customerId,
-            'invoice_id' => $invoiceId,
+            'invoice_id' => $localInvoiceId,
             'email_type' => $templateKey,
             'sent_at' => now(),
             'pdf_path' => $pdfPath,

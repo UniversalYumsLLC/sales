@@ -387,7 +387,7 @@ class ArAutomationService
     protected function getCustomerDataForEmail(int $fulfilPartyId, array $invoiceData): array
     {
         // Fetch customer details from Fulfil
-        $customer = $this->fulfil->getContact($fulfilPartyId);
+        $customer = $this->fulfil->getCustomer($fulfilPartyId);
 
         return [
             'id' => $fulfilPartyId,
@@ -580,7 +580,7 @@ class ArAutomationService
         $isApPortal = $this->customerUsesApPortal($customerData);
 
         Log::info('AR Automation: Manual resend requested', [
-            'invoice_id' => $invoiceId,
+            'invoice_id' => $fulfilInvoiceId,
             'email_type' => $emailType,
             'customer_id' => $invoice->fulfil_party_id,
         ]);

@@ -2,409 +2,411 @@
 UNIVERSAL YUMS - INVOICE BLADE TEMPLATE
 
 DATA SOURCE: Fulfil ERP
-MODELS:      account.invoice, account.invoice.line,
-             stock.shipment.out (customer_shipment)
+NOTE: Uses @page margins for consistent 0.5" margins on all sides
+      All tables use 100% width to fill the content area consistently
 --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice #{{ $invoice->number }}</title>
     <style>
-        /* Reset & Base */
+        @page {
+            size: letter portrait;
+            margin: 36pt;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        html {
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 10pt;
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 9pt;
             color: #333;
-            line-height: 1.4;
+            line-height: 1.3;
+            padding: 36pt;
+            margin: 0;
         }
 
-        /* Page Layout (optimized for PDF / print) */
-        .invoice-page {
-            width: 8.5in;
-            min-height: 11in;
-            margin: 0 auto;
-            padding: 0.6in 0.75in;
-            position: relative;
+        table {
+            border-collapse: collapse;
+            width: 100%;
         }
 
-        @media print {
-            .invoice-page {
-                padding: 0.4in 0.6in;
-            }
+        td, th {
+            vertical-align: top;
         }
 
         /* Header */
         .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
-        .header-left {
-            flex: 1;
-        }
-
-        .logo {
-            max-width: 180px;
-            height: auto;
-            margin-bottom: 14px;
-        }
-
-        .company-address {
-            font-size: 9pt;
-            line-height: 1.5;
-            color: #444;
-        }
-
-        .company-phone {
-            font-size: 9pt;
-            color: #444;
-            margin-top: 6px;
-        }
-
-        .header-right {
-            text-align: right;
-        }
-
-        .invoice-title {
-            font-size: 26pt;
-            font-weight: 300;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .invoice-meta {
-            font-size: 9pt;
-            line-height: 1.8;
-        }
-
-        .invoice-meta .label {
-            display: inline-block;
-            width: 70px;
-            font-weight: 600;
-            text-align: left;
-        }
-
-        /* Address Block */
-        .address-row {
-            display: flex;
-            gap: 0;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-        }
-
-        .address-block {
-            flex: 1;
-            padding: 10px 14px;
-            font-size: 9pt;
-            line-height: 1.6;
-        }
-
-        .address-block + .address-block {
-            border-left: 1px solid #ccc;
-        }
-
-        .address-label {
-            font-weight: 700;
-            font-size: 8.5pt;
-            text-transform: uppercase;
-            color: #555;
-            margin-bottom: 4px;
-        }
-
-        .address-name {
-            font-weight: 600;
-        }
-
-        /* Order Info Row */
-        .order-info {
-            display: flex;
-            border: 1px solid #ccc;
-            margin-bottom: 20px;
-            font-size: 9pt;
-        }
-
-        .order-info-cell {
-            flex: 1;
-            padding: 8px 14px;
-        }
-
-        .order-info-cell + .order-info-cell {
-            border-left: 1px solid #ccc;
-        }
-
-        .order-info-cell .label {
-            font-weight: 700;
-            font-size: 8.5pt;
-            color: #555;
-            margin-bottom: 2px;
-        }
-
-        /* Line Items Table */
-        .line-items {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 24px;
-            font-size: 9pt;
-        }
-
-        .line-items thead th {
-            background-color: #f5f5f5;
-            border: 1px solid #ccc;
-            padding: 8px 10px;
-            text-align: left;
-            font-weight: 700;
-            font-size: 8.5pt;
-            color: #555;
-        }
-
-        .line-items thead th.num {
-            width: 30px;
-            text-align: center;
-        }
-
-        .line-items thead th.item-code {
-            width: 80px;
-        }
-
-        .line-items thead th.qty,
-        .line-items thead th.unit-price,
-        .line-items thead th.amount {
-            text-align: right;
-            width: 80px;
-        }
-
-        .line-items tbody td {
-            border: 1px solid #ccc;
-            padding: 8px 10px;
+        .header td {
             vertical-align: top;
         }
 
-        .line-items tbody td.num {
-            text-align: center;
+        .header-left {
+            width: 60%;
         }
 
-        .line-items tbody td.qty,
-        .line-items tbody td.unit-price,
-        .line-items tbody td.amount {
-            text-align: right;
-            white-space: nowrap;
+        .header-right {
+            width: 40%;
         }
+
+        .logo {
+            max-width: 140px;
+            height: auto;
+            margin-bottom: 8px;
+        }
+
+        .company-name {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .company-info {
+            font-size: 8pt;
+            line-height: 1.4;
+            color: #444;
+        }
+
+        .invoice-title {
+            font-size: 20pt;
+            font-weight: 300;
+            color: #333;
+            text-align: right;
+            margin-bottom: 8px;
+        }
+
+        .invoice-meta {
+            font-size: 8pt;
+            line-height: 1.6;
+            text-align: right;
+        }
+
+        .invoice-meta strong {
+            font-weight: 600;
+        }
+
+        /* Address Blocks */
+        .addresses {
+            border: 1px solid #bbb;
+            margin-bottom: 15px;
+        }
+
+        .addresses td {
+            width: 50%;
+            padding: 8px 10px;
+            font-size: 8pt;
+            line-height: 1.5;
+        }
+
+        .addresses td + td {
+            border-left: 1px solid #bbb;
+        }
+
+        .addr-label {
+            font-weight: 700;
+            font-size: 7pt;
+            text-transform: uppercase;
+            color: #555;
+            margin-bottom: 3px;
+        }
+
+        .addr-name {
+            font-weight: 600;
+        }
+
+        /* Order Info */
+        .order-info {
+            border: 1px solid #bbb;
+            margin-bottom: 15px;
+        }
+
+        .order-info td {
+            width: 25%;
+            padding: 6px 10px;
+            font-size: 8pt;
+        }
+
+        .order-info td + td {
+            border-left: 1px solid #bbb;
+        }
+
+        .order-info .lbl {
+            font-weight: 700;
+            font-size: 7pt;
+            color: #555;
+        }
+
+        /* Line Items */
+        .items {
+            margin-bottom: 15px;
+            font-size: 8pt;
+            border: 1px solid #bbb;
+        }
+
+        .items th {
+            background-color: #f0f0f0;
+            border: 1px solid #bbb;
+            padding: 6px 8px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 7pt;
+            color: #555;
+        }
+
+        .items td {
+            border: 1px solid #bbb;
+            padding: 6px 8px;
+        }
+
+        .items .c { text-align: center; }
+        .items .r { text-align: right; }
+
+        .col-num { width: 5%; }
+        .col-item { width: 12%; }
+        .col-desc { width: 43%; }
+        .col-qty { width: 10%; }
+        .col-price { width: 15%; }
+        .col-amt { width: 15%; }
 
         /* Totals */
         .totals-wrapper {
-            display: flex;
-            justify-content: flex-end;
+            margin-bottom: 15px;
         }
 
-        .totals-table {
-            width: 280px;
-            border-collapse: collapse;
-            font-size: 9.5pt;
+        .totals-spacer {
+            width: 60%;
         }
 
-        .totals-table td {
-            padding: 6px 10px;
-            border: 1px solid #ccc;
+        .totals-cell {
+            width: 40%;
         }
 
-        .totals-table .totals-label {
+        .totals {
+            width: 100%;
+            font-size: 8pt;
+            border: 1px solid #bbb;
+        }
+
+        .totals td {
+            padding: 4px 8px;
+        }
+
+        .totals tr + tr td {
+            border-top: 1px solid #bbb;
+        }
+
+        .totals .lbl {
             text-align: right;
             font-weight: 600;
             color: #555;
-            width: 140px;
+            width: 50%;
         }
 
-        .totals-table .totals-value {
+        .totals .val {
             text-align: right;
-            width: 140px;
+            width: 50%;
         }
 
-        .totals-table .total-row td {
-            font-size: 14pt;
+        .totals .total-main td {
+            font-size: 10pt;
             font-weight: 700;
-            padding: 10px;
+            padding: 6px 8px;
             color: #222;
         }
 
-        .totals-table .balance-due td {
+        .totals .balance-due td {
             font-weight: 700;
             color: #222;
         }
 
         /* Footer */
         .footer {
-            position: absolute;
-            bottom: 0.6in;
-            left: 0.75in;
-            right: 0.75in;
-            display: flex;
-            justify-content: space-between;
-            font-size: 8pt;
+            margin-top: 30px;
+            font-size: 7pt;
             color: #999;
-            border-top: 1px solid #eee;
-            padding-top: 8px;
+            border-top: 1px solid #ddd;
+            padding-top: 6px;
+        }
+
+        .footer td {
+            padding: 0;
+        }
+
+        .footer .r {
+            text-align: right;
         }
     </style>
 </head>
 <body>
-    <div class="invoice-page">
 
-        {{-- Header (hardcoded Universal Yums) --}}
-        <div class="header">
-            <div class="header-left">
+    {{-- Header --}}
+    <table class="header">
+        <tr>
+            <td class="header-left">
                 @if(file_exists(public_path('images/universal-yums-logo.png')) && filesize(public_path('images/universal-yums-logo.png')) > 100)
                     <img src="{{ public_path('images/universal-yums-logo.png') }}" alt="Universal Yums" class="logo">
                 @else
-                    <div style="font-size: 18pt; font-weight: bold; color: #333; margin-bottom: 14px;">UNIVERSAL YUMS</div>
+                    <div class="company-name">UNIVERSAL YUMS</div>
                 @endif
-                <div class="company-address">
+                <div class="company-info">
                     9 WOODLAND RD UNIT B<br>
                     ROSELAND NJ 07068<br>
-                    UNITED STATES
-                </div>
-                <div class="company-phone">
+                    UNITED STATES<br>
                     Phone: 9732877393
                 </div>
-            </div>
-            <div class="header-right">
+            </td>
+            <td class="header-right">
                 <div class="invoice-title">Invoice</div>
                 <div class="invoice-meta">
-                    <span class="label">Invoice #</span> {{ $invoice->number }}<br>
-                    <span class="label">Date:</span> {{ \Carbon\Carbon::parse($invoice->invoiceDate)->format('M d, Y') }}<br>
-                    <span class="label">State:</span> {{ ucfirst($invoice->state) }}
+                    <strong>Invoice #:</strong> {{ $invoice->number }}<br>
+                    <strong>Date:</strong> {{ \Carbon\Carbon::parse($invoice->invoiceDate)->format('M d, Y') }}<br>
+                    <strong>State:</strong> {{ ucfirst($invoice->state) }}
                 </div>
-            </div>
-        </div>
+            </td>
+        </tr>
+    </table>
 
-        {{-- Bill To / Ship To --}}
-        <div class="address-row">
-            <div class="address-block">
-                <div class="address-label">Bill To</div>
-                <div class="address-name">{{ $invoice_address->partyName }}</div>
-                <div>{{ $invoice_address->street }}</div>
+    {{-- Bill To / Ship To --}}
+    <table class="addresses">
+        <tr>
+            <td>
+                <div class="addr-label">Bill To</div>
+                <div class="addr-name">{{ $invoice_address->partyName }}</div>
+                {{ $invoice_address->street }}<br>
                 @if(!empty($invoice_address->street2))
-                    <div>{{ $invoice_address->street2 }}</div>
+                    {{ $invoice_address->street2 }}<br>
                 @endif
-                <div>{{ $invoice_address->city }} {{ $invoice_address->subdivisionCode }}</div>
-                <div>{{ $invoice_address->zip }}</div>
-                <div>{{ $invoice_address->countryName }}</div>
-            </div>
-            <div class="address-block">
-                <div class="address-label">Ship To</div>
-                <div class="address-name">{{ $ship_to_code }}</div>
-                <div>{{ $ship_to_name }}</div>
-                <div>{{ $ship_to_address->street }}</div>
-                @if(!empty($ship_to_address->street2))
-                    <div>{{ $ship_to_address->street2 }}</div>
+                {{ $invoice_address->city }} {{ $invoice_address->subdivisionCode }}<br>
+                {{ $invoice_address->zip }}<br>
+                {{ $invoice_address->countryName }}
+            </td>
+            <td>
+                <div class="addr-label">Ship To</div>
+                <div class="addr-name">{{ $ship_to_code }}</div>
+                {{ $ship_to_name }}<br>
+                @if($ship_to_address)
+                    {{ $ship_to_address->street }}<br>
+                    @if(!empty($ship_to_address->street2))
+                        {{ $ship_to_address->street2 }}<br>
+                    @endif
+                    {{ $ship_to_address->city }}, {{ $ship_to_address->subdivisionCode }}<br>
+                    {{ $ship_to_address->zip }} {{ $ship_to_address->countryName }}
                 @endif
-                <div>{{ $ship_to_address->city }}, {{ $ship_to_address->subdivisionCode }}</div>
-                <div>{{ $ship_to_address->zip }} {{ $ship_to_address->countryName }}</div>
-            </div>
-        </div>
+            </td>
+        </tr>
+    </table>
 
-        {{-- Order Info --}}
-        <div class="order-info">
-            <div class="order-info-cell">
-                <div class="label">Sales Person</div>
-                <div>{{ $employee->party->name }}</div>
-            </div>
-            <div class="order-info-cell">
-                <div class="label">Payment Terms</div>
-                <div>{{ $payment_term->name }}</div>
-            </div>
-            <div class="order-info-cell">
-                <div class="label">Reference</div>
-                <div>{{ $invoice->reference }}</div>
-            </div>
-            <div class="order-info-cell">
-                <div class="label">Order</div>
-                <div>{{ $order_number }}</div>
-            </div>
-        </div>
+    {{-- Order Info --}}
+    <table class="order-info">
+        <tr>
+            <td>
+                <div class="lbl">Sales Person</div>
+                {{ $employee->party->name ?? '-' }}
+            </td>
+            <td>
+                <div class="lbl">Payment Terms</div>
+                {{ $payment_term->name ?? '-' }}
+            </td>
+            <td>
+                <div class="lbl">Reference</div>
+                {{ $invoice->reference ?? '-' }}
+            </td>
+            <td>
+                <div class="lbl">Order</div>
+                {{ $order_number ?? '-' }}
+            </td>
+        </tr>
+    </table>
 
-        {{-- Line Items --}}
-        <table class="line-items">
-            <thead>
+    {{-- Line Items --}}
+    <table class="items">
+        <thead>
+            <tr>
+                <th class="col-num c">#</th>
+                <th class="col-item">Item</th>
+                <th class="col-desc">Description</th>
+                <th class="col-qty r">Qty</th>
+                <th class="col-price r">Unit Price</th>
+                <th class="col-amt r">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($line_items as $index => $line)
                 <tr>
-                    <th class="num">#</th>
-                    <th class="item-code">Item</th>
-                    <th>Description</th>
-                    <th class="qty">Quantity</th>
-                    <th class="unit-price">Unit Price</th>
-                    <th class="amount">Amount</th>
+                    <td class="c">{{ $index + 1 }}</td>
+                    <td>{{ $line->productCode }}</td>
+                    <td>{{ $line->description }}</td>
+                    <td class="r">{{ number_format($line->quantity) }}</td>
+                    <td class="r">${{ number_format($line->unitPrice, 2) }}</td>
+                    <td class="r">${{ number_format($line->amount, 2) }}</td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach($line_items as $index => $line)
+            @endforeach
+        </tbody>
+    </table>
+
+    {{-- Totals --}}
+    @php
+        $display_subtotal = $line_items->sum('amount');
+        $discount_total = $discount_lines->sum('amount');
+        $discount_percent = ($display_subtotal != 0)
+            ? round(abs($discount_total) / $display_subtotal * 100)
+            : 0;
+        $amount_paid = $invoice->totalAmount - $invoice->balance;
+    @endphp
+
+    <table class="totals-wrapper">
+        <tr>
+            <td class="totals-spacer"></td>
+            <td class="totals-cell">
+                <table class="totals">
                     <tr>
-                        <td class="num">{{ $index + 1 }}</td>
-                        <td>{{ $line->productCode }}</td>
-                        <td>{{ $line->description }}</td>
-                        <td class="qty">{{ number_format($line->quantity) }}</td>
-                        <td class="unit-price">${{ number_format($line->unitPrice, 2) }}</td>
-                        <td class="amount">${{ number_format($line->amount, 2) }}</td>
+                        <td class="lbl">Subtotal</td>
+                        <td class="val">${{ number_format($display_subtotal, 2) }}</td>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
-
-        {{-- Totals --}}
-        @php
-            $display_subtotal = $line_items->sum('amount');
-            $discount_total = $discount_lines->sum('amount');
-            $discount_percent = ($display_subtotal != 0)
-                ? round(abs($discount_total) / $display_subtotal * 100)
-                : 0;
-            $amount_paid = $invoice->totalAmount - $invoice->balance;
-        @endphp
-
-        <div class="totals-wrapper">
-            <table class="totals-table">
-                <tr>
-                    <td class="totals-label">Subtotal</td>
-                    <td class="totals-value">${{ number_format($display_subtotal, 2) }}</td>
-                </tr>
-                @if($discount_lines->isNotEmpty())
+                    @if($discount_lines->isNotEmpty())
+                        <tr>
+                            <td class="lbl">Discount ({{ $discount_percent }}%)</td>
+                            <td class="val">-${{ number_format(abs($discount_total), 2) }}</td>
+                        </tr>
+                    @endif
+                    <tr class="total-main">
+                        <td class="lbl">Total</td>
+                        <td class="val">${{ number_format($invoice->totalAmount, 2) }}</td>
+                    </tr>
                     <tr>
-                        <td class="totals-label">Discounts ({{ $discount_percent }}%)</td>
-                        <td class="totals-value">${{ number_format(abs($discount_total), 2) }}</td>
+                        <td class="lbl">Paid</td>
+                        <td class="val">${{ number_format($amount_paid, 2) }}</td>
                     </tr>
-                @endif
-                <tr class="total-row">
-                    <td class="totals-label">Total</td>
-                    <td class="totals-value">${{ number_format($invoice->totalAmount, 2) }}</td>
-                </tr>
-                <tr>
-                    <td class="totals-label">Paid</td>
-                    <td class="totals-value">${{ number_format($amount_paid, 2) }}</td>
-                </tr>
-                <tr>
-                    <td class="totals-label">Balance</td>
-                    <td class="totals-value">${{ number_format($invoice->balance, 2) }}</td>
-                </tr>
-                <tr class="balance-due">
-                    <td class="totals-label">Balance Due</td>
-                    <td class="totals-value">${{ number_format($invoice->balanceDue, 2) }}</td>
-                </tr>
-            </table>
-        </div>
+                    <tr class="balance-due">
+                        <td class="lbl">Balance Due</td>
+                        <td class="val">${{ number_format($invoice->balanceDue, 2) }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
-        {{-- Footer --}}
-        <div class="footer">
-            <span>Universal Yums</span>
-            <span>{{ $current_page ?? 1 }}/{{ $total_pages ?? 1 }}</span>
-        </div>
+    {{-- Footer --}}
+    <table class="footer">
+        <tr>
+            <td>Universal Yums</td>
+            <td class="r">Page {{ $current_page ?? 1 }} of {{ $total_pages ?? 1 }}</td>
+        </tr>
+    </table>
 
-    </div>
 </body>
 </html>

@@ -13,6 +13,11 @@ class TestModeService
     protected const TEST_MODE_ALLOWED_DOMAIN = '@universalyums.com';
 
     /**
+     * The redirect email address for test mode.
+     */
+    protected const TEST_MODE_REDIRECT_EMAIL = 'accountsreceivable@universalyums.com';
+
+    /**
      * Check if AR Test Mode is enabled.
      */
     public function isEnabled(): bool
@@ -47,8 +52,10 @@ class TestModeService
     /**
      * Filter a list of email addresses based on test mode.
      *
+     * In test mode, external emails are redirected to the test email address.
+     *
      * @param  array  $emails  List of email addresses
-     * @return array Filtered list (only allowed emails in test mode)
+     * @return array Filtered/redirected list
      */
     public function filterEmails(array $emails): array
     {
@@ -56,7 +63,40 @@ class TestModeService
             return $emails;
         }
 
-        return array_values(array_filter($emails, fn ($email) => $this->canSendEmailTo($email)));
+        // In test mode, if there are any external emails, redirect to test email
+        $hasExternalEmails = false;
+        $allowedEmails = [];
+
+        foreach ($emails as $email) {
+            if ($this->canSendEmailTo($email)) {
+                $allowedEmails[] = $email;
+            } else {
+                $hasExternalEmails = true;
+            }
+        }
+
+        // If we had external emails that got blocked, redirect to test email
+        if ($hasExternalEmails) {
+            Log::info('Test mode: redirecting external emails to test address', [
+                'original_count' => count($emails),
+                'redirect_to' => self::TEST_MODE_REDIRECT_EMAIL,
+            ]);
+
+            // Add the redirect email if not already present
+            if (! in_array(self::TEST_MODE_REDIRECT_EMAIL, $allowedEmails)) {
+                $allowedEmails[] = self::TEST_MODE_REDIRECT_EMAIL;
+            }
+        }
+
+        return array_values(array_unique($allowedEmails));
+    }
+
+    /**
+     * Get the redirect email address for test mode.
+     */
+    public function getRedirectEmail(): string
+    {
+        return self::TEST_MODE_REDIRECT_EMAIL;
     }
 
     /**
