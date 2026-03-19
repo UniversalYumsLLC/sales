@@ -57,10 +57,10 @@ Admins can invite users, assign roles, and manage access. Authentication uses Go
 
 - React 18 with TypeScript
 - Vite 7 (bundler)
-- Tailwind CSS with `@tailwindcss/forms`
-- Radix UI (accessible primitives: dialog, dropdown, tabs, tooltip, collapsible)
+- Tailwind CSS 3.x with `@tailwindcss/forms`
+- Headless UI (dropdowns, modals, transitions)
+- Radix UI (accessible primitives: tabs, tooltip, collapsible)
 - Lucide React (icons)
-- Recharts (data visualization)
 - date-fns (date utilities)
 - Axios (HTTP client, configured with CSRF handling)
 
@@ -68,7 +68,7 @@ Admins can invite users, assign roles, and manage access. Authentication uses Go
 
 - SQLite for local development
 - MySQL 8.0 in production
-- Redis for caching (Fulfil API responses, rate limiting)
+- Laravel cache (database by default; Redis in production) for Fulfil API responses and rate limiting
 - Database-backed queue for background jobs
 - Database-backed sessions
 
@@ -76,7 +76,6 @@ Admins can invite users, assign roles, and manage access. Authentication uses Go
 
 - Pest (PHPUnit) with Laravel plugin, in-memory SQLite for test isolation
 - Laravel Pint (PHP code style)
-- ESLint 9 + Prettier (TypeScript/JavaScript formatting)
 
 ## Architecture
 
@@ -90,6 +89,7 @@ app/
 │   ├── Middleware/
 │   └── Requests/             # Form request validation
 ├── Jobs/                     # Background jobs
+├── Mail/                     # Mailable classes (AR invoice emails)
 ├── Models/                   # Eloquent models
 ├── Notifications/            # User notifications
 ├── Providers/                # Service providers
@@ -202,8 +202,6 @@ composer run test             # Clear config cache, then run tests
 # Code Quality
 vendor/bin/pint               # Format all PHP files
 vendor/bin/pint --dirty       # Format only changed PHP files
-npm run lint                  # ESLint
-npm run format                # Prettier
 
 # Fulfil
 php artisan fulfil:warm-cache           # Pre-populate Fulfil API cache
@@ -244,6 +242,7 @@ Copy `.env.example` to `.env` and configure the following groups. Do not commit 
 |----------|-------------|
 | `CACHE_STORE` | Cache backend: `database` (dev) or `redis` (production) |
 | `QUEUE_CONNECTION` | Queue backend: `database` |
+| `REDIS_CLIENT` | Redis client library: set to `predis` (project uses the predis package) |
 | `REDIS_HOST` | Redis host (when using Redis cache) |
 | `REDIS_PORT` | Redis port |
 | `REDIS_PASSWORD` | Redis password |
@@ -293,6 +292,7 @@ Copy `.env.example` to `.env` and configure the following groups. Do not commit 
 | `MAIL_MAILER` | Mail driver: `log` (dev) or `smtp` (production) |
 | `MAIL_HOST` | SMTP host (production uses `smtp-relay.gmail.com`) |
 | `MAIL_PORT` | SMTP port (587 for TLS, 465 for SSL) |
+| `MAIL_ENCRYPTION` | SMTP encryption: `tls` or `ssl` (production only) |
 | `MAIL_USERNAME` | SMTP username (if using authenticated relay) |
 | `MAIL_PASSWORD` | SMTP password (if using authenticated relay) |
 | `MAIL_FROM_ADDRESS` | Default sender address |
@@ -303,9 +303,9 @@ Copy `.env.example` to `.env` and configure the following groups. Do not commit 
 
 ### Fulfil ERP
 
-The application communicates with Fulfil ERP via its REST API (`https://{subdomain}.fulfil.io/api/v2/`). Authentication uses Personal Access Tokens sent via the `X-API-KEY` header.
+The application communicates with Fulfil ERP via its REST API (`https://{subdomain}.fulfil.io/api/v2/`). Authentication uses Personal Access Tokens sent via the `Authorization: Bearer` header.
 
-Both sandbox and production Fulfil environments are supported. Admins can toggle between them at runtime via the test mode setting. API responses are cached in Redis to minimize latency and respect rate limits.
+Both sandbox and production Fulfil environments are supported. Admins can toggle between them at runtime via the test mode setting. API responses are cached via the configured Laravel cache store (database locally, Redis in production) to minimize latency and respect rate limits.
 
 Key Fulfil models used:
 
