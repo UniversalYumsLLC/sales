@@ -115,6 +115,7 @@ class TestModeService
     public function enable(): void
     {
         Setting::setTestMode(true);
+        $this->clearFulfilCache();
         Log::warning('AR Test Mode ENABLED - Fulfil will use sandbox, emails restricted to @universalyums.com');
     }
 
@@ -124,7 +125,22 @@ class TestModeService
     public function disable(): void
     {
         Setting::setTestMode(false);
+        $this->clearFulfilCache();
         Log::warning('AR Test Mode DISABLED - Fulfil will use production, emails unrestricted');
+    }
+
+    /**
+     * Clear all Fulfil-related cache when switching environments.
+     */
+    protected function clearFulfilCache(): void
+    {
+        $laravelPrefix = config('cache.prefix', '');
+        $fulfilPrefix = config('fulfil.cache.prefix', 'fulfil_');
+        $fullPrefix = $laravelPrefix.$fulfilPrefix;
+
+        \DB::table('cache')->where('key', 'like', $fullPrefix.'%')->delete();
+
+        Log::info('Cleared Fulfil cache due to test mode toggle');
     }
 
     /**
