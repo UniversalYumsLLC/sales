@@ -187,7 +187,9 @@ class FulfilService
      */
     public function clearCachePattern(string $pattern): void
     {
-        $fullPattern = $this->cachePrefix.$pattern;
+        // Laravel adds its own prefix (e.g., 'laravel-cache-') before our fulfil_ prefix
+        $laravelPrefix = config('cache.prefix', '');
+        $fullPattern = $laravelPrefix.$this->cachePrefix.$pattern;
         \DB::table('cache')->where('key', 'like', $fullPattern.'%')->delete();
     }
 
