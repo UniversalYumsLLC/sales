@@ -2017,19 +2017,6 @@ class FulfilService
     // =========================================================================
 
     /**
-     * Get the current environment name.
-     */
-    public function getEnvironment(): string
-    {
-        // Determine environment from base URL
-        if (str_contains($this->baseUrl, 'sandbox')) {
-            return 'sandbox';
-        }
-
-        return 'production';
-    }
-
-    /**
      * Debug method to dump raw metafield data from contacts.
      */
     public function debugContactMetafields(int $limit = 20): array
