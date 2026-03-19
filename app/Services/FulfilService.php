@@ -45,7 +45,7 @@ class FulfilService
         $this->baseUrl = "https://{$config['subdomain']}.fulfil.io/api/v2";
         $this->token = $config['token'];
         $this->cacheTtl = config('fulfil.cache.ttl', 3600);
-        $this->cachePrefix = config('fulfil.cache.prefix', 'fulfil_').$env.'_';
+        $this->cachePrefix = config('fulfil.cache.prefix', 'fulfil_').$this->environment.'_';
         $this->maxRetries = config('fulfil.rate_limit.max_retries', 3);
 
         Log::debug('FulfilService initialized', [
