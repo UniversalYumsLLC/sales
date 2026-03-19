@@ -53,7 +53,9 @@ function formatCurrency(amount: number): string {
 
 function formatDate(dateStr: string | null): string {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString();
+    // Append T12:00:00 to avoid timezone issues - parsing "2026-01-10" as UTC
+    // midnight shows as previous day in US timezones
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString();
 }
 
 function getInvoiceStatus(daysOverdue: number): { text: string; className: string } {
