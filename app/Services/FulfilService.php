@@ -211,10 +211,10 @@ class FulfilService
     protected function clearCacheByPrefix(string $prefix): void
     {
         $store = Cache::getStore();
+        $laravelPrefix = config('cache.prefix', '');
+        $fullPrefix = $laravelPrefix.$prefix;
 
         if ($store instanceof DatabaseStore) {
-            $laravelPrefix = config('cache.prefix', '');
-            $fullPrefix = $laravelPrefix.$prefix;
             DB::table(config('cache.stores.database.table', 'cache'))
                 ->where('key', 'like', $fullPrefix.'%')
                 ->delete();
@@ -224,12 +224,13 @@ class FulfilService
 
         if ($store instanceof RedisStore) {
             $redis = $store->connection();
-            $laravelPrefix = config('cache.prefix', '');
-            $pattern = $laravelPrefix.$prefix.'*';
-            $keys = $redis->keys($pattern);
-            if (! empty($keys)) {
-                $redis->del(...$keys);
-            }
+            $cursor = null;
+            do {
+                $results = $redis->scan($cursor, ['match' => $fullPrefix.'*', 'count' => 100]);
+                if (! empty($results)) {
+                    $redis->del(...$results);
+                }
+            } while ($cursor !== 0);
 
             return;
         }
@@ -241,10 +242,13 @@ class FulfilService
             'all_price_lists',
             'all_payment_terms',
             'shipping_terms_categories',
+            'metafield_ids',
         ];
         foreach ($knownPatterns as $pattern) {
             Cache::forget($prefix.$pattern);
         }
+
+        Log::debug('Cache driver does not support prefix-based clearing, used known patterns fallback');
     }
 
     /**

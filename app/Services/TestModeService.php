@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Setting;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class TestModeService
 {
@@ -142,9 +143,13 @@ class TestModeService
             try {
                 $fulfil = new FulfilService($env);
                 $fulfil->clearCache();
-            } catch (\RuntimeException $e) {
-                // Environment may not be configured (e.g., no sandbox token)
-                Log::debug("Skipping cache clear for unconfigured Fulfil {$env} environment");
+            } catch (RuntimeException $e) {
+                // Only suppress "not configured" errors; rethrow unexpected failures
+                if (str_contains($e->getMessage(), 'not configured')) {
+                    Log::debug("Skipping cache clear for unconfigured Fulfil {$env} environment");
+                } else {
+                    throw $e;
+                }
             }
         }
 
