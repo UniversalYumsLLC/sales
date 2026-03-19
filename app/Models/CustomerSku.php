@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
 
 class CustomerSku extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'fulfil_party_id',
         'yums_sku',
