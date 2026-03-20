@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserInvite;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
@@ -58,7 +59,7 @@ class SocialAuthController extends Controller
      * Validates user email against allowed domains and emails whitelist.
      * Creates or updates user and logs them in with remember me enabled.
      */
-    public function callback(string $provider): RedirectResponse
+    public function callback(Request $request, string $provider): RedirectResponse
     {
         if ($provider !== 'google') {
             return redirect()->route('login')->with('error', 'Invalid provider');
@@ -129,6 +130,7 @@ class SocialAuthController extends Controller
             }
 
             Auth::login($user, true);
+            $request->session()->regenerate();
 
             return redirect()->intended(route('customers.index'));
 
