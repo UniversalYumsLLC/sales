@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EmailTemplate extends Model
 {
+    use HasFactory;
+
     // Template type constants
     public const TYPE_SKU_MAPPING_ERROR = 'sku_mapping_error';
 

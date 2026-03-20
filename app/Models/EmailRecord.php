@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EmailRecord extends Model
 {
+    use HasFactory;
+
     // Email type constants
     const TYPE_INITIAL_INVOICE = 'initial_invoice';
 
