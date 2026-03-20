@@ -124,7 +124,7 @@ class ArEmailService
      */
     public function sendSkuMappingError(array $customerData, array $unmappedSkus): bool
     {
-        $formattedSkus = '<ul>'.implode('', array_map(fn ($sku) => "<li>{$sku}</li>", $unmappedSkus)).'</ul>';
+        $formattedSkus = '<ul>'.implode('', array_map(fn ($sku) => '<li>'.e($sku).'</li>', $unmappedSkus)).'</ul>';
 
         return $this->send(
             EmailTemplate::TYPE_SKU_MAPPING_ERROR,

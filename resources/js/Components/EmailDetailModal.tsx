@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 
@@ -276,7 +277,7 @@ export default function EmailDetailModal({ entityType, entityId, emailId, onClos
                                 {activeEmail.body_html ? (
                                     <div
                                         className="prose prose-sm max-w-none email-content"
-                                        dangerouslySetInnerHTML={{ __html: activeEmail.body_html }}
+                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeEmail.body_html, { ADD_ATTR: ['target'] }) }}
                                     />
                                 ) : activeEmail.body_text ? (
                                     <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
