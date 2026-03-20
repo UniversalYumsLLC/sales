@@ -91,6 +91,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user can manage customers (salesperson or admin)
+     */
+    public function canManageCustomers(): bool
+    {
+        return $this->isAdmin() || $this->isSalesperson();
+    }
+
+    /**
      * Check if user has a specific role
      */
     public function hasRole(string $role): bool
