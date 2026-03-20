@@ -10,6 +10,7 @@ class LineItemDto
         public float $quantity,
         public float $unitPrice,
         public float $amount,
+        public ?string $customerSku = null,
     ) {}
 
     /**
@@ -27,16 +28,17 @@ class LineItemDto
     }
 
     /**
-     * Create with a substituted customer SKU.
+     * Create with a customer SKU mapping (preserves original product code).
      */
     public function withCustomerSku(string $customerSku): self
     {
         return new self(
-            productCode: $customerSku,
+            productCode: $this->productCode,
             description: $this->description,
             quantity: $this->quantity,
             unitPrice: $this->unitPrice,
             amount: $this->amount,
+            customerSku: $customerSku,
         );
     }
 }

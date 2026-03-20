@@ -135,7 +135,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         }
 
         .order-info td {
-            width: 25%;
+            width: 50%;
             padding: 6px 10px;
             font-size: 8pt;
         }
@@ -176,11 +176,15 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         .items .r { text-align: right; }
 
         .col-num { width: 5%; }
-        .col-item { width: 12%; }
-        .col-desc { width: 43%; }
+        .col-sku { width: 12%; }
+        .col-retailer-sku { width: 12%; }
+        .col-product { width: 31%; }
         .col-qty { width: 10%; }
         .col-price { width: 15%; }
         .col-amt { width: 15%; }
+
+        /* Without retailer SKU column, product gets the extra width */
+        .col-product-wide { width: 43%; }
 
         /* Totals */
         .totals-wrapper {
@@ -257,11 +261,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
     <table class="header">
         <tr>
             <td class="header-left">
-                @if(file_exists(public_path('images/universal-yums-logo.png')) && filesize(public_path('images/universal-yums-logo.png')) > 100)
-                    <img src="{{ public_path('images/universal-yums-logo.png') }}" alt="Universal Yums" class="logo">
-                @else
-                    <div class="company-name">UNIVERSAL YUMS</div>
-                @endif
+                <img src="{{ public_path('images/universal_yums_logo.svg') }}" alt="Universal Yums" class="logo">
                 <div class="company-info">
                     9 WOODLAND RD UNIT B<br>
                     ROSELAND NJ 07068<br>
@@ -273,8 +273,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
                 <div class="invoice-title">Invoice</div>
                 <div class="invoice-meta">
                     <strong>Invoice #:</strong> {{ $invoice->number }}<br>
-                    <strong>Date:</strong> {{ \Carbon\Carbon::parse($invoice->invoiceDate)->format('M d, Y') }}<br>
-                    <strong>State:</strong> {{ ucfirst($invoice->state) }}
+                    <strong>Date:</strong> {{ \Carbon\Carbon::parse($invoice->invoiceDate)->format('M d, Y') }}
                 </div>
             </td>
         </tr>
@@ -314,20 +313,12 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
     <table class="order-info">
         <tr>
             <td>
-                <div class="lbl">Sales Person</div>
-                {{ $employee->party->name ?? '-' }}
-            </td>
-            <td>
                 <div class="lbl">Payment Terms</div>
                 {{ $payment_term->name ?? '-' }}
             </td>
             <td>
-                <div class="lbl">Reference</div>
+                <div class="lbl">Reference PO</div>
                 {{ $invoice->reference ?? '-' }}
-            </td>
-            <td>
-                <div class="lbl">Order</div>
-                {{ $order_number ?? '-' }}
             </td>
         </tr>
     </table>
@@ -337,19 +328,31 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         <thead>
             <tr>
                 <th class="col-num c">#</th>
-                <th class="col-item">Item</th>
-                <th class="col-desc">Description</th>
-                <th class="col-qty r">Qty</th>
+                <th class="col-sku">SKU</th>
+                @if($has_customer_skus)
+                    <th class="col-retailer-sku">Retailer SKU</th>
+                    <th class="col-product">Product</th>
+                @else
+                    <th class="col-product-wide">Product</th>
+                @endif
+                <th class="col-qty r">Unit Qty</th>
                 <th class="col-price r">Unit Price</th>
                 <th class="col-amt r">Amount</th>
             </tr>
         </thead>
         <tbody>
             @foreach($line_items as $index => $line)
+                @php
+                    // Strip "[SKU] " prefix from description to get just the product name
+                    $productName = preg_replace('/^\[.*?\]\s*/', '', $line->description);
+                @endphp
                 <tr>
                     <td class="c">{{ $index + 1 }}</td>
                     <td>{{ $line->productCode }}</td>
-                    <td>{{ $line->description }}</td>
+                    @if($has_customer_skus)
+                        <td>{{ $line->customerSku ?? '-' }}</td>
+                    @endif
+                    <td>{{ $productName }}</td>
                     <td class="r">{{ number_format($line->quantity) }}</td>
                     <td class="r">${{ number_format($line->unitPrice, 2) }}</td>
                     <td class="r">${{ number_format($line->amount, 2) }}</td>
@@ -365,6 +368,14 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         $discount_percent = ($display_subtotal != 0)
             ? round(abs($discount_total) / $display_subtotal * 100)
             : 0;
+
+        // Apply invoice-level discount if set (percentage off subtotal)
+        $invoice_discount_amount = 0;
+        if ($invoice_discount !== null && $invoice_discount > 0) {
+            $invoice_discount_amount = round($display_subtotal * ($invoice_discount / 100), 2);
+        }
+
+        $computed_total = $display_subtotal - abs($discount_total) - $invoice_discount_amount;
         $amount_paid = $invoice->totalAmount - $invoice->balance;
     @endphp
 
@@ -383,9 +394,15 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
                             <td class="val">-${{ number_format(abs($discount_total), 2) }}</td>
                         </tr>
                     @endif
+                    @if($invoice_discount !== null && $invoice_discount > 0)
+                        <tr>
+                            <td class="lbl">Discount ({{ number_format($invoice_discount, 0) }}%)</td>
+                            <td class="val">-${{ number_format($invoice_discount_amount, 2) }}</td>
+                        </tr>
+                    @endif
                     <tr class="total-main">
                         <td class="lbl">Total</td>
-                        <td class="val">${{ number_format($invoice->totalAmount, 2) }}</td>
+                        <td class="val">${{ number_format($computed_total, 2) }}</td>
                     </tr>
                     <tr>
                         <td class="lbl">Paid</td>

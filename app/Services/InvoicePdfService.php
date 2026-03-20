@@ -47,8 +47,9 @@ class InvoicePdfService
             return $pdfPath;
         }
 
-        // Check if customer requires customer SKUs
+        // Check customer AR settings (SKU requirements, discount)
         $arSettings = $this->fulfil->getCustomerArSettings($dto->customerId);
+        $hasCustomerSkus = false;
 
         if ($arSettings['requires_customer_skus']) {
             // Validate that all SKUs are mapped
@@ -73,6 +74,7 @@ class InvoicePdfService
             // Apply SKU mappings
             $skuMap = CustomerSku::getSkuMap($dto->customerId);
             $dto = $dto->withCustomerSkus($skuMap);
+            $hasCustomerSkus = true;
 
             Log::info('Applied customer SKU mappings to invoice PDF', [
                 'invoice_id' => $invoiceId,
@@ -82,7 +84,7 @@ class InvoicePdfService
         }
 
         // Render the PDF
-        $pdf = $this->renderPdf($dto);
+        $pdf = $this->renderPdf($dto, $hasCustomerSkus, $arSettings['invoice_discount'] ?? null);
 
         // Store to disk
         $storedPath = $this->storePdf($pdf, $dto->number);
@@ -143,7 +145,7 @@ class InvoicePdfService
     /**
      * Render PDF from DTO using Blade template.
      */
-    protected function renderPdf(InvoicePdfDto $dto): \Barryvdh\DomPDF\PDF
+    protected function renderPdf(InvoicePdfDto $dto, bool $hasCustomerSkus = false, ?float $invoiceDiscount = null): \Barryvdh\DomPDF\PDF
     {
         // Prepare data for the Blade template (matching expected variable names from spec)
         $data = [
@@ -152,11 +154,11 @@ class InvoicePdfService
             'ship_to_address' => $dto->shipToAddress,
             'ship_to_code' => $dto->shipToCode,
             'ship_to_name' => $dto->shipToName,
-            'employee' => (object) ['party' => (object) ['name' => $dto->salesPersonName]],
             'payment_term' => (object) ['name' => $dto->paymentTermName],
-            'order_number' => $dto->orderNumber,
             'line_items' => $dto->lineItems,
             'discount_lines' => $dto->discountLines,
+            'has_customer_skus' => $hasCustomerSkus,
+            'invoice_discount' => $invoiceDiscount,
         ];
 
         return Pdf::loadView('pdf.invoice', $data)
