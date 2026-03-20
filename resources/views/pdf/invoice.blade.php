@@ -90,7 +90,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         }
 
         .invoice-meta {
-            font-size: 8pt;
+            font-size: 9pt;
             line-height: 1.6;
             text-align: right;
         }
@@ -176,15 +176,15 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         .items .r { text-align: right; }
 
         .col-num { width: 5%; }
-        .col-sku { width: 12%; }
+        .col-sku { width: 18%; }
         .col-retailer-sku { width: 12%; }
-        .col-product { width: 31%; }
+        .col-product { width: 34%; }
         .col-qty { width: 10%; }
-        .col-price { width: 15%; }
-        .col-amt { width: 15%; }
+        .col-price { width: 9%; }
+        .col-amt { width: 12%; }
 
         /* Without retailer SKU column, product gets the extra width */
-        .col-product-wide { width: 43%; }
+        .col-product-wide { width: 46%; }
 
         /* Totals */
         .totals-wrapper {
@@ -192,11 +192,11 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         }
 
         .totals-spacer {
-            width: 60%;
+            width: 68%;
         }
 
         .totals-cell {
-            width: 40%;
+            width: 32%;
         }
 
         .totals {
@@ -226,9 +226,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         }
 
         .totals .total-main td {
-            font-size: 10pt;
             font-weight: 700;
-            padding: 6px 8px;
             color: #222;
         }
 
@@ -273,7 +271,10 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
                 <div class="invoice-title">Invoice</div>
                 <div class="invoice-meta">
                     <strong>Invoice #:</strong> {{ $invoice->number }}<br>
-                    <strong>Date:</strong> {{ \Carbon\Carbon::parse($invoice->invoiceDate)->format('M d, Y') }}
+                    <strong>Date Issued:</strong> {{ \Carbon\Carbon::parse($invoice->invoiceDate)->format('M d, Y') }}<br>
+                    @if($invoice->dueDate)
+                        <strong>Due Date:</strong> {{ \Carbon\Carbon::parse($invoice->dueDate)->format('M d, Y') }}
+                    @endif
                 </div>
             </td>
         </tr>

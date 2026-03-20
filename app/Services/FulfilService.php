@@ -916,7 +916,7 @@ class FulfilService
                 'fields' => implode(',', [
                     'id', 'number', 'party', 'state', 'reference',
                     'total_amount', 'balance', 'balance_due',
-                    'invoice_date', 'invoice_address',
+                    'invoice_date', 'earliest_due_date', 'invoice_address',
                     'payment_term', 'employee', 'origins',
                     'lines', 'sales', 'customer_shipments',
                 ]),
@@ -938,6 +938,7 @@ class FulfilService
             'balance' => $this->parseDecimal($invoice['balance'] ?? null),
             'balance_due' => $this->parseDecimal($invoice['balance_due'] ?? $invoice['balance'] ?? null),
             'invoice_date' => $this->parseDate($invoice['invoice_date'] ?? null),
+            'due_date' => $this->parseDate($invoice['earliest_due_date'] ?? null),
             'origins' => $invoice['origins'] ?? '',
             'invoice_address' => null,
             'customer_shipments' => [],

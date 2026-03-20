@@ -10,6 +10,7 @@ class InvoicePdfDto
         // Invoice Core
         public string $number,
         public string $invoiceDate,
+        public ?string $dueDate,
         public string $state,
         public ?string $reference,
         public float $totalAmount,
@@ -80,6 +81,7 @@ class InvoicePdfDto
         return new self(
             number: $data['number'] ?? '',
             invoiceDate: $data['invoice_date'] ?? '',
+            dueDate: $data['due_date'] ?? null,
             state: $data['state'] ?? '',
             reference: $data['reference'] ?? null,
             totalAmount: (float) ($data['total_amount'] ?? 0),
@@ -129,6 +131,7 @@ class InvoicePdfDto
         return new self(
             number: $this->number,
             invoiceDate: $this->invoiceDate,
+            dueDate: $this->dueDate,
             state: $this->state,
             reference: $this->reference,
             totalAmount: $this->totalAmount,
