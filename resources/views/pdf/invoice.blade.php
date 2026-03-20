@@ -30,7 +30,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         body {
             font-family: Helvetica, Arial, sans-serif;
             font-size: 9pt;
-            color: #333;
+            color: #222;
             line-height: 1.3;
             padding: 36pt;
             margin: 0;
@@ -78,7 +78,8 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         .company-info {
             font-size: 8pt;
             line-height: 1.4;
-            color: #444;
+            color: #555;
+            text-transform: uppercase;
         }
 
         .invoice-title {
@@ -110,6 +111,8 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             padding: 8px 10px;
             font-size: 8pt;
             line-height: 1.5;
+            color: #555;
+            text-transform: uppercase;
         }
 
         .addresses td + td {
@@ -118,7 +121,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
 
         .addr-label {
             font-weight: 700;
-            font-size: 7pt;
+            font-size: 8pt;
             text-transform: uppercase;
             color: #555;
             margin-bottom: 3px;
@@ -138,6 +141,8 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             width: 50%;
             padding: 6px 10px;
             font-size: 8pt;
+            color: #555;
+            text-transform: uppercase;
         }
 
         .order-info td + td {
@@ -146,8 +151,9 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
 
         .order-info .lbl {
             font-weight: 700;
-            font-size: 7pt;
+            font-size: 8pt;
             color: #555;
+            text-transform: uppercase;
         }
 
         /* Line Items */
@@ -155,6 +161,8 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             margin-bottom: 15px;
             font-size: 8pt;
             border: 1px solid #bbb;
+            color: #555;
+            text-transform: uppercase;
         }
 
         .items th {
@@ -163,8 +171,9 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             padding: 6px 8px;
             text-align: left;
             font-weight: 700;
-            font-size: 7pt;
+            font-size: 8pt;
             color: #555;
+            text-transform: uppercase;
         }
 
         .items td {
@@ -203,6 +212,8 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             width: 100%;
             font-size: 8pt;
             border: 1px solid #bbb;
+            color: #555;
+            text-transform: uppercase;
         }
 
         .totals td {
@@ -238,8 +249,9 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         /* Footer */
         .footer {
             margin-top: 30px;
-            font-size: 7pt;
-            color: #999;
+            font-size: 8pt;
+            color: #555;
+            text-transform: uppercase;
             border-top: 1px solid #ddd;
             padding-top: 6px;
         }
