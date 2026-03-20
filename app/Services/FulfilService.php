@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use Illuminate\Cache\DatabaseStore;
+use Illuminate\Cache\RedisStore;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -42,7 +45,7 @@ class FulfilService
         $this->baseUrl = "https://{$config['subdomain']}.fulfil.io/api/v2";
         $this->token = $config['token'];
         $this->cacheTtl = config('fulfil.cache.ttl', 3600);
-        $this->cachePrefix = config('fulfil.cache.prefix', 'fulfil_');
+        $this->cachePrefix = config('fulfil.cache.prefix', 'fulfil_').$this->environment.'_';
         $this->maxRetries = config('fulfil.rate_limit.max_retries', 3);
 
         Log::debug('FulfilService initialized', [
@@ -185,28 +188,77 @@ class FulfilService
     }
 
     /**
-     * Clear cache for a specific key or all Fulfil cache
+     * Clear cache for a specific key or all Fulfil cache.
+     *
+     * When no key is provided, clears all cache entries matching the Fulfil prefix
+     * for the current environment, without affecting other application cache.
      */
     public function clearCache(?string $key = null): void
     {
         if ($key) {
             Cache::forget($this->cachePrefix.$key);
         } else {
-            // Clear all Fulfil cache by tag or pattern
-            Cache::flush(); // Simple approach - in production, use tags
+            $this->clearCacheByPrefix($this->cachePrefix);
         }
     }
 
     /**
-     * Clear all cache entries matching a prefix pattern (e.g., 'invoices_', 'sales_orders_')
-     * Uses database query since we're using database cache driver
+     * Clear all cache entries matching a given prefix.
+     *
+     * Supports database and Redis cache drivers. Falls back to clearing
+     * known key patterns for other drivers.
+     */
+    protected function clearCacheByPrefix(string $prefix): void
+    {
+        $store = Cache::getStore();
+        $laravelPrefix = config('cache.prefix', '');
+        $fullPrefix = $laravelPrefix.$prefix;
+
+        if ($store instanceof DatabaseStore) {
+            DB::table(config('cache.stores.database.table', 'cache'))
+                ->where('key', 'like', $fullPrefix.'%')
+                ->delete();
+
+            return;
+        }
+
+        if ($store instanceof RedisStore) {
+            $redis = $store->connection();
+            $cursor = null;
+            do {
+                $results = $redis->scan($cursor, ['match' => $fullPrefix.'*', 'count' => 100]);
+                if (! empty($results)) {
+                    $redis->del(...$results);
+                }
+            } while ($cursor !== 0);
+
+            return;
+        }
+
+        // Fallback: clear known Fulfil cache key patterns
+        $knownPatterns = [
+            'active_customers',
+            'products',
+            'all_price_lists',
+            'all_payment_terms',
+            'shipping_terms_categories',
+            'metafield_ids',
+        ];
+        foreach ($knownPatterns as $pattern) {
+            Cache::forget($prefix.$pattern);
+        }
+
+        Log::debug('Cache driver does not support prefix-based clearing, used known patterns fallback');
+    }
+
+    /**
+     * Clear all cache entries matching a prefix pattern (e.g., 'invoices_', 'sales_orders_').
+     *
+     * Supports database and Redis cache drivers.
      */
     public function clearCachePattern(string $pattern): void
     {
-        // Laravel adds its own prefix (e.g., 'laravel-cache-') before our fulfil_ prefix
-        $laravelPrefix = config('cache.prefix', '');
-        $fullPattern = $laravelPrefix.$this->cachePrefix.$pattern;
-        \DB::table('cache')->where('key', 'like', $fullPattern.'%')->delete();
+        $this->clearCacheByPrefix($this->cachePrefix.$pattern);
     }
 
     /**
@@ -2071,9 +2123,7 @@ class FulfilService
      */
     protected function discoverMetafieldIdsByCode(): array
     {
-        $cacheKey = 'metafield_ids_'.$this->getEnvironment();
-
-        return Cache::remember($cacheKey, 3600, function () {
+        return $this->cached('metafield_ids', function () {
             $contactsWithMetafields = $this->debugContactMetafields(50);
 
             $ids = [];

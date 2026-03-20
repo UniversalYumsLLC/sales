@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Setting;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class TestModeService
 {
@@ -131,14 +132,26 @@ class TestModeService
 
     /**
      * Clear all Fulfil-related cache when switching environments.
+     *
+     * Clears cache for both sandbox and production environments to ensure
+     * clean state after toggling test mode.
      */
     protected function clearFulfilCache(): void
     {
-        $laravelPrefix = config('cache.prefix', '');
-        $fulfilPrefix = config('fulfil.cache.prefix', 'fulfil_');
-        $fullPrefix = $laravelPrefix.$fulfilPrefix;
-
-        \DB::table('cache')->where('key', 'like', $fullPrefix.'%')->delete();
+        // Clear cache for both environments to ensure clean state
+        foreach (['sandbox', 'production'] as $env) {
+            try {
+                $fulfil = new FulfilService($env);
+                $fulfil->clearCache();
+            } catch (RuntimeException $e) {
+                // Only suppress "not configured" errors; rethrow unexpected failures
+                if (str_contains($e->getMessage(), 'not configured')) {
+                    Log::debug("Skipping cache clear for unconfigured Fulfil {$env} environment");
+                } else {
+                    throw $e;
+                }
+            }
+        }
 
         Log::info('Cleared Fulfil cache due to test mode toggle');
     }
