@@ -12,7 +12,7 @@ B2B sales tool suite integrating with Fulfil ERP for customer data and Gmail for
 - **Backend**: PHP 8.2+, Laravel 12.x, Inertia.js 2.0
 - **Frontend**: React 19, TypeScript 5.7+, Tailwind CSS 3.x, Radix UI
 - **Database**: SQLite (dev), MySQL 8.0 (production), Redis for caching
-- **Queue**: Database driver; dev server runs `php artisan queue:listen` via `composer run dev`
+- **Queue**: Database driver
 - **Testing**: PHPUnit with in-memory SQLite
 - **Code Quality**: Laravel Pint (PHP), ESLint + Prettier (JS/TS)
 
@@ -59,6 +59,11 @@ npm run format                # Prettier
 
 ## Additional Context
 
-- `docs/fulfil-api.md` -- Fulfil ERP API reference, models, and filter IDs
-- `docs/coding-standards.md` -- PHP, database, and scaffolding conventions
-- `docs/deployment.md` -- Production deployment, hosting, and scheduled jobs
+| Topic              | File                         |
+| ------------------ | ---------------------------- |
+| Fulfil ERP API     | `docs/fulfil-api.md`         |
+| Gmail Integration  | `docs/gmail-integration.md`  |
+| Authentication     | `docs/authentication.md`     |
+| Coding Standards   | `docs/coding-standards.md`   |
+| Server & Deploy    | `docs/server.md`             |
+| AR Automation      | `docs/ar-automation/`        |

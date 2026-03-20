@@ -14,7 +14,3 @@
 - Use Eloquent relationships over raw queries or manual joins.
 - Use eager loading to prevent N+1 query problems.
 - Use Laravel's query builder only for very complex operations that don't fit Eloquent well.
-
-## Scaffolding
-
-Use `php artisan make:*` commands (with `--no-interaction`) to create new files (migrations, controllers, models, etc.) instead of hand-creating them.

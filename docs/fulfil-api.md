@@ -28,6 +28,8 @@
 
 ## Hard-Coded Filter IDs
 
+These IDs are consistent across sandbox and production environments.
+
 ### Channel Filter (B2B)
 - Channel ID: `19` / Code: `RTL1` / Name: `Retail Channel`
 
