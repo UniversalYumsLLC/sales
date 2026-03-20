@@ -76,7 +76,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         }
 
         .company-info {
-            font-size: 8pt;
+            font-size: 7pt;
             line-height: 1.4;
             color: #555;
             text-transform: uppercase;
@@ -94,6 +94,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             font-size: 9pt;
             line-height: 1.6;
             text-align: right;
+            text-transform: uppercase;
         }
 
         .invoice-meta strong {
@@ -109,7 +110,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         .addresses td {
             width: 50%;
             padding: 8px 10px;
-            font-size: 8pt;
+            font-size: 7pt;
             line-height: 1.5;
             color: #555;
             text-transform: uppercase;
@@ -121,14 +122,15 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
 
         .addr-label {
             font-weight: 700;
-            font-size: 8pt;
+            font-size: 7pt;
             text-transform: uppercase;
-            color: #555;
+            color: #222;
             margin-bottom: 3px;
         }
 
         .addr-name {
             font-weight: 600;
+            color: #555;
         }
 
         /* Order Info */
@@ -140,7 +142,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         .order-info td {
             width: 50%;
             padding: 6px 10px;
-            font-size: 8pt;
+            font-size: 7pt;
             color: #555;
             text-transform: uppercase;
         }
@@ -151,7 +153,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
 
         .order-info .lbl {
             font-weight: 700;
-            font-size: 8pt;
+            font-size: 7pt;
             color: #555;
             text-transform: uppercase;
         }
@@ -159,7 +161,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         /* Line Items */
         .items {
             margin-bottom: 15px;
-            font-size: 8pt;
+            font-size: 7pt;
             border: 1px solid #bbb;
             color: #555;
             text-transform: uppercase;
@@ -171,7 +173,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             padding: 6px 8px;
             text-align: left;
             font-weight: 700;
-            font-size: 8pt;
+            font-size: 7pt;
             color: #555;
             text-transform: uppercase;
         }
@@ -210,9 +212,9 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
 
         .totals {
             width: 100%;
-            font-size: 8pt;
+            font-size: 7pt;
             border: 1px solid #bbb;
-            color: #555;
+            color: #222;
             text-transform: uppercase;
         }
 
@@ -242,6 +244,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         }
 
         .totals .balance-due td {
+            font-size: 9pt;
             font-weight: 700;
             color: #222;
         }
@@ -249,7 +252,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
         /* Footer */
         .footer {
             margin-top: 30px;
-            font-size: 8pt;
+            font-size: 7pt;
             color: #555;
             text-transform: uppercase;
             border-top: 1px solid #ddd;
