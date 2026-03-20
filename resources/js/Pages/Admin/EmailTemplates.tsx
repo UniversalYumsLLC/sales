@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
+import DOMPurify from 'dompurify';
 import { useState, useRef, useEffect } from 'react';
 
 interface Template {
@@ -38,7 +39,7 @@ export default function EmailTemplates({ templates }: Props) {
     // Update contenteditable when body changes programmatically
     useEffect(() => {
         if (editorRef.current && editorRef.current.innerHTML !== body) {
-            editorRef.current.innerHTML = body;
+            editorRef.current.innerHTML = DOMPurify.sanitize(body);
         }
     }, [body]);
 
@@ -300,7 +301,7 @@ export default function EmailTemplates({ templates }: Props) {
                                                 </div>
                                                 <div
                                                     className="prose prose-sm max-w-none"
-                                                    dangerouslySetInnerHTML={{ __html: body }}
+                                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(body, { ADD_ATTR: ['target'] }) }}
                                                 />
                                             </div>
                                         </div>
