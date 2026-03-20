@@ -311,8 +311,7 @@ NOTE: Uses @page margins for consistent 0.5" margins on all sides
             </td>
             <td>
                 <div class="addr-label">Ship To</div>
-                <div class="addr-name">{{ $ship_to_code }}</div>
-                {{ $ship_to_name }}<br>
+                <div class="addr-name">{{ $ship_to_name }}</div>
                 @if($ship_to_address)
                     {{ $ship_to_address->street }}<br>
                     @if(!empty($ship_to_address->street2))
