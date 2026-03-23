@@ -1796,7 +1796,9 @@ export default function Show({
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.ar_settings?.consolidated_invoicing === 'consolidated_invoice'
                                                 ? 'Consolidate same-day shipments'
-                                                : 'One per shipment'}
+                                                : customer.ar_settings?.consolidated_invoicing === 'single_invoice'
+                                                    ? 'One per shipment'
+                                                    : <span className="text-gray-400 italic">Not selected</span>}
                                         </div>
                                     ) : (
                                         <select
