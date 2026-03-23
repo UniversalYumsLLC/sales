@@ -390,7 +390,6 @@ export default function Show({
     const [changingCustomerType, setChangingCustomerType] = useState(false);
 
     // AR settings state
-    const [editingArSettings, setEditingArSettings] = useState(false);
     const [arSettingsForm, setArSettingsForm] = useState<ArSettingsForm>({
         edi: customer.ar_settings?.edi ?? false,
         consolidated_invoicing: customer.ar_settings?.consolidated_invoicing ?? '',
@@ -599,7 +598,8 @@ export default function Show({
 
         setSaving(true);
         try {
-            // Save customer details
+            // Save customer details and AR settings in a single request
+            // so they're written to Fulfil atomically (avoiding metafield race conditions)
             const response = await fetch(route('customers.update', customer.id), {
                 method: 'PUT',
                 headers: {
@@ -613,38 +613,22 @@ export default function Show({
                     shipping_terms_category_id: parseInt(detailsForm.shipping_terms_category_id),
                     shelf_life_requirement: parseInt(detailsForm.shelf_life_requirement),
                     vendor_guide: detailsForm.vendor_guide || null,
+                    // AR settings (saved atomically with party data)
+                    ar_edi: arSettingsForm.edi,
+                    ar_consolidated_invoicing: arSettingsForm.consolidated_invoicing || null,
+                    ar_requires_customer_skus: arSettingsForm.requires_customer_skus,
+                    ar_invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
                     // Note: broker is updated via the broker section, not here
                 }),
             });
 
-            if (!response.ok) {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
-                return;
-            }
-
-            // Also save AR settings
-            const arResponse = await fetch(route('customers.ar-settings.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    edi: arSettingsForm.edi,
-                    consolidated_invoicing: arSettingsForm.consolidated_invoicing || null,
-                    requires_customer_skus: arSettingsForm.requires_customer_skus,
-                    invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
-                }),
-            });
-
-            if (arResponse.ok) {
+            if (response.ok) {
                 setEditingDetails(false);
                 setNotification({ type: 'success', message: 'Customer details updated successfully' });
                 router.reload({ only: ['customer'] });
             } else {
-                const data = await arResponse.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save AR settings' });
+                const data = await response.json();
+                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
         } catch (error) {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
@@ -692,49 +676,6 @@ export default function Show({
             }
         } catch (error) {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // AR Settings functions
-    const cancelArSettingsEdit = () => {
-        setArSettingsForm({
-            edi: customer.ar_settings?.edi ?? false,
-            consolidated_invoicing: customer.ar_settings?.consolidated_invoicing ?? '',
-            requires_customer_skus: customer.ar_settings?.requires_customer_skus ?? false,
-            invoice_discount: customer.ar_settings?.invoice_discount?.toString() ?? '',
-        });
-        setEditingArSettings(false);
-    };
-
-    const saveArSettings = async () => {
-        setSaving(true);
-        try {
-            const response = await fetch(route('customers.ar-settings.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    edi: arSettingsForm.edi,
-                    consolidated_invoicing: arSettingsForm.consolidated_invoicing || null,
-                    requires_customer_skus: arSettingsForm.requires_customer_skus,
-                    invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
-                }),
-            });
-
-            if (response.ok) {
-                setEditingArSettings(false);
-                setNotification({ type: 'success', message: 'AR settings updated successfully' });
-                router.reload({ only: ['customer'] });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save AR settings' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save AR settings. Please try again.' });
         } finally {
             setSaving(false);
         }

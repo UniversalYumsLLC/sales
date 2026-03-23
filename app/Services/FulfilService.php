@@ -1751,7 +1751,7 @@ class FulfilService
      */
     public function updateCustomer(int $partyId, array $data): array
     {
-        // 1. Update the party record
+        // 1. Update the party record (and AR settings metafields atomically)
         $partyData = [];
 
         if (isset($data['name'])) {
@@ -1764,22 +1764,35 @@ class FulfilService
             $partyData['customer_payment_term'] = $data['customer_payment_term'];
         }
 
-        if (! empty($partyData)) {
-            // Read existing metafields so the PUT doesn't clear them.
-            // Fulfil's Tryton-based API treats One2Many fields omitted from
-            // a PUT as "delete all", so we must echo them back.
-            $party = $this->request('GET', "model/party.party/{$partyId}", [
-                'query' => ['fields' => 'metafields'],
-            ]);
-            $existingMetafields = $party['metafields'] ?? [];
+        // Build metafield updates from AR settings if provided
+        $arMetafields = $this->buildArMetafieldPayload($data);
 
-            if (! empty($existingMetafields)) {
-                $partyData['metafields'] = $existingMetafields;
+        if (! empty($partyData) || ! empty($arMetafields)) {
+            // When AR settings are included, set them directly in this PUT.
+            // Otherwise, preserve existing metafields so they aren't cleared.
+            // Fulfil's Tryton-based API treats One2Many fields omitted from
+            // a PUT as "delete all", so we must always include metafields.
+            if (! empty($arMetafields)) {
+                $partyData['metafields'] = ['set' => $arMetafields];
+            } else {
+                $party = $this->request('GET', "model/party.party/{$partyId}", [
+                    'query' => ['fields' => 'metafields'],
+                ]);
+                $existingMetafields = $party['metafields'] ?? [];
+                if (! empty($existingMetafields)) {
+                    $partyData['metafields'] = $existingMetafields;
+                }
             }
 
             $this->request('PUT', "model/party.party/{$partyId}", [
                 'json' => $partyData,
             ]);
+
+            if (! empty($arMetafields)) {
+                Log::info('Updated customer with AR metafields', [
+                    'party_id' => $partyId,
+                ]);
+            }
         }
 
         // 2. Update shipping terms category if provided
@@ -1803,6 +1816,67 @@ class FulfilService
             'id' => $partyId,
             'name' => $data['name'] ?? null,
         ];
+    }
+
+    /**
+     * Build metafield set payload from AR settings in data array.
+     *
+     * Looks for ar_* keys in the data array and converts them to Fulfil
+     * metafield set operations. Returns an empty array if no AR settings
+     * are present.
+     *
+     * @return array<int, array{field: int, value: string|null}>
+     */
+    protected function buildArMetafieldPayload(array $data): array
+    {
+        $arSettings = [];
+
+        if (array_key_exists('ar_edi', $data)) {
+            $arSettings['edi'] = $data['ar_edi'] ? 'true' : 'false';
+        }
+        if (array_key_exists('ar_consolidated_invoicing', $data)) {
+            $arSettings['consolidated_invoicing'] = $data['ar_consolidated_invoicing'];
+        }
+        if (array_key_exists('ar_requires_customer_skus', $data)) {
+            $arSettings['requires_customer_skus'] = $data['ar_requires_customer_skus'] ? 'true' : 'false';
+        }
+        if (array_key_exists('ar_invoice_discount', $data)) {
+            $arSettings['invoice_discount'] = $data['ar_invoice_discount'] !== null
+                ? (string) $data['ar_invoice_discount']
+                : null;
+        }
+
+        if (empty($arSettings)) {
+            return [];
+        }
+
+        $metafieldIds = $this->getMetafieldIds();
+        if (empty($metafieldIds)) {
+            Log::warning('No metafield IDs configured for Fulfil environment', [
+                'environment' => $this->getEnvironment(),
+            ]);
+
+            return [];
+        }
+
+        $setMetafields = [];
+        foreach ($arSettings as $code => $value) {
+            $fieldId = $metafieldIds[$code] ?? null;
+            if (! $fieldId) {
+                Log::warning('Metafield ID not configured', [
+                    'code' => $code,
+                    'environment' => $this->getEnvironment(),
+                ]);
+
+                continue;
+            }
+            $setMetafields[] = [
+                'field' => (int) $fieldId,
+                'value' => $value,
+            ];
+        }
+
+        return $setMetafields;
     }
 
     /**
