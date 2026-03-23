@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\FulfilUnavailableException;
 use App\Jobs\SyncGmailForDomains;
 use App\Models\Email;
 use App\Models\FulfilBrokerContact;
@@ -908,6 +909,12 @@ class ProspectController extends Controller
                 ->route('customers.show', $partyId)
                 ->with('success', "Successfully promoted \"{$customerData['name']}\" to active customer!");
 
+        } catch (FulfilUnavailableException $e) {
+            DB::rollBack();
+
+            return back()->withErrors([
+                'general' => $e->getUserMessage(),
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
 

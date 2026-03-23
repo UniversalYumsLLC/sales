@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\FulfilUnavailableException;
 use App\Models\CustomerSku;
 use App\Models\DistributorCustomer;
 use App\Models\DistributorCustomerContact;
@@ -60,17 +61,21 @@ class ActiveCustomersController extends Controller
 
         try {
             $customers = $this->getActiveCustomersWithMetrics($bustCache);
-        } catch (ConnectionException $e) {
+        } catch (FulfilUnavailableException|ConnectionException $e) {
             Log::error('Fulfil API timeout on Active Customers index', [
                 'error' => $e->getMessage(),
             ]);
+
+            $message = $e instanceof FulfilUnavailableException
+                ? $e->getUserMessage()
+                : 'Unable to load data from Fulfil. Please try again in a few minutes.';
 
             return Inertia::render('ActiveCustomers/Index', [
                 'customers' => [],
                 'totals' => ['total_customers' => 0, 'open_po_revenue' => 0, 't12m_revenue' => 0],
                 'search' => (string) $search,
                 'lastUpdated' => now()->toIso8601String(),
-                'error' => 'Unable to load data from Fulfil. Please try again in a few minutes.',
+                'error' => $message,
             ]);
         }
 
@@ -116,11 +121,15 @@ class ActiveCustomersController extends Controller
             // Get detailed data for this customer
             $salesOrders = $this->fulfil->getSalesOrders(['party_id' => $id], $bustCache);
             $invoices = $this->fulfil->getInvoices(['party_id' => $id], $bustCache);
-        } catch (ConnectionException $e) {
+        } catch (FulfilUnavailableException|ConnectionException $e) {
             Log::error('Fulfil API timeout on Active Customers show', [
                 'customer_id' => $id,
                 'error' => $e->getMessage(),
             ]);
+
+            $message = $e instanceof FulfilUnavailableException
+                ? $e->getUserMessage()
+                : 'Unable to load data from Fulfil. Please try again in a few minutes.';
 
             return Inertia::render('ActiveCustomers/Show', [
                 'customer' => ['id' => $id, 'name' => 'Customer #'.$id, 'ar_settings' => [
@@ -145,7 +154,7 @@ class ActiveCustomersController extends Controller
                 'shippingTerms' => [],
                 'products' => [],
                 'customerSkus' => [],
-                'error' => 'Unable to load data from Fulfil. Please try again in a few minutes.',
+                'error' => $message,
             ]);
         }
 

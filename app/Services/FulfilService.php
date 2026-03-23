@@ -2,8 +2,12 @@
 
 namespace App\Services;
 
+use App\Exceptions\FulfilUnavailableException;
+use App\Notifications\FulfilUnavailableAlert;
 use Illuminate\Cache\DatabaseStore;
 use Illuminate\Cache\RedisStore;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -77,11 +81,32 @@ class FulfilService
         $startTime = microtime(true);
 
         for ($attempt = 1; $attempt <= $this->maxRetries; $attempt++) {
-            $response = Http::timeout(60)
-                ->withHeaders([
-                    'Authorization' => 'Bearer '.$this->token,
-                    'Content-Type' => 'application/json',
-                ])->{$method}($url, $options['json'] ?? $options['query'] ?? []);
+            try {
+                $response = Http::timeout(60)
+                    ->withHeaders([
+                        'Authorization' => 'Bearer '.$this->token,
+                        'Content-Type' => 'application/json',
+                    ])->{$method}($url, $options['json'] ?? $options['query'] ?? []);
+            } catch (ConnectionException $e) {
+                $duration = microtime(true) - $startTime;
+
+                Log::critical('Fulfil API unreachable', [
+                    'endpoint' => $endpoint,
+                    'method' => $method,
+                    'duration_seconds' => round($duration, 2),
+                    'error' => $e->getMessage(),
+                ]);
+
+                $this->sendFulfilUnavailableAlert($endpoint, $method, $duration, $e);
+
+                throw new FulfilUnavailableException(
+                    "Fulfil API is unreachable: {$e->getMessage()}",
+                    $endpoint,
+                    $method,
+                    round($duration, 2),
+                    $e
+                );
+            }
 
             if ($response->successful()) {
                 $duration = microtime(true) - $startTime;
@@ -174,6 +199,42 @@ class FulfilService
         $backoffSequence = [2, 5, 10];
 
         return $backoffSequence[min($attempt - 1, count($backoffSequence) - 1)];
+    }
+
+    /**
+     * Send a Slack alert when the Fulfil API is unreachable.
+     *
+     * Uses a cache lock to prevent flooding #engineering with duplicate alerts
+     * if multiple requests fail in quick succession during an outage.
+     */
+    protected function sendFulfilUnavailableAlert(string $endpoint, string $method, float $duration, ConnectionException $original): void
+    {
+        // Throttle: only send one alert per 5 minutes per environment
+        $cacheKey = "fulfil_unavailable_alert_{$this->environment}";
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+
+        try {
+            Cache::put($cacheKey, true, 300); // 5 minute cooldown
+
+            $exception = new FulfilUnavailableException(
+                "Fulfil API is unreachable: {$original->getMessage()}",
+                $endpoint,
+                $method,
+                round($duration, 2),
+                $original
+            );
+
+            (new AnonymousNotifiable)
+                ->route('slack', '#engineering')
+                ->notify(new FulfilUnavailableAlert($exception));
+        } catch (\Exception $e) {
+            // Don't let Slack failures break the main error flow
+            Log::warning('Failed to send Fulfil unavailable Slack alert', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

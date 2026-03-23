@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\FulfilUnavailableException;
 use App\Jobs\SyncGmailForDomains;
 use App\Services\FulfilService;
 use Illuminate\Http\JsonResponse;
@@ -105,6 +106,10 @@ class CustomerController extends Controller
             return redirect()
                 ->route('customers.index')
                 ->with('success', "Customer \"{$customer['name']}\" created successfully.");
+        } catch (FulfilUnavailableException $e) {
+            return back()
+                ->withErrors(['general' => $e->getUserMessage()])
+                ->withInput();
         } catch (\Exception $e) {
             return back()
                 ->withErrors(['general' => 'Failed to create customer: '.$e->getMessage()])
@@ -176,6 +181,10 @@ class CustomerController extends Controller
                 'message' => 'Customer updated successfully',
                 'customer' => $customer,
             ]);
+        } catch (FulfilUnavailableException $e) {
+            return response()->json([
+                'message' => $e->getUserMessage(),
+            ], 503);
         } catch (\Exception $e) {
             \Log::error('Failed to update customer', [
                 'customer_id' => $id,
