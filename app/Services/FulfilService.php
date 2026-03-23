@@ -122,7 +122,7 @@ class FulfilService
                     ]);
                 }
 
-                return $result;
+                return $result ?? [];
             }
 
             // Handle rate limiting (429) with exponential backoff
