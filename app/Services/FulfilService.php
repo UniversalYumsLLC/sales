@@ -2120,7 +2120,7 @@ class FulfilService
         }
 
         if (! empty($toDelete)) {
-            $this->request('DELETE', 'model/party.contact_mechanism', [
+            $this->request('PUT', 'model/party.contact_mechanism/delete', [
                 'json' => $toDelete,
             ]);
         }
