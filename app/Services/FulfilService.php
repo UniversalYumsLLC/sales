@@ -1775,10 +1775,13 @@ class FulfilService
             $this->updateShippingTermsCategory($partyId, $data['shipping_terms_category_id']);
         }
 
-        // 3. Update contact mechanisms if provided
-        // For updates, we need to fetch existing mechanisms, compare, and update/create/delete
-        if ($this->hasContactMechanismUpdates($data)) {
+        // 3. Sync contacts and/or data fields stored as contact mechanisms
+        if ($this->hasContactUpdates($data)) {
+            // Full sync: contacts + data fields (buyers, AP, other, broker, shelf_life, vendor_guide)
             $this->syncContactMechanisms($partyId, $data);
+        } elseif ($this->hasDataFieldUpdates($data)) {
+            // Lightweight sync: only data fields (shelf_life, vendor_guide)
+            $this->syncDataFields($partyId, $data);
         }
 
         // Clear the active customers cache
@@ -1845,16 +1848,105 @@ class FulfilService
     }
 
     /**
-     * Check if data contains contact mechanism updates.
+     * Check if data contains actual contact updates (buyers, AP, other, broker).
      */
-    protected function hasContactMechanismUpdates(array $data): bool
+    protected function hasContactUpdates(array $data): bool
     {
         return isset($data['buyers'])
             || isset($data['accounts_payable'])
             || isset($data['other'])
-            || isset($data['broker_contacts'])
-            || isset($data['shelf_life_requirement'])
-            || isset($data['vendor_guide']);
+            || isset($data['broker_contacts']);
+    }
+
+    /**
+     * Check if data contains data field updates stored as contact mechanisms.
+     */
+    protected function hasDataFieldUpdates(array $data): bool
+    {
+        return isset($data['shelf_life_requirement'])
+            || array_key_exists('vendor_guide', $data);
+    }
+
+    /**
+     * Sync only data fields (shelf_life, vendor_guide) stored as contact mechanisms.
+     *
+     * This is a lightweight alternative to syncContactMechanisms for when only
+     * data fields are being updated (e.g. details-only saves). It fetches only
+     * the "data" mechanisms instead of all contacts for the party.
+     */
+    protected function syncDataFields(int $partyId, array $data): void
+    {
+        $existing = $this->request('PUT', 'model/party.contact_mechanism/search_read', [
+            'json' => [
+                'filters' => [['party', '=', $partyId], ['name', '=', 'data']],
+                'fields' => ['id', 'type', 'name', 'value'],
+                'limit' => 100,
+            ],
+        ]);
+
+        $toCreate = [];
+        $toUpdate = [];
+        $toDelete = [];
+
+        if (isset($data['shelf_life_requirement'])) {
+            $existingShelfLife = collect($existing)->first(fn ($m) => str_starts_with($m['value'] ?? '', 'shelf_life_req:'));
+
+            if ($existingShelfLife) {
+                $newValue = 'shelf_life_req:'.$data['shelf_life_requirement'];
+                if ($existingShelfLife['value'] !== $newValue) {
+                    $toUpdate[] = ['id' => $existingShelfLife['id'], 'value' => $newValue];
+                }
+            } else {
+                $toCreate[] = [
+                    'party' => $partyId,
+                    'type' => 'email',
+                    'name' => 'data',
+                    'value' => 'shelf_life_req:'.$data['shelf_life_requirement'],
+                ];
+            }
+        }
+
+        if (array_key_exists('vendor_guide', $data)) {
+            $existingVendorGuide = collect($existing)->first(fn ($m) => str_starts_with($m['value'] ?? '', 'vendor_guide:'));
+
+            if ($existingVendorGuide) {
+                if (empty($data['vendor_guide'])) {
+                    $toDelete[] = $existingVendorGuide['id'];
+                } else {
+                    $newValue = 'vendor_guide:'.$data['vendor_guide'];
+                    if ($existingVendorGuide['value'] !== $newValue) {
+                        $toUpdate[] = ['id' => $existingVendorGuide['id'], 'value' => $newValue];
+                    }
+                }
+            } elseif (! empty($data['vendor_guide'])) {
+                $toCreate[] = [
+                    'party' => $partyId,
+                    'type' => 'email',
+                    'name' => 'data',
+                    'value' => 'vendor_guide:'.$data['vendor_guide'],
+                ];
+            }
+        }
+
+        if (! empty($toCreate)) {
+            $this->request('POST', 'model/party.contact_mechanism', [
+                'json' => $toCreate,
+            ]);
+        }
+
+        foreach ($toUpdate as $update) {
+            $id = $update['id'];
+            unset($update['id']);
+            $this->request('PUT', "model/party.contact_mechanism/{$id}", [
+                'json' => $update,
+            ]);
+        }
+
+        if (! empty($toDelete)) {
+            $this->request('PUT', 'model/party.contact_mechanism/delete', [
+                'json' => [$toDelete],
+            ]);
+        }
     }
 
     /**
