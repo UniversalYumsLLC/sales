@@ -88,12 +88,12 @@ test('basic user gets 403 on /admin/settings', function () {
     $response->assertStatus(403);
 });
 
-test('basic user gets 403 on /admin/email-templates', function () {
+test('basic user (accounts receivable) can access /admin/email-templates', function () {
     $user = User::factory()->create(['role' => User::ROLE_USER]);
 
     $response = $this->actingAs($user)->get('/admin/email-templates');
 
-    $response->assertStatus(403);
+    $response->assertStatus(200);
 });
 
 test('basic user gets 403 on /admin/email-log', function () {

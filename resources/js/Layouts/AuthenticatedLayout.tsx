@@ -93,6 +93,13 @@ export default function Authenticated({
                                                 Gmail Integration
                                             </Dropdown.Link>
                                         )}
+                                        {(user.role === 'user' || user.role === 'admin') && (
+                                            <Dropdown.Link
+                                                href={route('admin.email-templates')}
+                                            >
+                                                Email Templates
+                                            </Dropdown.Link>
+                                        )}
                                         {user.role === 'admin' && (
                                             <>
                                                 <Dropdown.Link
@@ -104,11 +111,6 @@ export default function Authenticated({
                                                     href={route('admin.settings')}
                                                 >
                                                     Admin Settings
-                                                </Dropdown.Link>
-                                                <Dropdown.Link
-                                                    href={route('admin.email-templates')}
-                                                >
-                                                    Email Templates
                                                 </Dropdown.Link>
                                                 <Dropdown.Link
                                                     href={route('admin.email-log')}
@@ -218,6 +220,11 @@ export default function Authenticated({
                                     Gmail Integration
                                 </ResponsiveNavLink>
                             )}
+                            {(user.role === 'user' || user.role === 'admin') && (
+                                <ResponsiveNavLink href={route('admin.email-templates')}>
+                                    Email Templates
+                                </ResponsiveNavLink>
+                            )}
                             {user.role === 'admin' && (
                                 <>
                                     <ResponsiveNavLink href={route('admin.users')}>
@@ -225,9 +232,6 @@ export default function Authenticated({
                                     </ResponsiveNavLink>
                                     <ResponsiveNavLink href={route('admin.settings')}>
                                         Admin Settings
-                                    </ResponsiveNavLink>
-                                    <ResponsiveNavLink href={route('admin.email-templates')}>
-                                        Email Templates
                                     </ResponsiveNavLink>
                                     <ResponsiveNavLink href={route('admin.email-log')}>
                                         Email Log

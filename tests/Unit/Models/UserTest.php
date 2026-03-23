@@ -69,6 +69,24 @@ test('hasGmailConnected returns true when token exists', function () {
     expect($user->hasGmailConnected())->toBeTrue();
 });
 
+test('canEditEmailTemplates returns true for admin', function () {
+    $user = User::factory()->admin()->create();
+
+    expect($user->canEditEmailTemplates())->toBeTrue();
+});
+
+test('canEditEmailTemplates returns true for accounts receivable (user role)', function () {
+    $user = User::factory()->create(['role' => User::ROLE_USER]);
+
+    expect($user->canEditEmailTemplates())->toBeTrue();
+});
+
+test('canEditEmailTemplates returns false for salesperson', function () {
+    $user = User::factory()->salesperson()->create();
+
+    expect($user->canEditEmailTemplates())->toBeFalse();
+});
+
 test('getRoles returns all available roles', function () {
     $roles = User::getRoles();
 

@@ -92,6 +92,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
+    // Email Templates (accounts receivable and admin - checked in controller)
+    Route::get('/admin/email-templates', [EmailTemplateController::class, 'index'])->name('admin.email-templates');
+    Route::put('/admin/email-templates/{key}', [EmailTemplateController::class, 'update'])->name('admin.email-templates.update');
+
     // Gmail Integration (salesperson and admin - checked in controller)
     Route::get('/gmail', [GmailController::class, 'index'])->name('gmail.index');
     Route::get('/gmail/connect', [GmailController::class, 'connect'])->name('gmail.connect');
@@ -115,10 +119,6 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Admin Settings (Test Mode, etc.)
     Route::get('/admin/settings', [AdminSettingsController::class, 'index'])->name('admin.settings');
     Route::put('/admin/settings', [AdminSettingsController::class, 'update'])->name('admin.settings.update');
-
-    // Email Templates
-    Route::get('/admin/email-templates', [EmailTemplateController::class, 'index'])->name('admin.email-templates');
-    Route::put('/admin/email-templates/{key}', [EmailTemplateController::class, 'update'])->name('admin.email-templates.update');
 
     // Email Activity Log
     Route::get('/admin/email-log', [AdminEmailLogController::class, 'index'])->name('admin.email-log');

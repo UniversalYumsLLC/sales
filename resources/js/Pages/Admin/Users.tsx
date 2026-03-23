@@ -121,7 +121,7 @@ export default function Users({ users, invites }: Props) {
                                             onChange={(e) => setData('role', e.target.value as 'admin' | 'user' | 'salesperson')}
                                             className="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         >
-                                            <option value="user">User</option>
+                                            <option value="user">Accounts Receivable</option>
                                             <option value="salesperson">Salesperson</option>
                                             <option value="admin">Admin</option>
                                         </select>
@@ -272,7 +272,7 @@ export default function Users({ users, invites }: Props) {
                                                             onChange={(e) => handleRoleChange(user.id, e.target.value)}
                                                             className="rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                                         >
-                                                            <option value="user">User</option>
+                                                            <option value="user">Accounts Receivable</option>
                                                             <option value="salesperson">Salesperson</option>
                                                             <option value="admin">Admin</option>
                                                         </select>

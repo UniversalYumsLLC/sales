@@ -26,7 +26,7 @@ class User extends Authenticatable
     public static function getRoles(): array
     {
         return [
-            self::ROLE_USER => 'User',
+            self::ROLE_USER => 'Accounts Receivable',
             self::ROLE_SALESPERSON => 'Salesperson',
             self::ROLE_ADMIN => 'Admin',
         ];
@@ -96,6 +96,14 @@ class User extends Authenticatable
     public function canManageCustomers(): bool
     {
         return $this->isAdmin() || $this->isSalesperson();
+    }
+
+    /**
+     * Check if user can edit email templates (accounts receivable or admin)
+     */
+    public function canEditEmailTemplates(): bool
+    {
+        return $this->isAdmin() || $this->role === self::ROLE_USER;
     }
 
     /**

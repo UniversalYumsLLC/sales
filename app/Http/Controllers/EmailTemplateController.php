@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EmailTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,6 +16,12 @@ class EmailTemplateController extends Controller
      */
     public function index(): Response
     {
+        $user = Auth::user();
+
+        if (! $user->canEditEmailTemplates()) {
+            abort(403, 'Email template editing is only available for Accounts Receivable and Admin accounts.');
+        }
+
         $templates = EmailTemplate::all()->keyBy('key');
         $templateTypes = EmailTemplate::getTemplateTypes();
 
@@ -43,6 +50,12 @@ class EmailTemplateController extends Controller
      */
     public function update(Request $request, string $key): JsonResponse
     {
+        $user = Auth::user();
+
+        if (! $user->canEditEmailTemplates()) {
+            abort(403, 'Email template editing is only available for Accounts Receivable and Admin accounts.');
+        }
+
         // Validate the key is valid
         if (! in_array($key, EmailTemplate::getValidKeys())) {
             return response()->json([
