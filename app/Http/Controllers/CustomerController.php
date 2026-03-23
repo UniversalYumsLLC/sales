@@ -53,7 +53,7 @@ class CustomerController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validator = $this->validateCustomerData($request->all(), isCreate: true);
+        $validator = $this->validateCustomerData($this->sanitizeContactArrays($request->all()), isCreate: true);
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
@@ -163,7 +163,7 @@ class CustomerController extends Controller
      */
     public function update(Request $request, int $id): JsonResponse
     {
-        $validator = $this->validateCustomerData($request->all(), isCreate: false);
+        $validator = $this->validateCustomerData($this->sanitizeContactArrays($request->all()), isCreate: false);
 
         if ($validator->fails()) {
             return response()->json([
@@ -198,6 +198,34 @@ class CustomerController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Strip out blank placeholder entries from contact arrays.
+     *
+     * The frontend initializes empty contact forms with placeholder rows
+     * like {name: '', email: ''} to give users a blank row to type into.
+     * These need to be removed before validation and processing.
+     */
+    protected function sanitizeContactArrays(array $data): array
+    {
+        $contactFields = [
+            'buyers' => 'name',
+            'accounts_payable' => 'name',
+            'other' => 'name',
+            'broker_contacts' => 'name',
+        ];
+
+        foreach ($contactFields as $field => $keyField) {
+            if (isset($data[$field]) && is_array($data[$field])) {
+                $data[$field] = array_values(array_filter(
+                    $data[$field],
+                    fn ($entry) => ! empty(trim($entry[$keyField] ?? ''))
+                ));
+            }
+        }
+
+        return $data;
     }
 
     /**
@@ -325,13 +353,7 @@ class CustomerController extends Controller
      */
     protected function transformRequestData(array $validated): array
     {
-        // Ensure integer fields are properly cast
-        $data = array_merge([
-            'buyers' => [],
-            'accounts_payable' => [],
-            'other' => [],
-            'broker_contacts' => [],
-        ], $validated);
+        $data = $validated;
 
         // Cast IDs to integers for Fulfil API
         if (isset($data['sale_price_list'])) {
