@@ -90,26 +90,38 @@ class DiscoverFulfilMetafields extends Command
                 $this->line('To discover metafield IDs, set a value on at least one contact in Fulfil.');
             }
 
-            // Also try the model field discovery approach
-            $metafields = $service->discoverContactMetafields();
+            // Query the metafield.field model directly for definitions
+            $this->newLine();
+            $this->info('Querying metafield.field model for definitions...');
 
-            if (! empty($metafields)) {
-                $this->newLine();
-                $this->info('Model field definitions found:');
+            try {
+                $allMetafields = $service->getMetafieldDefinitions();
 
-                $headers = ['ID', 'Code', 'Name', 'Type'];
-                $rows = [];
+                if (! empty($allMetafields)) {
+                    // Match by name to our target metafields
+                    $nameToCode = array_flip($this->targetMetafields);
 
-                foreach ($metafields as $mf) {
-                    $rows[] = [
-                        $mf['id'],
-                        $mf['code'] ?? 'N/A',
-                        $mf['name'] ?? 'N/A',
-                        $mf['type'] ?? 'N/A',
-                    ];
+                    foreach ($allMetafields as $mf) {
+                        $name = $mf['rec_name'] ?? '';
+                        if (isset($nameToCode[$name])) {
+                            $foundIds[$nameToCode[$name]] = $mf['id'];
+                        }
+                    }
+
+                    if (! empty($foundIds)) {
+                        $this->info('Found metafield IDs from definitions:');
+                        $this->newLine();
+
+                        $prefix = $environment === 'sandbox' ? 'FULFIL_SANDBOX_METAFIELD_' : 'FULFIL_PRODUCTION_METAFIELD_';
+                        foreach ($this->targetMetafields as $code => $name) {
+                            $envKey = $prefix.strtoupper($code);
+                            $value = $foundIds[$code] ?? '# NOT FOUND';
+                            $this->line("{$envKey}={$value}");
+                        }
+                    }
                 }
-
-                $this->table($headers, $rows);
+            } catch (\Exception $e) {
+                $this->warn('Could not query metafield.field model: '.$e->getMessage());
             }
 
             // Show what's missing
@@ -118,7 +130,9 @@ class DiscoverFulfilMetafields extends Command
             $this->info('Required environment variables for '.$environment.':');
             foreach ($this->targetMetafields as $code => $name) {
                 $envKey = $prefix.strtoupper($code);
-                $this->line("  {$envKey}=<field_id>  # {$name}");
+                $currentValue = $foundIds[$code] ?? null;
+                $status = $currentValue ? " (found: {$currentValue})" : ' # NOT FOUND';
+                $this->line("  {$envKey}=<field_id>{$status}  # {$name}");
             }
 
             return self::SUCCESS;

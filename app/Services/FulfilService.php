@@ -1844,11 +1844,11 @@ class FulfilService
 
         $metafieldIds = $this->getMetafieldIds();
         if (empty($metafieldIds)) {
-            Log::warning('No metafield IDs configured for Fulfil environment', [
-                'environment' => $this->getEnvironment(),
-            ]);
-
-            return [];
+            throw new \RuntimeException(
+                'AR settings could not be saved: metafield IDs are not configured for the '
+                .$this->getEnvironment().' environment. Run `php artisan fulfil:discover-metafields --fulfil-env='
+                .$this->getEnvironment().'` to find them.'
+            );
         }
 
         $setMetafields = [];
@@ -2302,6 +2302,18 @@ class FulfilService
     /**
      * Debug method to dump raw metafield data from contacts.
      */
+    /**
+     * Get all metafield definitions from the metafield.field model.
+     *
+     * Returns an array of metafield definitions with id and rec_name.
+     */
+    public function getMetafieldDefinitions(): array
+    {
+        return $this->request('PUT', 'model/metafield.field/search_read', [
+            'json' => [[], null, 200, null, null],
+        ]);
+    }
+
     public function debugContactMetafields(int $limit = 20): array
     {
         $contacts = $this->request('PUT', 'model/party.party/search_read', [
@@ -2355,6 +2367,7 @@ class FulfilService
     protected function discoverMetafieldIdsByCode(): array
     {
         return $this->cached('metafield_ids', function () {
+            // First, try scanning contacts that have metafield values
             $contactsWithMetafields = $this->debugContactMetafields(50);
 
             $ids = [];
@@ -2369,7 +2382,36 @@ class FulfilService
             }
 
             if (! empty($ids)) {
-                Log::info('Discovered metafield IDs by code', ['ids' => $ids]);
+                Log::info('Discovered metafield IDs by code from contacts', ['ids' => $ids]);
+
+                return $ids;
+            }
+
+            // Fallback: query the metafield.field model for definitions
+            // and match by name to known AR metafield names
+            try {
+                $nameToCode = [
+                    'EDI' => 'edi',
+                    'Consolidated Invoicing' => 'consolidated_invoicing',
+                    'Invoice Requires Customer SKUs' => 'requires_customer_skus',
+                    'Invoice Discount' => 'invoice_discount',
+                ];
+
+                $definitions = $this->getMetafieldDefinitions();
+                foreach ($definitions as $def) {
+                    $name = $def['rec_name'] ?? '';
+                    if (isset($nameToCode[$name])) {
+                        $ids[$nameToCode[$name]] = $def['id'];
+                    }
+                }
+
+                if (! empty($ids)) {
+                    Log::info('Discovered metafield IDs from metafield.field model', ['ids' => $ids]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to discover metafield IDs from metafield.field model', [
+                    'error' => $e->getMessage(),
+                ]);
             }
 
             return $ids;
