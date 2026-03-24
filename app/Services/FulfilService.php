@@ -2597,9 +2597,10 @@ class FulfilService
 
         foreach ($metafields as $mf) {
             $fieldId = $mf['field'] ?? null;
-            // Handle case where field is an array [id, name] instead of just id
+            // Handle field returned as object {"id": 120, "name": "...", "code": "..."}
+            // or as array [id, name], or as plain integer
             if (is_array($fieldId)) {
-                $fieldId = $fieldId[0] ?? null;
+                $fieldId = $fieldId['id'] ?? $fieldId[0] ?? null;
             }
             if ($fieldId && isset($idToCode[$fieldId])) {
                 $code = $idToCode[$fieldId];
