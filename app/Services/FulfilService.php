@@ -1768,17 +1768,6 @@ class FulfilService
         }
 
         if (! empty($partyData)) {
-            // Preserve existing metafields so the PUT doesn't clear them.
-            // Fulfil's Tryton-based API treats One2Many fields omitted from
-            // a PUT as "delete all", so we must echo them back.
-            $party = $this->request('GET', "model/party.party/{$partyId}", [
-                'query' => ['fields' => 'metafields'],
-            ]);
-            $existingMetafields = $party['metafields'] ?? [];
-            if (! empty($existingMetafields)) {
-                $partyData['metafields'] = $existingMetafields;
-            }
-
             $this->request('PUT', "model/party.party/{$partyId}", [
                 'json' => $partyData,
             ]);
@@ -1887,19 +1876,10 @@ class FulfilService
      */
     protected function addCategoryToParty(int $partyId, int $categoryId): void
     {
-        // Read existing metafields so the PUT doesn't clear them.
-        $party = $this->request('GET', "model/party.party/{$partyId}", [
-            'query' => ['fields' => 'metafields'],
-        ]);
-
-        $payload = ['categories' => [['add', [$categoryId]]]];
-        $existingMetafields = $party['metafields'] ?? [];
-        if (! empty($existingMetafields)) {
-            $payload['metafields'] = $existingMetafields;
-        }
-
         $this->request('PUT', "model/party.party/{$partyId}", [
-            'json' => $payload,
+            'json' => [
+                'categories' => [['add', [$categoryId]]],
+            ],
         ]);
     }
 
@@ -1936,21 +1916,10 @@ class FulfilService
         }
 
         if (! empty($operations)) {
-            // Read existing metafields so the PUT doesn't clear them.
-            // Fulfil's Tryton-based API treats One2Many fields omitted from
-            // a PUT as "delete all", so we must echo them back.
-            $party = $this->request('GET', "model/party.party/{$partyId}", [
-                'query' => ['fields' => 'metafields'],
-            ]);
-
-            $payload = ['categories' => $operations];
-            $existingMetafields = $party['metafields'] ?? [];
-            if (! empty($existingMetafields)) {
-                $payload['metafields'] = $existingMetafields;
-            }
-
             $this->request('PUT', "model/party.party/{$partyId}", [
-                'json' => $payload,
+                'json' => [
+                    'categories' => $operations,
+                ],
             ]);
         }
     }
