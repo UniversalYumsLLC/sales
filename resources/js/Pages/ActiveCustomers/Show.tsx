@@ -69,7 +69,7 @@ interface OtherContact {
 
 interface ArSettings {
     edi: boolean;
-    consolidated_invoicing: 'single_invoice' | 'consolidated_invoice' | null;
+    consolidated_invoicing: boolean;
     requires_customer_skus: boolean;
     invoice_discount: number | null;
 }
@@ -198,7 +198,7 @@ interface CustomerDetailsForm {
 
 interface ArSettingsForm {
     edi: boolean;
-    consolidated_invoicing: 'single_invoice' | 'consolidated_invoice' | '';
+    consolidated_invoicing: boolean;
     requires_customer_skus: boolean;
     invoice_discount: string;
 }
@@ -392,7 +392,7 @@ export default function Show({
     // AR settings state
     const [arSettingsForm, setArSettingsForm] = useState<ArSettingsForm>({
         edi: customer.ar_settings?.edi ?? false,
-        consolidated_invoicing: customer.ar_settings?.consolidated_invoicing ?? '',
+        consolidated_invoicing: customer.ar_settings?.consolidated_invoicing ?? false,
         requires_customer_skus: customer.ar_settings?.requires_customer_skus ?? false,
         invoice_discount: customer.ar_settings?.invoice_discount?.toString() ?? '',
     });
@@ -615,7 +615,7 @@ export default function Show({
                     vendor_guide: detailsForm.vendor_guide || null,
                     // AR settings (saved atomically with party data)
                     ar_edi: arSettingsForm.edi,
-                    ar_consolidated_invoicing: arSettingsForm.consolidated_invoicing || null,
+                    ar_consolidated_invoicing: arSettingsForm.consolidated_invoicing,
                     ar_requires_customer_skus: arSettingsForm.requires_customer_skus,
                     ar_invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
                     // Note: broker is updated via the broker section, not here
@@ -1732,28 +1732,27 @@ export default function Show({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Invoice Consolidation</label>
+                                    <label className="block text-sm font-medium text-gray-500">Consolidated Invoicing</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
-                                            {customer.ar_settings?.consolidated_invoicing === 'consolidated_invoice'
-                                                ? 'Consolidate same-day shipments'
-                                                : customer.ar_settings?.consolidated_invoicing === 'single_invoice'
-                                                    ? 'One per shipment'
-                                                    : <span className="text-gray-400 italic">Not selected</span>}
+                                            {customer.ar_settings?.consolidated_invoicing ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
                                         </div>
                                     ) : (
-                                        <select
-                                            value={arSettingsForm.consolidated_invoicing}
-                                            onChange={(e) => setArSettingsForm(prev => ({
-                                                ...prev,
-                                                consolidated_invoicing: e.target.value as 'single_invoice' | 'consolidated_invoice' | ''
-                                            }))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        >
-                                            <option value="">Select...</option>
-                                            <option value="single_invoice">One per shipment</option>
-                                            <option value="consolidated_invoice">Consolidate same-day shipments</option>
-                                        </select>
+                                        <div className="mt-1 py-2">
+                                            <label className="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={arSettingsForm.consolidated_invoicing}
+                                                    onChange={(e) => setArSettingsForm(prev => ({ ...prev, consolidated_invoicing: e.target.checked }))}
+                                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                                            </label>
+                                        </div>
                                     )}
                                 </div>
 

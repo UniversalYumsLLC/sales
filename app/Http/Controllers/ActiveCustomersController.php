@@ -134,7 +134,7 @@ class ActiveCustomersController extends Controller
             return Inertia::render('ActiveCustomers/Show', [
                 'customer' => ['id' => $id, 'name' => 'Customer #'.$id, 'ar_settings' => [
                     'edi' => false,
-                    'consolidated_invoicing' => null,
+                    'consolidated_invoicing' => false,
                     'requires_customer_skus' => false,
                     'invoice_discount' => null,
                 ]],
@@ -184,7 +184,7 @@ class ActiveCustomersController extends Controller
             ]);
             $arSettings = [
                 'edi' => false,
-                'consolidated_invoicing' => null,
+                'consolidated_invoicing' => false,
                 'requires_customer_skus' => false,
                 'invoice_discount' => null,
             ];
@@ -848,7 +848,20 @@ class ActiveCustomersController extends Controller
             }
         }
 
-        // TODO: Sync to Fulfil metafields
+        // Sync broker & broker_commission to Fulfil metafields
+        try {
+            $this->fulfil->updateContactMetafields($id, array_filter([
+                'broker' => $request->broker ? 'true' : 'false',
+                'broker_commission' => $request->broker_commission !== null
+                    ? (string) $request->broker_commission
+                    : null,
+            ], fn ($v) => $v !== null));
+        } catch (\Exception $e) {
+            \Log::warning('Failed to sync broker metafields to Fulfil', [
+                'party_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'message' => 'Broker settings updated successfully',
@@ -864,7 +877,7 @@ class ActiveCustomersController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'edi' => ['required', 'boolean'],
-            'consolidated_invoicing' => ['nullable', 'string', 'in:single_invoice,consolidated_invoice'],
+            'consolidated_invoicing' => ['required', 'boolean'],
             'requires_customer_skus' => ['required', 'boolean'],
             'invoice_discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
@@ -879,7 +892,7 @@ class ActiveCustomersController extends Controller
         try {
             $this->fulfil->updateCustomerArSettings($id, [
                 'edi' => $request->boolean('edi'),
-                'consolidated_invoicing' => $request->input('consolidated_invoicing'),
+                'consolidated_invoicing' => $request->boolean('consolidated_invoicing'),
                 'requires_customer_skus' => $request->boolean('requires_customer_skus'),
                 'invoice_discount' => $request->input('invoice_discount'),
             ]);
@@ -888,7 +901,7 @@ class ActiveCustomersController extends Controller
                 'message' => 'AR settings updated successfully',
                 'ar_settings' => [
                     'edi' => $request->boolean('edi'),
-                    'consolidated_invoicing' => $request->input('consolidated_invoicing'),
+                    'consolidated_invoicing' => $request->boolean('consolidated_invoicing'),
                     'requires_customer_skus' => $request->boolean('requires_customer_skus'),
                     'invoice_discount' => $request->input('invoice_discount'),
                 ],

@@ -1733,6 +1733,26 @@ class FulfilService
             ]);
         }
 
+        // 4. Sync metafields (shelf_life, broker, broker_commission)
+        // AR metafields are handled separately by the controller after creation.
+        // Shelf life is dual-written: contact mechanism (above) + metafield (here).
+        $metafields = $this->buildMetafieldPayload($data);
+        if (! empty($metafields)) {
+            try {
+                $this->request('PUT', "model/party.party/{$partyId}", [
+                    'json' => [
+                        'metafields' => ['set' => $metafields],
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                // Log but don't fail customer creation for metafield sync
+                Log::warning('Failed to sync metafields for new customer', [
+                    'party_id' => $partyId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         // Clear the active customers cache since we added a new one
         $this->clearCache('active_customers');
 
@@ -1773,16 +1793,17 @@ class FulfilService
             ]);
         }
 
-        // 2. Update AR settings metafields if provided (separate PUT)
-        $arMetafields = $this->buildArMetafieldPayload($data);
-        if (! empty($arMetafields)) {
+        // 2. Update metafields if provided (separate PUT — Fulfil cannot
+        //    combine party fields and metafield "set" in a single PUT)
+        $metafields = $this->buildMetafieldPayload($data);
+        if (! empty($metafields)) {
             $this->request('PUT', "model/party.party/{$partyId}", [
                 'json' => [
-                    'metafields' => ['set' => $arMetafields],
+                    'metafields' => ['set' => $metafields],
                 ],
             ]);
 
-            Log::info('Updated customer AR metafields', [
+            Log::info('Updated customer metafields', [
                 'party_id' => $partyId,
             ]);
         }
@@ -1811,48 +1832,58 @@ class FulfilService
     }
 
     /**
-     * Build metafield set payload from AR settings in data array.
+     * Build metafield set payload from customer data array.
      *
-     * Looks for ar_* keys in the data array and converts them to Fulfil
-     * metafield set operations. Returns an empty array if no AR settings
-     * are present.
+     * Handles both AR settings (ar_* prefixed keys) and customer detail
+     * metafields (shelf_life_requirement, broker, broker_commission).
+     * Returns an empty array if no metafield-backed values are present.
      *
      * @return array<int, array{field: int, value: string|null}>
      */
-    protected function buildArMetafieldPayload(array $data): array
+    protected function buildMetafieldPayload(array $data): array
     {
-        $arSettings = [];
+        $metafieldValues = [];
 
+        // AR settings (ar_* prefixed keys)
         if (array_key_exists('ar_edi', $data)) {
-            $arSettings['edi'] = $data['ar_edi'] ? 'true' : 'false';
+            $metafieldValues['edi'] = $data['ar_edi'] ? 'true' : 'false';
         }
         if (array_key_exists('ar_consolidated_invoicing', $data)) {
-            $arSettings['consolidated_invoicing'] = $data['ar_consolidated_invoicing'];
+            $metafieldValues['consolidated_invoicing'] = $data['ar_consolidated_invoicing'] ? 'true' : 'false';
         }
         if (array_key_exists('ar_requires_customer_skus', $data)) {
-            $arSettings['requires_customer_skus'] = $data['ar_requires_customer_skus'] ? 'true' : 'false';
+            $metafieldValues['requires_customer_skus'] = $data['ar_requires_customer_skus'] ? 'true' : 'false';
         }
-        if (array_key_exists('ar_invoice_discount', $data)) {
-            $arSettings['invoice_discount'] = $data['ar_invoice_discount'] !== null
-                ? (string) $data['ar_invoice_discount']
-                : null;
+        if (array_key_exists('ar_invoice_discount', $data) && $data['ar_invoice_discount'] !== null && $data['ar_invoice_discount'] !== '') {
+            $metafieldValues['invoice_discount'] = (string) $data['ar_invoice_discount'];
         }
 
-        if (empty($arSettings)) {
+        // Customer detail metafields
+        if (isset($data['shelf_life_requirement'])) {
+            $metafieldValues['shelf_life'] = (string) $data['shelf_life_requirement'];
+        }
+        if (array_key_exists('broker', $data)) {
+            $metafieldValues['broker'] = $data['broker'] ? 'true' : 'false';
+        }
+        if (array_key_exists('broker_commission', $data) && $data['broker_commission'] !== '' && $data['broker_commission'] !== null) {
+            $metafieldValues['broker_commission'] = (string) $data['broker_commission'];
+        }
+
+        if (empty($metafieldValues)) {
             return [];
         }
 
         $metafieldIds = $this->getMetafieldIds();
         if (empty($metafieldIds)) {
             throw new \RuntimeException(
-                'AR settings could not be saved: metafield IDs are not configured for the '
+                'Metafields could not be saved: metafield IDs are not configured for the '
                 .$this->getEnvironment().' environment. Run `php artisan fulfil:discover-metafields --fulfil-env='
                 .$this->getEnvironment().'` to find them.'
             );
         }
 
         $setMetafields = [];
-        foreach ($arSettings as $code => $value) {
+        foreach ($metafieldValues as $code => $value) {
             $fieldId = $metafieldIds[$code] ?? null;
             if (! $fieldId) {
                 Log::warning('Metafield ID not configured', [
@@ -2395,6 +2426,9 @@ class FulfilService
                     'Consolidated Invoicing' => 'consolidated_invoicing',
                     'Invoice Requires Customer SKUs' => 'requires_customer_skus',
                     'Invoice Discount' => 'invoice_discount',
+                    'Shelf Life Required on Arrival (Days)' => 'shelf_life',
+                    'Broker' => 'broker',
+                    'Broker Commission' => 'broker_commission',
                 ];
 
                 $definitions = $this->getMetafieldDefinitions();
@@ -2637,7 +2671,7 @@ class FulfilService
      *
      * Returns an array with:
      * - edi: bool
-     * - consolidated_invoicing: string|null (single_invoice, consolidated_invoice)
+     * - consolidated_invoicing: bool
      * - requires_customer_skus: bool
      * - invoice_discount: float|null
      */
@@ -2647,7 +2681,7 @@ class FulfilService
 
         return [
             'edi' => (bool) ($metafields['edi'] ?? false),
-            'consolidated_invoicing' => $metafields['consolidated_invoicing'] ?? null,
+            'consolidated_invoicing' => filter_var($metafields['consolidated_invoicing'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'requires_customer_skus' => (bool) ($metafields['requires_customer_skus'] ?? false),
             'invoice_discount' => isset($metafields['invoice_discount'])
                 ? (float) $metafields['invoice_discount']
@@ -2670,17 +2704,15 @@ class FulfilService
         }
 
         if (array_key_exists('consolidated_invoicing', $settings)) {
-            $values['consolidated_invoicing'] = $settings['consolidated_invoicing'];
+            $values['consolidated_invoicing'] = $settings['consolidated_invoicing'] ? 'true' : 'false';
         }
 
         if (array_key_exists('requires_customer_skus', $settings)) {
             $values['requires_customer_skus'] = $settings['requires_customer_skus'] ? 'true' : 'false';
         }
 
-        if (array_key_exists('invoice_discount', $settings)) {
-            $values['invoice_discount'] = $settings['invoice_discount'] !== null
-                ? (string) $settings['invoice_discount']
-                : null;
+        if (array_key_exists('invoice_discount', $settings) && $settings['invoice_discount'] !== null && $settings['invoice_discount'] !== '') {
+            $values['invoice_discount'] = (string) $settings['invoice_discount'];
         }
 
         if (! empty($values)) {

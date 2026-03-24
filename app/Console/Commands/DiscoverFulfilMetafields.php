@@ -16,16 +16,22 @@ class DiscoverFulfilMetafields extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Discover metafield IDs from Fulfil for AR Automation';
+    protected $description = 'Discover metafield IDs from Fulfil for contact metafields';
 
     /**
      * The metafield codes we're looking for.
+     * Maps internal code => Fulfil metafield display name.
      */
     protected array $targetMetafields = [
+        // AR Automation
         'edi' => 'EDI',
         'consolidated_invoicing' => 'Consolidated Invoicing',
         'requires_customer_skus' => 'Invoice Requires Customer SKUs',
         'invoice_discount' => 'Invoice Discount',
+        // Customer details
+        'shelf_life' => 'Shelf Life Required on Arrival (Days)',
+        'broker' => 'Broker',
+        'broker_commission' => 'Broker Commission',
     ];
 
     /**

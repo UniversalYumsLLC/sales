@@ -16,7 +16,7 @@ beforeEach(function () {
         ]);
         $mock->shouldReceive('getInvoices')->andReturn([]);
         $mock->shouldReceive('getCustomerArSettings')->andReturn([
-            'edi' => false, 'consolidated_invoicing' => null,
+            'edi' => false, 'consolidated_invoicing' => false,
             'requires_customer_skus' => false, 'invoice_discount' => null,
         ]);
         $mock->shouldReceive('getAllPriceLists')->andReturn([]);
@@ -241,7 +241,7 @@ test('AR settings can be updated', function () {
 
     $response = $this->actingAs($user)->putJson('/customers/100/ar-settings', [
         'edi' => true,
-        'consolidated_invoicing' => null,
+        'consolidated_invoicing' => false,
         'requires_customer_skus' => false,
         'invoice_discount' => null,
     ]);

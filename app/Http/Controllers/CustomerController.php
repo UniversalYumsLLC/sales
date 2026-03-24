@@ -78,7 +78,7 @@ class CustomerController extends Controller
                 if (isset($data['ar_edi'])) {
                     $arSettings['edi'] = $data['ar_edi'];
                 }
-                if (isset($data['ar_consolidated_invoicing']) && $data['ar_consolidated_invoicing']) {
+                if (isset($data['ar_consolidated_invoicing'])) {
                     $arSettings['consolidated_invoicing'] = $data['ar_consolidated_invoicing'];
                 }
                 if (isset($data['ar_requires_customer_skus'])) {
@@ -259,8 +259,8 @@ class CustomerController extends Controller
             'buyers.*.name' => ['required_with:buyers', 'string', 'min:2', 'max:100'],
             'buyers.*.email' => ['required_with:buyers', 'email', 'max:255'],
 
-            // Accounts Payable (optional, can be email or URL)
-            'accounts_payable' => ['nullable', 'array'],
+            // Accounts Payable (required for create, at least 1)
+            'accounts_payable' => [$isCreate ? 'required' : 'sometimes', 'array', $isCreate ? 'min:1' : 'min:0'],
             'accounts_payable.*.name' => ['required_with:accounts_payable', 'string', 'min:2', 'max:100'],
             'accounts_payable.*.value' => ['required_with:accounts_payable', 'string', 'max:500'],
 
@@ -270,10 +270,10 @@ class CustomerController extends Controller
             'other.*.email' => ['required_with:other', 'email', 'max:255'],
             'other.*.function' => ['nullable', 'string', 'max:100'],
 
-            // AR Settings (optional)
-            'ar_edi' => ['nullable', 'boolean'],
-            'ar_consolidated_invoicing' => ['nullable', 'string', 'in:single_invoice,consolidated_invoice'],
-            'ar_requires_customer_skus' => ['nullable', 'boolean'],
+            // AR Settings
+            'ar_edi' => ['sometimes', 'boolean'],
+            'ar_consolidated_invoicing' => ['sometimes', 'boolean'],
+            'ar_requires_customer_skus' => ['sometimes', 'boolean'],
             'ar_invoice_discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
 
@@ -291,6 +291,8 @@ class CustomerController extends Controller
             'buyers.*.name.required_with' => 'Buyer name is required.',
             'buyers.*.email.required_with' => 'Buyer email is required.',
             'buyers.*.email.email' => 'Buyer email must be a valid email address.',
+            'accounts_payable.required' => 'At least one accounts payable contact is required.',
+            'accounts_payable.min' => 'At least one accounts payable contact is required.',
             'accounts_payable.*.value.required_with' => 'Accounts payable contact value (email or URL) is required.',
             'other.*.email.email' => 'Other contact email must be a valid email address.',
             'vendor_guide.url' => 'Vendor guide must be a valid URL.',

@@ -92,7 +92,6 @@ class ArAutomationService
                     Log::warning('AR Automation: Customer has consolidated invoicing enabled, processing normally pending Fulfil support', [
                         'invoice_id' => $invoice->fulfil_id,
                         'customer_id' => $invoice->fulfil_party_id,
-                        'consolidated_type' => $arSettings['consolidated_invoicing'],
                     ]);
                 }
 

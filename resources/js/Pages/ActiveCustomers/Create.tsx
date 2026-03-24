@@ -86,7 +86,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         other: [] as OtherContact[],
         // AR Settings
         ar_edi: false,
-        ar_consolidated_invoicing: '' as '' | 'single_invoice' | 'consolidated_invoice',
+        ar_consolidated_invoicing: false,
         ar_requires_customer_skus: false,
         ar_invoice_discount: '',
     });
@@ -1127,16 +1127,16 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Consolidation</label>
-                                        <select
-                                            value={data.ar_consolidated_invoicing}
-                                            onChange={(e) => setData('ar_consolidated_invoicing', e.target.value as '' | 'single_invoice' | 'consolidated_invoice')}
-                                            className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        >
-                                            <option value="">Select...</option>
-                                            <option value="single_invoice">One per shipment</option>
-                                            <option value="consolidated_invoice">Consolidate same-day shipments</option>
-                                        </select>
+                                        <label className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.ar_consolidated_invoicing}
+                                                onChange={(e) => setData('ar_consolidated_invoicing', e.target.checked)}
+                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700">Consolidated Invoicing</span>
+                                        </label>
+                                        <p className="mt-1 text-xs text-gray-500">Consolidate same-day shipments into one invoice</p>
                                     </div>
 
                                     <div>
