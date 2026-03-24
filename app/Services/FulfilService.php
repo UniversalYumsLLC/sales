@@ -1751,7 +1751,10 @@ class FulfilService
      */
     public function updateCustomer(int $partyId, array $data): array
     {
-        // 1. Update the party record (and AR settings metafields atomically)
+        // 1. Update the party record
+        // Fulfil's API cannot combine party fields and metafield "set"
+        // operations in a single PUT (returns 500), so we split them into
+        // two sequential PUTs within this single backend call.
         $partyData = [];
 
         if (isset($data['name'])) {
@@ -1764,43 +1767,43 @@ class FulfilService
             $partyData['customer_payment_term'] = $data['customer_payment_term'];
         }
 
-        // Build metafield updates from AR settings if provided
-        $arMetafields = $this->buildArMetafieldPayload($data);
-
-        if (! empty($partyData) || ! empty($arMetafields)) {
-            // When AR settings are included, set them directly in this PUT.
-            // Otherwise, preserve existing metafields so they aren't cleared.
+        if (! empty($partyData)) {
+            // Preserve existing metafields so the PUT doesn't clear them.
             // Fulfil's Tryton-based API treats One2Many fields omitted from
-            // a PUT as "delete all", so we must always include metafields.
-            if (! empty($arMetafields)) {
-                $partyData['metafields'] = ['set' => $arMetafields];
-            } else {
-                $party = $this->request('GET', "model/party.party/{$partyId}", [
-                    'query' => ['fields' => 'metafields'],
-                ]);
-                $existingMetafields = $party['metafields'] ?? [];
-                if (! empty($existingMetafields)) {
-                    $partyData['metafields'] = $existingMetafields;
-                }
+            // a PUT as "delete all", so we must echo them back.
+            $party = $this->request('GET', "model/party.party/{$partyId}", [
+                'query' => ['fields' => 'metafields'],
+            ]);
+            $existingMetafields = $party['metafields'] ?? [];
+            if (! empty($existingMetafields)) {
+                $partyData['metafields'] = $existingMetafields;
             }
 
             $this->request('PUT', "model/party.party/{$partyId}", [
                 'json' => $partyData,
             ]);
-
-            if (! empty($arMetafields)) {
-                Log::info('Updated customer with AR metafields', [
-                    'party_id' => $partyId,
-                ]);
-            }
         }
 
-        // 2. Update shipping terms category if provided
+        // 2. Update AR settings metafields if provided (separate PUT)
+        $arMetafields = $this->buildArMetafieldPayload($data);
+        if (! empty($arMetafields)) {
+            $this->request('PUT', "model/party.party/{$partyId}", [
+                'json' => [
+                    'metafields' => ['set' => $arMetafields],
+                ],
+            ]);
+
+            Log::info('Updated customer AR metafields', [
+                'party_id' => $partyId,
+            ]);
+        }
+
+        // 3. Update shipping terms category if provided
         if (isset($data['shipping_terms_category_id'])) {
             $this->updateShippingTermsCategory($partyId, $data['shipping_terms_category_id']);
         }
 
-        // 3. Sync contacts and/or data fields stored as contact mechanisms
+        // 4. Sync contacts and/or data fields stored as contact mechanisms
         if ($this->hasContactUpdates($data)) {
             // Full sync: contacts + data fields (buyers, AP, other, broker, shelf_life, vendor_guide)
             $this->syncContactMechanisms($partyId, $data);
