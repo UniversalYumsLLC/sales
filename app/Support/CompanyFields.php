@@ -33,7 +33,6 @@ class CompanyFields
         return array_merge(
             self::coreFieldRules($req, $reqOrNullable),
             self::contactRules($required, $sometimes),
-            self::arSettingsRules(),
         );
     }
 
@@ -43,14 +42,15 @@ class CompanyFields
     private static function coreFieldRules(string $req, string $reqOrNullable): array
     {
         return [
-            // Shelf life & vendor guide
             'shelf_life_requirement' => [$reqOrNullable, 'integer', 'min:30', 'max:365'],
             'vendor_guide' => ['nullable', 'url', 'max:500'],
-
-            // Broker
             'broker' => [$reqOrNullable, 'boolean'],
             'broker_company_name' => ['nullable', 'string', 'max:255'],
             'broker_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'ar_edi' => ['sometimes', 'boolean'],
+            'ar_consolidated_invoicing' => ['sometimes', 'boolean'],
+            'ar_requires_customer_skus' => ['sometimes', 'boolean'],
+            'ar_invoice_discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 
@@ -83,19 +83,6 @@ class CompanyFields
             'other.*.name' => ['required_with:other', 'string', 'min:2', 'max:100'],
             'other.*.email' => ['required_with:other', 'email', 'max:255'],
             'other.*.function' => ['nullable', 'string', 'max:100'],
-        ];
-    }
-
-    /**
-     * AR settings rules (always optional, validated if present).
-     */
-    private static function arSettingsRules(): array
-    {
-        return [
-            'ar_edi' => ['sometimes', 'boolean'],
-            'ar_consolidated_invoicing' => ['sometimes', 'boolean'],
-            'ar_requires_customer_skus' => ['sometimes', 'boolean'],
-            'ar_invoice_discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 

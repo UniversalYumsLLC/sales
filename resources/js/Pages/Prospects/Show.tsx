@@ -909,119 +909,40 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                 )}
                             </div>
 
-                            {!editingDetails ? (
-                                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Company Name</dt>
-                                        <dd className="text-sm text-gray-900">{prospect.company_name}</dd>
-                                    </div>
-                                    <div className="relative group">
-                                        <dt className="text-sm font-medium text-gray-500">Status</dt>
-                                        <dd className="text-sm text-gray-900">
-                                            {statuses[prospect.status]?.label || prospect.status}
-                                        </dd>
-                                        {/* Tooltip */}
-                                        {statuses[prospect.status] && (
-                                            <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-10">
-                                                <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                                    {statuses[prospect.status].description}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Discount on Price List</dt>
-                                        <dd className="text-sm text-gray-900">
-                                            {prospect.discount_percent !== null ? `${prospect.discount_percent}%` : '-'}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Payment Terms</dt>
-                                        <dd className="text-sm text-gray-900">{prospect.payment_terms || '-'}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Shipping Terms</dt>
-                                        <dd className="text-sm text-gray-900">{prospect.shipping_terms || '-'}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Shelf Life Requirement</dt>
-                                        <dd className="text-sm text-gray-900">
-                                            {prospect.shelf_life_requirement ? `${prospect.shelf_life_requirement} days` : '-'}
-                                        </dd>
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                        <dt className="text-sm font-medium text-gray-500">Vendor Guide</dt>
-                                        <dd className="text-sm text-gray-900">
-                                            {prospect.vendor_guide ? (
-                                                <a href={prospect.vendor_guide} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800">
-                                                    {prospect.vendor_guide}
-                                                </a>
-                                            ) : '-'}
-                                        </dd>
-                                    </div>
-                                    <div className="sm:col-span-4">
-                                        <dt className="text-sm font-medium text-gray-500">Company URLs / Email Domains</dt>
-                                        <dd className="text-sm text-gray-900">
-                                            {prospect.company_urls && prospect.company_urls.length > 0 ? (
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {prospect.company_urls.map((url, idx) => (
-                                                        <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-800">
-                                                            {url}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            ) : '-'}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Broker</dt>
-                                        <dd className="text-sm text-gray-900">
-                                            {prospect.broker ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
-                                                    Yes
-                                                </span>
-                                            ) : 'No'}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-sm font-medium text-gray-500">Customer Type</dt>
-                                        <dd className="text-sm text-gray-900">{prospect.customer_type || '-'}</dd>
-                                    </div>
-                                    <div className="sm:col-span-4 border-t border-gray-100 pt-3 mt-1">
-                                        <dt className="text-sm font-medium text-gray-500 mb-2">Invoicing Preferences</dt>
-                                        <dd className="text-sm text-gray-900 flex flex-wrap gap-3">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${prospect.ar_edi ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
-                                                EDI: {prospect.ar_edi ? 'Yes' : 'No'}
-                                            </span>
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${prospect.ar_consolidated_invoicing ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
-                                                Consolidated: {prospect.ar_consolidated_invoicing ? 'Yes' : 'No'}
-                                            </span>
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${prospect.ar_requires_customer_skus ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
-                                                Customer SKUs: {prospect.ar_requires_customer_skus ? 'Yes' : 'No'}
-                                            </span>
-                                            {prospect.ar_invoice_discount !== null && (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">
-                                                    Invoice Discount: {prospect.ar_invoice_discount}%
-                                                </span>
-                                            )}
-                                        </dd>
-                                    </div>
-                                </dl>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Company Name <span className="text-red-500">*</span></label>
-                                        <input
-                                            type="text"
-                                            value={detailsForm.company_name}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, company_name: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.company_name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        />
-                                        {allDetailsErrors.company_name && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.company_name}</p>}
-                                    </div>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                {/* Company Name */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Company Name</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">{prospect.company_name}</div>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="text"
+                                                value={detailsForm.company_name}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, company_name: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.company_name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            />
+                                            {allDetailsErrors.company_name && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.company_name}</p>}
+                                        </>
+                                    )}
+                                </div>
 
-                                    <div className="relative">
-                                        <label className="block text-sm font-medium text-gray-700">Status</label>
+                                {/* Status */}
+                                <div className="relative group">
+                                    <label className="block text-sm font-medium text-gray-500">Status</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {statuses[prospect.status]?.label || prospect.status}
+                                            {statuses[prospect.status] && (
+                                                <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-10">
+                                                    <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                                        {statuses[prospect.status].description}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
                                         <div className="relative group inline-block w-full">
                                             <select
                                                 value={detailsForm.status}
@@ -1034,7 +955,6 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                     </option>
                                                 ))}
                                             </select>
-                                            {/* Tooltip */}
                                             {statuses[detailsForm.status] && (
                                                 <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-10">
                                                     <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
@@ -1043,161 +963,131 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
+                                    )}
+                                </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Discount on Price List <span className="text-red-500">*</span></label>
-                                        <select
-                                            value={detailsForm.discount_percent}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, discount_percent: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.discount_percent ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        >
-                                            <option value="">Select...</option>
-                                            {priceLists.map((pl) => (
-                                                <option key={pl.id} value={pl.id}>{pl.discount_percent}% Discount</option>
-                                            ))}
-                                        </select>
-                                        {allDetailsErrors.discount_percent && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.discount_percent}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Payment Terms <span className="text-red-500">*</span></label>
-                                        <select
-                                            value={detailsForm.payment_terms}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, payment_terms: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.payment_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        >
-                                            <option value="">Select...</option>
-                                            {paymentTerms.map((pt) => (
-                                                <option key={pt.id} value={pt.id}>{pt.name}</option>
-                                            ))}
-                                        </select>
-                                        {allDetailsErrors.payment_terms && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.payment_terms}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Shipping Terms <span className="text-red-500">*</span></label>
-                                        <select
-                                            value={detailsForm.shipping_terms}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, shipping_terms: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shipping_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        >
-                                            <option value="">Select...</option>
-                                            {shippingTerms.map((st) => (
-                                                <option key={st.id} value={st.id}>{st.name}</option>
-                                            ))}
-                                        </select>
-                                        {allDetailsErrors.shipping_terms && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.shipping_terms}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Shelf Life Requirement (days) <span className="text-red-500">*</span></label>
-                                        <input
-                                            type="number"
-                                            value={detailsForm.shelf_life_requirement}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, shelf_life_requirement: e.target.value }))}
-                                            min="1"
-                                            placeholder="e.g., 90"
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        />
-                                        {allDetailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.shelf_life_requirement}</p>}
-                                    </div>
-
-                                    <div className="sm:col-span-2 lg:col-span-3">
-                                        <label className="block text-sm font-medium text-gray-700">Vendor Guide URL</label>
-                                        <input
-                                            type="url"
-                                            value={detailsForm.vendor_guide}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, vendor_guide: e.target.value }))}
-                                            placeholder="https://..."
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        />
-                                        {allDetailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.vendor_guide}</p>}
-                                    </div>
-
-                                    <div className="sm:col-span-2 lg:col-span-3">
-                                        <label className="block text-sm font-medium text-gray-700">Company URLs / Email Domains</label>
-                                        <p className="text-xs text-gray-500 mb-2">
-                                            Domains used for matching emails from Gmail. Email domains are auto-added from contacts.
-                                        </p>
-
-                                        {detailsForm.company_urls.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mb-2">
-                                                {detailsForm.company_urls.map((url, index) => (
-                                                    <span
-                                                        key={index}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded text-sm"
-                                                    >
-                                                        {url}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setDetailsForm(prev => ({
-                                                                ...prev,
-                                                                company_urls: prev.company_urls.filter((_, i) => i !== index)
-                                                            }))}
-                                                            className="text-gray-500 hover:text-gray-700"
-                                                        >
-                                                            <XIcon className="w-3 h-3" />
-                                                        </button>
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={newCompanyUrl}
-                                                onChange={(e) => setNewCompanyUrl(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        if (newCompanyUrl.trim() && !detailsForm.company_urls.includes(newCompanyUrl.trim().toLowerCase())) {
-                                                            setDetailsForm(prev => ({
-                                                                ...prev,
-                                                                company_urls: [...prev.company_urls, newCompanyUrl.trim().toLowerCase()]
-                                                            }));
-                                                            setNewCompanyUrl('');
-                                                        }
-                                                    }
-                                                }}
-                                                placeholder="Enter domain (e.g., company.com)"
-                                                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (newCompanyUrl.trim() && !detailsForm.company_urls.includes(newCompanyUrl.trim().toLowerCase())) {
-                                                        setDetailsForm(prev => ({
-                                                            ...prev,
-                                                            company_urls: [...prev.company_urls, newCompanyUrl.trim().toLowerCase()]
-                                                        }));
-                                                        setNewCompanyUrl('');
-                                                    }
-                                                }}
-                                                className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200"
-                                            >
-                                                Add
-                                            </button>
+                                {/* Discount on Price List */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Discount on Price List</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.discount_percent !== null ? `${prospect.discount_percent}%` : '-'}
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={detailsForm.discount_percent}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, discount_percent: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.discount_percent ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            >
+                                                <option value="">Select...</option>
+                                                {priceLists.map((pl) => (
+                                                    <option key={pl.id} value={pl.id}>{pl.discount_percent}% Discount</option>
+                                                ))}
+                                            </select>
+                                            {allDetailsErrors.discount_percent && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.discount_percent}</p>}
+                                        </>
+                                    )}
+                                </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Uses Broker <span className="text-red-500">*</span></label>
-                                        <select
-                                            value={detailsForm.broker}
-                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, broker: e.target.value }))}
-                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.broker ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                        >
-                                            <option value="">Select...</option>
-                                            <option value="false">No</option>
-                                            <option value="true">Yes</option>
-                                        </select>
-                                        {allDetailsErrors.broker && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.broker}</p>}
-                                    </div>
+                                {/* Payment Terms */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Payment Terms</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">{prospect.payment_terms || '-'}</div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={detailsForm.payment_terms}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, payment_terms: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.payment_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            >
+                                                <option value="">Select...</option>
+                                                {paymentTerms.map((pt) => (
+                                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                                ))}
+                                            </select>
+                                            {allDetailsErrors.payment_terms && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.payment_terms}</p>}
+                                        </>
+                                    )}
+                                </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Customer Type</label>
+                                {/* Shipping Terms */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Shipping Terms</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">{prospect.shipping_terms || '-'}</div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={detailsForm.shipping_terms}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, shipping_terms: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shipping_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            >
+                                                <option value="">Select...</option>
+                                                {shippingTerms.map((st) => (
+                                                    <option key={st.id} value={st.id}>{st.name}</option>
+                                                ))}
+                                            </select>
+                                            {allDetailsErrors.shipping_terms && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.shipping_terms}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Shelf Life Requirement */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Shelf Life Requirement</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.shelf_life_requirement ? `${prospect.shelf_life_requirement} days` : '-'}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="number"
+                                                value={detailsForm.shelf_life_requirement}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, shelf_life_requirement: e.target.value }))}
+                                                min="30"
+                                                max="365"
+                                                placeholder="days"
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            />
+                                            {allDetailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.shelf_life_requirement}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Vendor Guide */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Vendor Guide</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.vendor_guide ? (
+                                                <a href={prospect.vendor_guide} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 truncate block">
+                                                    {prospect.vendor_guide}
+                                                </a>
+                                            ) : '-'}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="url"
+                                                value={detailsForm.vendor_guide}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, vendor_guide: e.target.value }))}
+                                                placeholder="https://..."
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            />
+                                            {allDetailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.vendor_guide}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Customer Type */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Customer Type</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">{prospect.customer_type || '-'}</div>
+                                    ) : (
                                         <input
                                             type="text"
                                             value={detailsForm.customer_type}
@@ -1205,56 +1095,219 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             placeholder="e.g., Retail, Foodservice"
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         />
-                                    </div>
+                                    )}
+                                </div>
 
-                                    {/* Invoicing Preferences / AR Settings */}
-                                    <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-100 pt-4 mt-2">
-                                        <h4 className="text-sm font-medium text-gray-700 mb-3">Invoicing Preferences</h4>
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                            <label className="flex items-center gap-2 cursor-pointer">
+                                {/* Uses Broker */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Uses Broker</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.broker ? (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">Yes</span>
+                                            ) : 'No'}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={detailsForm.broker}
+                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, broker: e.target.value }))}
+                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.broker ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                            >
+                                                <option value="">Select...</option>
+                                                <option value="false">No</option>
+                                                <option value="true">Yes</option>
+                                            </select>
+                                            {allDetailsErrors.broker && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.broker}</p>}
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Company URLs / Email Domains */}
+                                <div className="sm:col-span-2 lg:col-span-3">
+                                    <label className="block text-sm font-medium text-gray-500">Company URLs / Email Domains</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.company_urls && prospect.company_urls.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {prospect.company_urls.map((url, idx) => (
+                                                        <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-800">
+                                                            {url}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : '-'}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="text-xs text-gray-500 mt-1 mb-2">
+                                                Domains used for matching emails from Gmail. Email domains are auto-added from contacts.
+                                            </p>
+
+                                            {detailsForm.company_urls.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {detailsForm.company_urls.map((url, index) => (
+                                                        <span
+                                                            key={index}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded text-sm"
+                                                        >
+                                                            {url}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setDetailsForm(prev => ({
+                                                                    ...prev,
+                                                                    company_urls: prev.company_urls.filter((_, i) => i !== index)
+                                                                }))}
+                                                                className="text-gray-500 hover:text-gray-700"
+                                                            >
+                                                                <XIcon className="w-3 h-3" />
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={newCompanyUrl}
+                                                    onChange={(e) => setNewCompanyUrl(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            if (newCompanyUrl.trim() && !detailsForm.company_urls.includes(newCompanyUrl.trim().toLowerCase())) {
+                                                                setDetailsForm(prev => ({
+                                                                    ...prev,
+                                                                    company_urls: [...prev.company_urls, newCompanyUrl.trim().toLowerCase()]
+                                                                }));
+                                                                setNewCompanyUrl('');
+                                                            }
+                                                        }
+                                                    }}
+                                                    placeholder="Enter domain (e.g., company.com)"
+                                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (newCompanyUrl.trim() && !detailsForm.company_urls.includes(newCompanyUrl.trim().toLowerCase())) {
+                                                            setDetailsForm(prev => ({
+                                                                ...prev,
+                                                                company_urls: [...prev.company_urls, newCompanyUrl.trim().toLowerCase()]
+                                                            }));
+                                                            setNewCompanyUrl('');
+                                                        }
+                                                    }}
+                                                    className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200"
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* EDI */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">EDI</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.ar_edi ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 py-2">
+                                            <label className="flex items-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={detailsForm.ar_edi}
                                                     onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_edi: e.target.checked }))}
-                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
-                                                <span className="text-sm text-gray-700">EDI</span>
+                                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
                                             </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Consolidated Invoicing */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Consolidated Invoicing</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.ar_consolidated_invoicing ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 py-2">
+                                            <label className="flex items-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={detailsForm.ar_consolidated_invoicing}
                                                     onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_consolidated_invoicing: e.target.checked }))}
-                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
-                                                <span className="text-sm text-gray-700">Consolidated Invoicing</span>
+                                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
                                             </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Requires Customer SKUs */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Requires Customer SKUs</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.ar_requires_customer_skus ? (
+                                                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Yes</span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 py-2">
+                                            <label className="flex items-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={detailsForm.ar_requires_customer_skus}
                                                     onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_requires_customer_skus: e.target.checked }))}
-                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
-                                                <span className="text-sm text-gray-700">Requires Customer SKUs</span>
+                                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
                                             </label>
-                                            <div>
-                                                <label className="block text-sm text-gray-700 mb-1">Invoice Discount %</label>
-                                                <input
-                                                    type="number"
-                                                    value={detailsForm.ar_invoice_discount}
-                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_invoice_discount: e.target.value }))}
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.01"
-                                                    placeholder="0.00"
-                                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                                />
-                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
-                            )}
+
+                                {/* Addl Discount on Invoice Total */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">Addl Discount on Invoice Total</label>
+                                    {!editingDetails ? (
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.ar_invoice_discount
+                                                ? `${prospect.ar_invoice_discount}%`
+                                                : '-'}
+                                        </div>
+                                    ) : (
+                                        <input
+                                            type="number"
+                                            value={detailsForm.ar_invoice_discount}
+                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_invoice_discount: e.target.value }))}
+                                            placeholder="0"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
 

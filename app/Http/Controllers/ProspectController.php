@@ -102,7 +102,7 @@ class ProspectController extends Controller
      * Store a newly created prospect.
      *
      * Only company_name is required. All other fields (commercial terms,
-     * contacts, broker, AR settings, etc.) are optional.
+     * contacts, broker, invoicing fields, etc.) are optional.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -397,58 +397,24 @@ class ProspectController extends Controller
 
         try {
             DB::transaction(function () use ($prospect, $validated) {
-                // Update basic fields
+                // Update scalar fields present in the request
                 $updateData = [];
-                if (isset($validated['company_name'])) {
-                    $updateData['company_name'] = $validated['company_name'];
-                }
-                if (isset($validated['status'])) {
-                    $updateData['status'] = $validated['status'];
-                }
-                if (array_key_exists('notes', $validated)) {
-                    $updateData['notes'] = $validated['notes'];
-                }
-                if (array_key_exists('discount_percent', $validated)) {
-                    $updateData['discount_percent'] = $validated['discount_percent'];
-                }
-                if (array_key_exists('payment_terms', $validated)) {
-                    $updateData['payment_terms'] = $validated['payment_terms'];
-                }
-                if (array_key_exists('shipping_terms', $validated)) {
-                    $updateData['shipping_terms'] = $validated['shipping_terms'];
-                }
-                if (array_key_exists('shelf_life_requirement', $validated)) {
-                    $updateData['shelf_life_requirement'] = $validated['shelf_life_requirement'];
-                }
-                if (array_key_exists('vendor_guide', $validated)) {
-                    $updateData['vendor_guide'] = $validated['vendor_guide'];
+                $scalarFields = [
+                    'company_name', 'status', 'notes',
+                    'discount_percent', 'payment_terms', 'shipping_terms',
+                    'shelf_life_requirement', 'vendor_guide',
+                    'broker', 'broker_commission', 'broker_company_name',
+                    'customer_type',
+                    'ar_edi', 'ar_consolidated_invoicing',
+                    'ar_requires_customer_skus', 'ar_invoice_discount',
+                ];
+                foreach ($scalarFields as $field) {
+                    if (array_key_exists($field, $validated)) {
+                        $updateData[$field] = $validated[$field];
+                    }
                 }
                 if (array_key_exists('company_urls', $validated)) {
                     $updateData['company_urls'] = array_values(array_filter($validated['company_urls']));
-                }
-                if (array_key_exists('broker', $validated)) {
-                    $updateData['broker'] = $validated['broker'];
-                }
-                if (array_key_exists('broker_commission', $validated)) {
-                    $updateData['broker_commission'] = $validated['broker_commission'];
-                }
-                if (array_key_exists('broker_company_name', $validated)) {
-                    $updateData['broker_company_name'] = $validated['broker_company_name'];
-                }
-                if (array_key_exists('customer_type', $validated)) {
-                    $updateData['customer_type'] = $validated['customer_type'];
-                }
-                if (array_key_exists('ar_edi', $validated)) {
-                    $updateData['ar_edi'] = $validated['ar_edi'];
-                }
-                if (array_key_exists('ar_consolidated_invoicing', $validated)) {
-                    $updateData['ar_consolidated_invoicing'] = $validated['ar_consolidated_invoicing'];
-                }
-                if (array_key_exists('ar_requires_customer_skus', $validated)) {
-                    $updateData['ar_requires_customer_skus'] = $validated['ar_requires_customer_skus'];
-                }
-                if (array_key_exists('ar_invoice_discount', $validated)) {
-                    $updateData['ar_invoice_discount'] = $validated['ar_invoice_discount'];
                 }
                 if (! empty($updateData)) {
                     $prospect->update($updateData);
@@ -909,7 +875,6 @@ class ProspectController extends Controller
             'buyers' => $buyers->map(fn ($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
             'accounts_payable' => $prospect->accountsPayable->map(fn ($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
             'other' => $prospect->other->map(fn ($o) => ['name' => $o->name, 'email' => $o->value, 'function' => $o->function])->toArray(),
-            // AR settings
             'ar_edi' => $prospect->ar_edi ?? false,
             'ar_consolidated_invoicing' => $prospect->ar_consolidated_invoicing ?? false,
             'ar_requires_customer_skus' => $prospect->ar_requires_customer_skus ?? false,
@@ -968,7 +933,7 @@ class ProspectController extends Controller
                 }
             }
 
-            // Save AR settings to Fulfil metafields
+            // Sync invoicing fields to Fulfil metafields (separate API call)
             $arSettings = [];
             if ($prospect->ar_edi) {
                 $arSettings['edi'] = true;
@@ -986,7 +951,7 @@ class ProspectController extends Controller
                 try {
                     $this->fulfil->updateCustomerArSettings($partyId, $arSettings);
                 } catch (\Exception $e) {
-                    \Log::warning('Failed to save AR settings during promotion', [
+                    \Log::warning('Failed to save invoicing fields during promotion', [
                         'party_id' => $partyId,
                         'error' => $e->getMessage(),
                     ]);
