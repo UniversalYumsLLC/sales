@@ -340,9 +340,10 @@ class ActiveCustomersController extends Controller
             $partyOrders = $ordersByParty->get($customer['id'], collect());
             $partyInvoices = $invoicesByParty->get($customer['id'], collect());
 
-            // Check if active customer (has done order or has open order)
-            $hasDoneOrder = $partyOrders->where('state', 'done')->isNotEmpty();
-            $hasOpenOrder = $partyOrders->whereIn('state', ['confirmed', 'processing'])->isNotEmpty();
+            // Check if active customer (has done order or has open order with total > $0)
+            // Excludes $0 orders (e.g. sample shipments) from qualifying a customer as active
+            $hasDoneOrder = $partyOrders->where('state', 'done')->where('total_amount', '>', 0)->isNotEmpty();
+            $hasOpenOrder = $partyOrders->whereIn('state', ['confirmed', 'processing'])->where('total_amount', '>', 0)->isNotEmpty();
 
             if (! $hasDoneOrder && ! $hasOpenOrder) {
                 return null; // Not an active customer

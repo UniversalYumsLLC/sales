@@ -41,7 +41,7 @@ test('store creates a new prospect', function () {
 
     $response = $this->actingAs($user)->post('/prospects', [
         'company_name' => 'New Prospect Inc',
-        'contacts' => [
+        'buyers' => [
             ['name' => 'John Doe', 'email' => 'john@newprospect.com'],
         ],
     ]);
@@ -59,7 +59,7 @@ test('store creates contacts with buyer type', function () {
 
     $this->actingAs($user)->post('/prospects', [
         'company_name' => 'Contact Test Co',
-        'contacts' => [
+        'buyers' => [
             ['name' => 'Buyer One', 'email' => 'buyer@contacttest.com'],
         ],
     ]);
@@ -77,7 +77,7 @@ test('store auto-extracts email domains to company_urls', function () {
 
     $this->actingAs($user)->post('/prospects', [
         'company_name' => 'Domain Extract Co',
-        'contacts' => [
+        'buyers' => [
             ['name' => 'Person', 'email' => 'person@domainextract.com'],
         ],
     ]);

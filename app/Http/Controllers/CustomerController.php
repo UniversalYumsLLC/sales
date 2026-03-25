@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\FulfilUnavailableException;
 use App\Jobs\SyncGmailForDomains;
 use App\Services\FulfilService;
+use App\Support\CompanyFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,13 +54,13 @@ class CustomerController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validator = $this->validateCustomerData($this->sanitizeContactArrays($request->all()), isCreate: true);
+        $validator = $this->validateCustomerData(CompanyFields::sanitizeContacts($request->all()), isCreate: true);
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
 
-        $data = $this->transformRequestData($validator->validated());
+        $data = CompanyFields::castTypes($validator->validated());
 
         try {
             $customer = $this->fulfil->createCustomer($data);
@@ -163,7 +164,7 @@ class CustomerController extends Controller
      */
     public function update(Request $request, int $id): JsonResponse
     {
-        $validator = $this->validateCustomerData($this->sanitizeContactArrays($request->all()), isCreate: false);
+        $validator = $this->validateCustomerData(CompanyFields::sanitizeContacts($request->all()), isCreate: false);
 
         if ($validator->fails()) {
             return response()->json([
@@ -172,7 +173,7 @@ class CustomerController extends Controller
             ], 422);
         }
 
-        $data = $this->transformRequestData($validator->validated());
+        $data = CompanyFields::castTypes($validator->validated());
 
         try {
             $customer = $this->fulfil->updateCustomer($id, $data);
@@ -201,186 +202,25 @@ class CustomerController extends Controller
     }
 
     /**
-     * Strip out blank placeholder entries from contact arrays.
-     *
-     * The frontend initializes empty contact forms with placeholder rows
-     * like {name: '', email: ''} to give users a blank row to type into.
-     * These need to be removed before validation and processing.
-     */
-    protected function sanitizeContactArrays(array $data): array
-    {
-        $contactFields = [
-            'buyers' => 'name',
-            'accounts_payable' => 'name',
-            'other' => 'name',
-            'broker_contacts' => 'name',
-        ];
-
-        foreach ($contactFields as $field => $keyField) {
-            if (isset($data[$field]) && is_array($data[$field])) {
-                $data[$field] = array_values(array_filter(
-                    $data[$field],
-                    fn ($entry) => ! empty(trim($entry[$keyField] ?? ''))
-                ));
-            }
-        }
-
-        return $data;
-    }
-
-    /**
      * Validate customer data for create or update.
+     *
+     * Rules are sourced from CompanyFields (single source of truth) plus
+     * the customer-specific company name rule.
      */
     protected function validateCustomerData(array $data, bool $isCreate): \Illuminate\Validation\Validator
     {
-        $rules = [
-            // Core fields
-            'name' => [$isCreate ? 'required' : 'sometimes', 'string', 'min:2', 'max:255'],
+        $rules = array_merge(
+            ['name' => [$isCreate ? 'required' : 'sometimes', 'string', 'min:2', 'max:255']],
+            CompanyFields::customerCommercialRules(required: $isCreate),
+            CompanyFields::sharedRules(required: $isCreate, sometimes: ! $isCreate),
+        );
 
-            // Commercial terms
-            'sale_price_list' => [$isCreate ? 'required' : 'sometimes', 'integer'],
-            'customer_payment_term' => [$isCreate ? 'required' : 'sometimes', 'integer'],
-            'shipping_terms_category_id' => [$isCreate ? 'required' : 'sometimes', 'integer'],
+        $validator = Validator::make($data, $rules, CompanyFields::messages());
 
-            // Custom data
-            'shelf_life_requirement' => [$isCreate ? 'required' : 'sometimes', 'integer', 'min:30', 'max:365'],
-            'vendor_guide' => ['nullable', 'url', 'max:500'],
-
-            // Broker information
-            'broker' => [$isCreate ? 'required' : 'sometimes', 'boolean'],
-            'broker_company_name' => ['nullable', 'string', 'max:255'],
-            'broker_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'broker_contacts' => ['nullable', 'array'],
-            'broker_contacts.*.name' => ['required_with:broker_contacts', 'string', 'min:2', 'max:100'],
-            'broker_contacts.*.email' => ['required_with:broker_contacts', 'email', 'max:255'],
-
-            // Buyers (required for create, at least 1)
-            'buyers' => [$isCreate ? 'required' : 'sometimes', 'array', $isCreate ? 'min:1' : 'min:0'],
-            'buyers.*.name' => ['required_with:buyers', 'string', 'min:2', 'max:100'],
-            'buyers.*.email' => ['required_with:buyers', 'email', 'max:255'],
-
-            // Accounts Payable (required for create, at least 1)
-            'accounts_payable' => [$isCreate ? 'required' : 'sometimes', 'array', $isCreate ? 'min:1' : 'min:0'],
-            'accounts_payable.*.name' => ['required_with:accounts_payable', 'string', 'min:2', 'max:100'],
-            'accounts_payable.*.value' => ['required_with:accounts_payable', 'string', 'max:500'],
-
-            // Other contacts (optional)
-            'other' => ['nullable', 'array'],
-            'other.*.name' => ['required_with:other', 'string', 'min:2', 'max:100'],
-            'other.*.email' => ['required_with:other', 'email', 'max:255'],
-            'other.*.function' => ['nullable', 'string', 'max:100'],
-
-            // AR Settings
-            'ar_edi' => ['sometimes', 'boolean'],
-            'ar_consolidated_invoicing' => ['sometimes', 'boolean'],
-            'ar_requires_customer_skus' => ['sometimes', 'boolean'],
-            'ar_invoice_discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
-        ];
-
-        $messages = [
-            'name.required' => 'Company name is required.',
-            'name.min' => 'Company name must be at least 2 characters.',
-            'sale_price_list.required' => 'Please select a discount level.',
-            'customer_payment_term.required' => 'Please select payment terms.',
-            'shipping_terms_category_id.required' => 'Please select shipping terms.',
-            'shelf_life_requirement.required' => 'Shelf life requirement is required.',
-            'shelf_life_requirement.min' => 'Shelf life requirement must be at least 30 days.',
-            'shelf_life_requirement.max' => 'Shelf life requirement cannot exceed 365 days.',
-            'buyers.required' => 'At least one buyer contact is required.',
-            'buyers.min' => 'At least one buyer contact is required.',
-            'buyers.*.name.required_with' => 'Buyer name is required.',
-            'buyers.*.email.required_with' => 'Buyer email is required.',
-            'buyers.*.email.email' => 'Buyer email must be a valid email address.',
-            'accounts_payable.required' => 'At least one accounts payable contact is required.',
-            'accounts_payable.min' => 'At least one accounts payable contact is required.',
-            'accounts_payable.*.value.required_with' => 'Accounts payable contact value (email or URL) is required.',
-            'other.*.email.email' => 'Other contact email must be a valid email address.',
-            'vendor_guide.url' => 'Vendor guide must be a valid URL.',
-            'broker.required' => 'Please select whether this customer uses a broker.',
-            'broker_company_name.required' => 'Broker company name is required when using a broker.',
-            'broker_commission.required' => 'Broker commission is required when using a broker.',
-            'broker_commission.min' => 'Broker commission must be at least 0%.',
-            'broker_commission.max' => 'Broker commission cannot exceed 100%.',
-            'broker_contacts.required' => 'At least one broker contact is required when using a broker.',
-            'broker_contacts.min' => 'At least one broker contact is required when using a broker.',
-            'broker_contacts.*.name.required_with' => 'Broker contact name is required.',
-            'broker_contacts.*.email.required_with' => 'Broker contact email is required.',
-            'broker_contacts.*.email.email' => 'Broker contact email must be a valid email address.',
-        ];
-
-        $validator = Validator::make($data, $rules, $messages);
-
-        // Custom validation for accounts_payable value (must be email or URL)
         $validator->after(function ($validator) use ($data) {
-            if (! empty($data['accounts_payable'])) {
-                foreach ($data['accounts_payable'] as $index => $ap) {
-                    $value = $ap['value'] ?? '';
-                    $isEmail = filter_var($value, FILTER_VALIDATE_EMAIL);
-                    $isUrl = filter_var($value, FILTER_VALIDATE_URL);
-
-                    if (! $isEmail && ! $isUrl) {
-                        $validator->errors()->add(
-                            "accounts_payable.{$index}.value",
-                            'Accounts payable contact must be a valid email address or URL.'
-                        );
-                    }
-                }
-            }
-
-            // Conditional broker validation - when broker is true
-            $broker = $data['broker'] ?? false;
-            if ($broker === true || $broker === 'true' || $broker === '1' || $broker === 1) {
-                // Broker company name required
-                if (empty($data['broker_company_name'])) {
-                    $validator->errors()->add('broker_company_name', 'Broker company name is required when using a broker.');
-                }
-
-                // Broker commission required
-                if (! isset($data['broker_commission']) || $data['broker_commission'] === '' || $data['broker_commission'] === null) {
-                    $validator->errors()->add('broker_commission', 'Broker commission is required when using a broker.');
-                }
-
-                // At least one broker contact required
-                if (empty($data['broker_contacts']) || count($data['broker_contacts']) === 0) {
-                    $validator->errors()->add('broker_contacts', 'At least one broker contact is required when using a broker.');
-                }
-            }
+            CompanyFields::addAfterValidation($validator, $data);
         });
 
         return $validator;
-    }
-
-    /**
-     * Transform request data to the format expected by FulfilService.
-     */
-    protected function transformRequestData(array $validated): array
-    {
-        $data = $validated;
-
-        // Cast IDs to integers for Fulfil API
-        if (isset($data['sale_price_list'])) {
-            $data['sale_price_list'] = (int) $data['sale_price_list'];
-        }
-        if (isset($data['customer_payment_term'])) {
-            $data['customer_payment_term'] = (int) $data['customer_payment_term'];
-        }
-        if (isset($data['shipping_terms_category_id'])) {
-            $data['shipping_terms_category_id'] = (int) $data['shipping_terms_category_id'];
-        }
-        if (isset($data['shelf_life_requirement'])) {
-            $data['shelf_life_requirement'] = (int) $data['shelf_life_requirement'];
-        }
-
-        // Cast broker to boolean
-        if (isset($data['broker'])) {
-            $data['broker'] = filter_var($data['broker'], FILTER_VALIDATE_BOOLEAN);
-        }
-
-        // Cast broker_commission to float
-        if (isset($data['broker_commission']) && $data['broker_commission'] !== '') {
-            $data['broker_commission'] = (float) $data['broker_commission'];
-        }
-
-        return $data;
     }
 }

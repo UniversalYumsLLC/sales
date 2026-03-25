@@ -1390,6 +1390,9 @@ export default function Show({
                         <h2 className="text-xl font-semibold leading-tight text-gray-800">
                             {customer.name}
                         </h2>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Active
+                        </span>
                     </div>
                     <button
                         onClick={handleRefresh}

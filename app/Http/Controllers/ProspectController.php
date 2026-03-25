@@ -12,6 +12,7 @@ use App\Models\Prospect;
 use App\Models\ProspectContact;
 use App\Models\ProspectProduct;
 use App\Services\FulfilService;
+use App\Support\CompanyFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,7 +53,7 @@ class ProspectController extends Controller
         $prospect = Prospect::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'status' => ['required', 'in:target,contacted,engaged,dormant'],
+            'status' => ['required', 'in:target,contacted,engaged,dormant,active'],
         ]);
 
         if ($validator->fails()) {
@@ -91,29 +92,34 @@ class ProspectController extends Controller
 
         return Inertia::render('Prospects/Create', [
             'products' => $productOptions,
+            'priceLists' => $this->fulfil->getAllPriceLists(),
+            'paymentTerms' => $this->fulfil->getAllPaymentTerms(),
+            'shippingTerms' => $this->fulfil->getShippingTermsCategories(),
         ]);
     }
 
     /**
      * Store a newly created prospect.
+     *
+     * Only company_name is required. All other fields (commercial terms,
+     * contacts, broker, AR settings, etc.) are optional.
      */
     public function store(Request $request): RedirectResponse
     {
-        $validator = Validator::make($request->all(), [
-            'company_name' => ['required', 'string', 'min:2', 'max:255'],
-            'company_urls' => ['nullable', 'array'],
-            'company_urls.*' => ['string', 'max:255'],
-            'contacts' => ['nullable', 'array'],
-            'contacts.*.name' => ['required_with:contacts', 'string', 'min:1', 'max:100'],
-            'contacts.*.email' => ['nullable', 'email', 'max:255'],
-            'product_ids' => ['nullable', 'array'],
-            'product_ids.*' => ['integer'],
-        ], [
-            'company_name.required' => 'Company name is required.',
-            'company_name.min' => 'Company name must be at least 2 characters.',
-            'contacts.*.name.required_with' => 'Contact name is required.',
-            'contacts.*.email.email' => 'Please enter a valid email address.',
-        ]);
+        $sanitized = CompanyFields::sanitizeContacts($request->all());
+
+        $rules = array_merge(
+            ['company_name' => ['required', 'string', 'min:2', 'max:255']],
+            CompanyFields::prospectCommercialRules(isSometimes: false),
+            CompanyFields::sharedRules(required: false, sometimes: false),
+            CompanyFields::prospectOnlyRules(isSometimes: false),
+        );
+
+        $validator = Validator::make($sanitized, $rules, CompanyFields::messages());
+
+        $validator->after(function ($validator) use ($sanitized) {
+            CompanyFields::addAfterValidation($validator, $sanitized);
+        });
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
@@ -126,16 +132,25 @@ class ProspectController extends Controller
             $companyUrls = [];
 
             DB::transaction(function () use ($validated, &$prospect, &$companyUrls) {
-                // Collect domains from contact emails
+                // Collect domains from buyer/contact emails
                 $contactDomains = [];
-                if (! empty($validated['contacts'])) {
-                    foreach ($validated['contacts'] as $contact) {
+                foreach (['buyers', 'other'] as $contactType) {
+                    foreach ($validated[$contactType] ?? [] as $contact) {
                         $email = $contact['email'] ?? null;
                         if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
                             $domain = strtolower(explode('@', $email)[1] ?? '');
                             if (! empty($domain)) {
                                 $contactDomains[] = $domain;
                             }
+                        }
+                    }
+                }
+                foreach ($validated['accounts_payable'] ?? [] as $ap) {
+                    $value = $ap['value'] ?? '';
+                    if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                        $domain = strtolower(explode('@', $value)[1] ?? '');
+                        if (! empty($domain)) {
+                            $contactDomains[] = $domain;
                         }
                     }
                 }
@@ -148,35 +163,84 @@ class ProspectController extends Controller
                     }
                 }
 
-                // Create the prospect
-                $prospect = Prospect::create([
+                // Build prospect data from validated fields
+                $prospectData = [
                     'company_name' => $validated['company_name'],
                     'created_by' => Auth::id(),
                     'company_urls' => ! empty($companyUrls) ? $companyUrls : null,
-                ]);
+                ];
 
-                // Create contacts (all contacts from create form are buyers)
-                if (! empty($validated['contacts'])) {
-                    foreach ($validated['contacts'] as $contact) {
-                        if (! empty($contact['name'])) {
-                            ProspectContact::create([
-                                'prospect_id' => $prospect->id,
-                                'type' => ProspectContact::TYPE_BUYER,
-                                'name' => $contact['name'],
-                                'value' => $contact['email'] ?? null,
-                            ]);
-                        }
+                // Add optional scalar fields if provided
+                $optionalFields = [
+                    'discount_percent', 'payment_terms', 'shipping_terms',
+                    'shelf_life_requirement', 'vendor_guide', 'broker',
+                    'broker_commission', 'broker_company_name', 'customer_type',
+                    'ar_edi', 'ar_consolidated_invoicing',
+                    'ar_requires_customer_skus', 'ar_invoice_discount',
+                ];
+                foreach ($optionalFields as $field) {
+                    if (array_key_exists($field, $validated)) {
+                        $prospectData[$field] = $validated[$field];
+                    }
+                }
+
+                $prospect = Prospect::create($prospectData);
+
+                // Create buyer contacts
+                foreach ($validated['buyers'] ?? [] as $contact) {
+                    if (! empty($contact['name'])) {
+                        ProspectContact::create([
+                            'prospect_id' => $prospect->id,
+                            'type' => ProspectContact::TYPE_BUYER,
+                            'name' => $contact['name'],
+                            'value' => $contact['email'] ?? null,
+                        ]);
+                    }
+                }
+
+                // Create AP contacts
+                foreach ($validated['accounts_payable'] ?? [] as $contact) {
+                    if (! empty($contact['name'])) {
+                        ProspectContact::create([
+                            'prospect_id' => $prospect->id,
+                            'type' => ProspectContact::TYPE_ACCOUNTS_PAYABLE,
+                            'name' => $contact['name'],
+                            'value' => $contact['value'] ?? null,
+                        ]);
+                    }
+                }
+
+                // Create other contacts
+                foreach ($validated['other'] ?? [] as $contact) {
+                    if (! empty($contact['name'])) {
+                        ProspectContact::create([
+                            'prospect_id' => $prospect->id,
+                            'type' => ProspectContact::TYPE_OTHER,
+                            'name' => $contact['name'],
+                            'value' => $contact['email'] ?? null,
+                            'function' => $contact['function'] ?? null,
+                        ]);
+                    }
+                }
+
+                // Create broker contacts
+                foreach ($validated['broker_contacts'] ?? [] as $contact) {
+                    if (! empty($contact['name'])) {
+                        ProspectContact::create([
+                            'prospect_id' => $prospect->id,
+                            'type' => ProspectContact::TYPE_BROKER,
+                            'name' => $contact['name'],
+                            'value' => $contact['email'] ?? null,
+                        ]);
                     }
                 }
 
                 // Create product associations
-                if (! empty($validated['product_ids'])) {
-                    foreach ($validated['product_ids'] as $productId) {
-                        ProspectProduct::create([
-                            'prospect_id' => $prospect->id,
-                            'product_id' => $productId,
-                        ]);
-                    }
+                foreach ($validated['product_ids'] ?? [] as $productId) {
+                    ProspectProduct::create([
+                        'prospect_id' => $prospect->id,
+                        'product_id' => $productId,
+                    ]);
                 }
             });
 
@@ -240,6 +304,11 @@ class ProspectController extends Controller
                 'broker' => $prospect->broker ?? false,
                 'broker_commission' => $prospect->broker_commission,
                 'broker_company_name' => $prospect->broker_company_name,
+                'customer_type' => $prospect->customer_type,
+                'ar_edi' => $prospect->ar_edi ?? false,
+                'ar_consolidated_invoicing' => $prospect->ar_consolidated_invoicing ?? false,
+                'ar_requires_customer_skus' => $prospect->ar_requires_customer_skus ?? false,
+                'ar_invoice_discount' => $prospect->ar_invoice_discount,
                 'broker_contacts' => $prospect->brokerContacts->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
@@ -286,56 +355,36 @@ class ProspectController extends Controller
 
     /**
      * Update an existing prospect.
+     *
+     * Uses CompanyFields as single source of truth for validation rules.
      */
     public function update(Request $request, int $id): JsonResponse
     {
         $prospect = Prospect::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
-            'company_name' => ['sometimes', 'string', 'min:2', 'max:255'],
-            'status' => ['sometimes', 'in:target,contacted,engaged,dormant'],
-            'notes' => ['nullable', 'string', 'max:5000'],
-            'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'payment_terms' => ['nullable', 'string', 'max:255'],
-            'shipping_terms' => ['nullable', 'string', 'max:255'],
-            'shelf_life_requirement' => ['nullable', 'integer', 'min:1'],
-            'vendor_guide' => ['nullable', 'string', 'max:500', 'url'],
-            'company_urls' => ['sometimes', 'array'],
-            'company_urls.*' => ['string', 'max:255'],
-            'broker' => ['sometimes', 'boolean'],
-            'broker_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'broker_company_name' => ['nullable', 'string', 'max:255'],
-            'broker_contacts' => ['sometimes', 'array'],
-            'broker_contacts.*.name' => ['required_with:broker_contacts', 'string', 'min:1', 'max:100'],
-            'broker_contacts.*.value' => ['nullable', 'email', 'max:255'],
-            'buyers' => ['sometimes', 'array'],
-            'buyers.*.name' => ['required_with:buyers', 'string', 'min:1', 'max:100'],
-            'buyers.*.value' => ['nullable', 'email', 'max:255'],
-            'accounts_payable' => ['sometimes', 'array'],
-            'accounts_payable.*.name' => ['required_with:accounts_payable', 'string', 'min:1', 'max:100'],
-            'accounts_payable.*.value' => ['nullable', 'string', 'max:500'],
-            'other' => ['sometimes', 'array'],
-            'other.*.name' => ['required_with:other', 'string', 'min:1', 'max:100'],
-            'other.*.value' => ['nullable', 'email', 'max:255'],
-            'other.*.function' => ['nullable', 'string', 'max:100'],
-            'uncategorized' => ['sometimes', 'array'],
-            'uncategorized.*.name' => ['required_with:uncategorized', 'string', 'min:1', 'max:100'],
-            'uncategorized.*.value' => ['nullable', 'email', 'max:255'],
-            'product_ids' => ['sometimes', 'array'],
-            'product_ids.*' => ['integer'],
-        ], [
-            'company_name.min' => 'Company name must be at least 2 characters.',
-            'buyers.*.name.required_with' => 'Buyer name is required.',
-            'buyers.*.value.email' => 'Please enter a valid email address.',
-            'accounts_payable.*.name.required_with' => 'AP contact name is required.',
-            'other.*.name.required_with' => 'Other contact name is required.',
-            'other.*.value.email' => 'Please enter a valid email address.',
-            'uncategorized.*.name.required_with' => 'Contact name is required.',
-            'uncategorized.*.value.email' => 'Please enter a valid email address.',
-            'broker_contacts.*.name.required_with' => 'Broker contact name is required.',
-            'broker_contacts.*.value.email' => 'Please enter a valid email address for broker contact.',
-            'vendor_guide.url' => 'Please enter a valid URL.',
-        ]);
+        $sanitized = CompanyFields::sanitizeContacts($request->all());
+
+        $rules = array_merge(
+            ['company_name' => ['sometimes', 'string', 'min:2', 'max:255']],
+            CompanyFields::prospectCommercialRules(isSometimes: true),
+            CompanyFields::sharedRules(required: false, sometimes: true),
+            CompanyFields::prospectOnlyRules(isSometimes: true),
+        );
+
+        // Prospect Show page sends buyer contacts with 'value' not 'email'.
+        // Override the buyer rules to accept 'value' for backward compatibility.
+        $rules['buyers.*.value'] = ['nullable', 'email', 'max:255'];
+        unset($rules['buyers.*.email']);
+
+        // Broker contacts from Show page also use 'value'
+        $rules['broker_contacts.*.value'] = ['nullable', 'email', 'max:255'];
+        unset($rules['broker_contacts.*.email']);
+
+        // Other contacts from Show page use 'value'
+        $rules['other.*.value'] = ['nullable', 'email', 'max:255'];
+        unset($rules['other.*.email']);
+
+        $validator = Validator::make($sanitized, $rules, CompanyFields::messages());
 
         if ($validator->fails()) {
             return response()->json([
@@ -385,6 +434,21 @@ class ProspectController extends Controller
                 }
                 if (array_key_exists('broker_company_name', $validated)) {
                     $updateData['broker_company_name'] = $validated['broker_company_name'];
+                }
+                if (array_key_exists('customer_type', $validated)) {
+                    $updateData['customer_type'] = $validated['customer_type'];
+                }
+                if (array_key_exists('ar_edi', $validated)) {
+                    $updateData['ar_edi'] = $validated['ar_edi'];
+                }
+                if (array_key_exists('ar_consolidated_invoicing', $validated)) {
+                    $updateData['ar_consolidated_invoicing'] = $validated['ar_consolidated_invoicing'];
+                }
+                if (array_key_exists('ar_requires_customer_skus', $validated)) {
+                    $updateData['ar_requires_customer_skus'] = $validated['ar_requires_customer_skus'];
+                }
+                if (array_key_exists('ar_invoice_discount', $validated)) {
+                    $updateData['ar_invoice_discount'] = $validated['ar_invoice_discount'];
                 }
                 if (! empty($updateData)) {
                     $prospect->update($updateData);
@@ -845,6 +909,11 @@ class ProspectController extends Controller
             'buyers' => $buyers->map(fn ($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
             'accounts_payable' => $prospect->accountsPayable->map(fn ($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
             'other' => $prospect->other->map(fn ($o) => ['name' => $o->name, 'email' => $o->value, 'function' => $o->function])->toArray(),
+            // AR settings
+            'ar_edi' => $prospect->ar_edi ?? false,
+            'ar_consolidated_invoicing' => $prospect->ar_consolidated_invoicing ?? false,
+            'ar_requires_customer_skus' => $prospect->ar_requires_customer_skus ?? false,
+            'ar_invoice_discount' => $prospect->ar_invoice_discount,
         ];
 
         // Add broker contacts if broker is enabled
@@ -895,6 +964,31 @@ class ProspectController extends Controller
                         'email' => strtolower($uncategorized->value),
                         'last_emailed_at' => $uncategorized->last_emailed_at,
                         'last_received_at' => $uncategorized->last_received_at,
+                    ]);
+                }
+            }
+
+            // Save AR settings to Fulfil metafields
+            $arSettings = [];
+            if ($prospect->ar_edi) {
+                $arSettings['edi'] = true;
+            }
+            if ($prospect->ar_consolidated_invoicing) {
+                $arSettings['consolidated_invoicing'] = true;
+            }
+            if ($prospect->ar_requires_customer_skus) {
+                $arSettings['requires_customer_skus'] = true;
+            }
+            if ($prospect->ar_invoice_discount !== null) {
+                $arSettings['invoice_discount'] = (float) $prospect->ar_invoice_discount;
+            }
+            if (! empty($arSettings)) {
+                try {
+                    $this->fulfil->updateCustomerArSettings($partyId, $arSettings);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to save AR settings during promotion', [
+                        'party_id' => $partyId,
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }

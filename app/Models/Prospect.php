@@ -19,6 +19,8 @@ class Prospect extends Model
 
     const STATUS_DORMANT = 'dormant';
 
+    const STATUS_ACTIVE = 'active';
+
     /**
      * Status labels and descriptions for the UI.
      */
@@ -41,6 +43,10 @@ class Prospect extends Model
                 'label' => 'Dormant',
                 'description' => 'Previous contact, but no recent engagement',
             ],
+            self::STATUS_ACTIVE => [
+                'label' => 'Active',
+                'description' => 'Promoted to active customer',
+            ],
         ];
     }
 
@@ -58,6 +64,11 @@ class Prospect extends Model
         'broker',
         'broker_commission',
         'broker_company_name',
+        'customer_type',
+        'ar_edi',
+        'ar_consolidated_invoicing',
+        'ar_requires_customer_skus',
+        'ar_invoice_discount',
     ];
 
     protected function casts(): array
@@ -68,6 +79,10 @@ class Prospect extends Model
             'company_urls' => 'array',
             'broker' => 'boolean',
             'broker_commission' => 'decimal:2',
+            'ar_edi' => 'boolean',
+            'ar_consolidated_invoicing' => 'boolean',
+            'ar_requires_customer_skus' => 'boolean',
+            'ar_invoice_discount' => 'decimal:2',
         ];
     }
 

@@ -78,6 +78,11 @@ interface Prospect {
     broker: boolean;
     broker_commission: number | null;
     broker_company_name: string | null;
+    customer_type: string | null;
+    ar_edi: boolean;
+    ar_consolidated_invoicing: boolean;
+    ar_requires_customer_skus: boolean;
+    ar_invoice_discount: number | null;
     broker_contacts: BrokerContact[];
     buyers: Contact[];
     accounts_payable: Contact[];
@@ -108,6 +113,11 @@ interface DetailsForm {
     broker: string;  // "true", "false", or "" for unselected
     broker_commission: string;
     broker_company_name: string;
+    customer_type: string;
+    ar_edi: boolean;
+    ar_consolidated_invoicing: boolean;
+    ar_requires_customer_skus: boolean;
+    ar_invoice_discount: string;
 }
 
 interface BrokerContactsForm {
@@ -199,6 +209,11 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         broker: prospect.broker === true ? 'true' : prospect.broker === false ? 'false' : '',
         broker_commission: prospect.broker_commission?.toString() || '',
         broker_company_name: prospect.broker_company_name || '',
+        customer_type: prospect.customer_type || '',
+        ar_edi: prospect.ar_edi ?? false,
+        ar_consolidated_invoicing: prospect.ar_consolidated_invoicing ?? false,
+        ar_requires_customer_skus: prospect.ar_requires_customer_skus ?? false,
+        ar_invoice_discount: prospect.ar_invoice_discount?.toString() || '',
     });
 
     const [newCompanyUrl, setNewCompanyUrl] = useState('');
@@ -341,6 +356,11 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             broker: prospect.broker === true ? 'true' : prospect.broker === false ? 'false' : '',
             broker_commission: prospect.broker_commission?.toString() || '',
             broker_company_name: prospect.broker_company_name || '',
+            customer_type: prospect.customer_type || '',
+            ar_edi: prospect.ar_edi ?? false,
+            ar_consolidated_invoicing: prospect.ar_consolidated_invoicing ?? false,
+            ar_requires_customer_skus: prospect.ar_requires_customer_skus ?? false,
+            ar_invoice_discount: prospect.ar_invoice_discount?.toString() || '',
         });
         setNewCompanyUrl('');
         setEditingDetails(false);
@@ -397,6 +417,11 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     vendor_guide: detailsForm.vendor_guide || null,
                     company_urls: detailsForm.company_urls,
                     broker: detailsForm.broker === 'true',
+                    customer_type: detailsForm.customer_type || null,
+                    ar_edi: detailsForm.ar_edi,
+                    ar_consolidated_invoicing: detailsForm.ar_consolidated_invoicing,
+                    ar_requires_customer_skus: detailsForm.ar_requires_customer_skus,
+                    ar_invoice_discount: detailsForm.ar_invoice_discount ? parseFloat(detailsForm.ar_invoice_discount) : null,
                 }),
             });
 
@@ -958,6 +983,29 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             ) : 'No'}
                                         </dd>
                                     </div>
+                                    <div>
+                                        <dt className="text-sm font-medium text-gray-500">Customer Type</dt>
+                                        <dd className="text-sm text-gray-900">{prospect.customer_type || '-'}</dd>
+                                    </div>
+                                    <div className="sm:col-span-4 border-t border-gray-100 pt-3 mt-1">
+                                        <dt className="text-sm font-medium text-gray-500 mb-2">Invoicing Preferences</dt>
+                                        <dd className="text-sm text-gray-900 flex flex-wrap gap-3">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${prospect.ar_edi ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
+                                                EDI: {prospect.ar_edi ? 'Yes' : 'No'}
+                                            </span>
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${prospect.ar_consolidated_invoicing ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
+                                                Consolidated: {prospect.ar_consolidated_invoicing ? 'Yes' : 'No'}
+                                            </span>
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${prospect.ar_requires_customer_skus ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
+                                                Customer SKUs: {prospect.ar_requires_customer_skus ? 'Yes' : 'No'}
+                                            </span>
+                                            {prospect.ar_invoice_discount !== null && (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">
+                                                    Invoice Discount: {prospect.ar_invoice_discount}%
+                                                </span>
+                                            )}
+                                        </dd>
+                                    </div>
                                 </dl>
                             ) : (
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1146,6 +1194,64 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             <option value="true">Yes</option>
                                         </select>
                                         {allDetailsErrors.broker && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.broker}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Customer Type</label>
+                                        <input
+                                            type="text"
+                                            value={detailsForm.customer_type}
+                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, customer_type: e.target.value }))}
+                                            placeholder="e.g., Retail, Foodservice"
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
+                                    </div>
+
+                                    {/* Invoicing Preferences / AR Settings */}
+                                    <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-100 pt-4 mt-2">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3">Invoicing Preferences</h4>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={detailsForm.ar_edi}
+                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_edi: e.target.checked }))}
+                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-gray-700">EDI</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={detailsForm.ar_consolidated_invoicing}
+                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_consolidated_invoicing: e.target.checked }))}
+                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-gray-700">Consolidated Invoicing</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={detailsForm.ar_requires_customer_skus}
+                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_requires_customer_skus: e.target.checked }))}
+                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-gray-700">Requires Customer SKUs</span>
+                                            </label>
+                                            <div>
+                                                <label className="block text-sm text-gray-700 mb-1">Invoice Discount %</label>
+                                                <input
+                                                    type="number"
+                                                    value={detailsForm.ar_invoice_discount}
+                                                    onChange={(e) => setDetailsForm(prev => ({ ...prev, ar_invoice_discount: e.target.value }))}
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
