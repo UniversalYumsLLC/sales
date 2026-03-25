@@ -60,6 +60,7 @@ export default function EmailTemplates({ templates }: Props) {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 body: JSON.stringify({ subject, body }),
@@ -69,6 +70,10 @@ export default function EmailTemplates({ templates }: Props) {
 
             if (response.ok) {
                 setNotification({ type: 'success', message: 'Template saved successfully' });
+            } else if (data.errors) {
+                // Laravel validation errors
+                const firstError = Object.values(data.errors).flat()[0] as string;
+                setNotification({ type: 'error', message: firstError || 'Validation failed' });
             } else {
                 setNotification({ type: 'error', message: data.message || 'Failed to save template' });
             }

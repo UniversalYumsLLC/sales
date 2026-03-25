@@ -28,17 +28,16 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'slack' => [
-        'notifications' => [
-            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
-        ],
-    ],
-
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
+    'forge' => [
+        'token' => env('FORGE_API_TOKEN'),
+        'server_id' => env('FORGE_SERVER_ID', '928846'),
+        'site_id' => env('FORGE_SITE_ID', '3082011'),
     ],
 
 ];
