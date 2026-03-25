@@ -153,7 +153,9 @@ class FulfilService
                 }
             }
 
-            $lastException = new \RuntimeException("Fulfil API error: {$response->status()}");
+            $body = $response->json();
+            $fulfilMessage = $body['message'] ?? $response->body();
+            $lastException = new \RuntimeException("Fulfil API error ({$response->status()}): {$fulfilMessage}");
             Log::error('Fulfil API error', [
                 'url' => $url,
                 'status' => $response->status(),
@@ -1600,14 +1602,41 @@ class FulfilService
             'customer_payment_term' => $data['customer_payment_term'],
         ];
 
-        $partyResponse = $this->request('POST', 'model/party.party', [
-            'json' => [$partyData],
-        ]);
+        // Fulfil auto-generates a sequential `code` for each new party.
+        // Occasionally the sequence collides with an existing code, so we
+        // retry a few times to let the sequence advance past the collision.
+        $partyId = null;
+        $maxCodeRetries = 3;
 
-        // API returns array of created records: [['id' => 123, 'rec_name' => 'Name'], ...]
-        $partyId = $partyResponse[0]['id'] ?? null;
-        if (! $partyId) {
-            throw new \RuntimeException('Failed to create customer: no ID returned');
+        for ($codeAttempt = 1; $codeAttempt <= $maxCodeRetries; $codeAttempt++) {
+            try {
+                $partyResponse = $this->request('POST', 'model/party.party', [
+                    'json' => [$partyData],
+                ]);
+
+                // API returns array of created records: [['id' => 123, 'rec_name' => 'Name'], ...]
+                $partyId = $partyResponse[0]['id'] ?? null;
+                if (! $partyId) {
+                    throw new \RuntimeException('Failed to create customer: no ID returned');
+                }
+
+                break; // Success — exit retry loop
+            } catch (\RuntimeException $e) {
+                $isCodeConflict = str_contains($e->getMessage(), 'code')
+                    && str_contains($e->getMessage(), 'unique');
+
+                if ($isCodeConflict && $codeAttempt < $maxCodeRetries) {
+                    Log::warning('Fulfil party code collision, retrying', [
+                        'attempt' => $codeAttempt,
+                        'error' => $e->getMessage(),
+                    ]);
+                    sleep(1); // Brief pause before retry
+
+                    continue;
+                }
+
+                throw $e; // Not a code collision, or retries exhausted
+            }
         }
 
         // 2. Add shipping terms category
