@@ -114,8 +114,22 @@ class ActiveCustomersController extends Controller
             $customers = $this->getActiveCustomersWithMetrics($bustCache);
             $customer = collect($customers)->firstWhere('id', $id);
 
+            // If the customer isn't in the cached active list (e.g. freshly promoted
+            // with no orders yet), fetch directly from Fulfil by party ID.
             if (! $customer) {
-                abort(404, 'Customer not found');
+                $customer = $this->fulfil->getCustomer($id);
+
+                if (! $customer) {
+                    abort(404, 'Customer not found');
+                }
+
+                // Initialize metrics defaults for customers not yet in the active list
+                $customer['t12m_revenue'] = $customer['t12m_revenue'] ?? 0;
+                $customer['prior_year_revenue'] = $customer['prior_year_revenue'] ?? 0;
+                $customer['revenue_growth'] = $customer['revenue_growth'] ?? null;
+                $customer['open_orders_total'] = $customer['open_orders_total'] ?? 0;
+                $customer['outstanding_balance'] = $customer['outstanding_balance'] ?? 0;
+                $customer['overdue_balance'] = $customer['overdue_balance'] ?? 0;
             }
 
             // Get detailed data for this customer
