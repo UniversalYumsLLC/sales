@@ -1112,15 +1112,19 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500">Customer Type</label>
                                     {!editingDetails ? (
-                                        <div className="mt-1 text-sm text-gray-900 py-2">{prospect.customer_type || '-'}</div>
+                                        <div className="mt-1 text-sm text-gray-900 py-2">
+                                            {prospect.customer_type === 'distributor' ? 'Distributor' : prospect.customer_type === 'retailer' ? 'Retailer' : '-'}
+                                        </div>
                                     ) : (
-                                        <input
-                                            type="text"
+                                        <select
                                             value={detailsForm.customer_type}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, customer_type: e.target.value }))}
-                                            placeholder="e.g., Retail, Foodservice"
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        />
+                                        >
+                                            <option value="">Select...</option>
+                                            <option value="retailer">Retailer</option>
+                                            <option value="distributor">Distributor</option>
+                                        </select>
                                     )}
                                 </div>
 

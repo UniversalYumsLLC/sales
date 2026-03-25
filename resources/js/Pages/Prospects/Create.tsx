@@ -388,13 +388,15 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                 {/* Customer Type */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Customer Type</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={data.customer_type}
                                         onChange={(e) => setData('customer_type', e.target.value)}
-                                        className={inputClass}
-                                        placeholder="e.g., Retail, Foodservice"
-                                    />
+                                        className={selectClass}
+                                    >
+                                        <option value="">Select...</option>
+                                        <option value="retailer">Retailer</option>
+                                        <option value="distributor">Distributor</option>
+                                    </select>
                                 </div>
 
                                 {/* Discount Level */}
