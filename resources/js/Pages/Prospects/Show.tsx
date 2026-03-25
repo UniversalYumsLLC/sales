@@ -103,13 +103,11 @@ interface Props {
 
 interface DetailsForm {
     company_name: string;
-    status: string;
     discount_percent: string;  // stores priceList id as string
     payment_terms: string;     // stores paymentTerm id as string
     shipping_terms: string;    // stores shippingTerm id as string
     shelf_life_requirement: string;
     vendor_guide: string;
-    company_urls: string[];
     broker: string;  // "true", "false", or "" for unselected
     broker_commission: string;
     broker_company_name: string;
@@ -199,13 +197,11 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     // Form states - map stored values to dropdown IDs
     const [detailsForm, setDetailsForm] = useState<DetailsForm>({
         company_name: prospect.company_name,
-        status: prospect.status,
         discount_percent: priceLists.find(pl => pl.discount_percent === prospect.discount_percent)?.id.toString() || '',
         payment_terms: paymentTerms.find(pt => pt.name === prospect.payment_terms)?.id.toString() || '',
         shipping_terms: shippingTerms.find(st => st.name === prospect.shipping_terms)?.id.toString() || '',
         shelf_life_requirement: prospect.shelf_life_requirement?.toString() || '',
         vendor_guide: prospect.vendor_guide || '',
-        company_urls: prospect.company_urls || [],
         broker: prospect.broker === true ? 'true' : prospect.broker === false ? 'false' : '',
         broker_commission: prospect.broker_commission?.toString() || '',
         broker_company_name: prospect.broker_company_name || '',
@@ -216,6 +212,9 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         ar_invoice_discount: prospect.ar_invoice_discount?.toString() || '',
     });
 
+    // Company Domains (own section, separate from details)
+    const [editingCompanyUrls, setEditingCompanyUrls] = useState(false);
+    const [companyUrlsForm, setCompanyUrlsForm] = useState<string[]>(prospect.company_urls || []);
     const [newCompanyUrl, setNewCompanyUrl] = useState('');
 
     // Broker contacts state
@@ -346,13 +345,11 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     const cancelDetailsEdit = () => {
         setDetailsForm({
             company_name: prospect.company_name,
-            status: prospect.status,
             discount_percent: priceLists.find(pl => pl.discount_percent === prospect.discount_percent)?.id.toString() || '',
             payment_terms: paymentTerms.find(pt => pt.name === prospect.payment_terms)?.id.toString() || '',
             shipping_terms: shippingTerms.find(st => st.name === prospect.shipping_terms)?.id.toString() || '',
             shelf_life_requirement: prospect.shelf_life_requirement?.toString() || '',
             vendor_guide: prospect.vendor_guide || '',
-            company_urls: prospect.company_urls || [],
             broker: prospect.broker === true ? 'true' : prospect.broker === false ? 'false' : '',
             broker_commission: prospect.broker_commission?.toString() || '',
             broker_company_name: prospect.broker_company_name || '',
@@ -362,9 +359,68 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             ar_requires_customer_skus: prospect.ar_requires_customer_skus ?? false,
             ar_invoice_discount: prospect.ar_invoice_discount?.toString() || '',
         });
-        setNewCompanyUrl('');
         setEditingDetails(false);
         setDetailsErrors({});
+    };
+
+    const cancelCompanyUrlsEdit = () => {
+        setCompanyUrlsForm(prospect.company_urls || []);
+        setNewCompanyUrl('');
+        setEditingCompanyUrls(false);
+    };
+
+    const saveCompanyUrls = async () => {
+        setSaving(true);
+        try {
+            const response = await fetch(route('prospects.update', prospect.id), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
+                }),
+            });
+
+            if (response.ok) {
+                setEditingCompanyUrls(false);
+                setNewCompanyUrl('');
+                router.reload({ only: ['prospect'] });
+            } else {
+                const data = await response.json();
+                alert(data.message || 'Failed to save changes');
+            }
+        } catch {
+            alert('An error occurred while saving.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleStatusChange = async (newStatus: string) => {
+        setSaving(true);
+        try {
+            const response = await fetch(`/prospects/${prospect.id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ status: newStatus }),
+            });
+
+            if (response.ok) {
+                router.reload({ only: ['prospect'] });
+            } else {
+                const data = await response.json();
+                alert(data.message || 'Failed to update status');
+            }
+        } catch {
+            alert('An error occurred while updating status.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const cancelContactsEdit = () => {
@@ -409,13 +465,11 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 },
                 body: JSON.stringify({
                     company_name: detailsForm.company_name,
-                    status: detailsForm.status,
                     discount_percent: selectedPriceList?.discount_percent ?? null,
                     payment_terms: selectedPaymentTerm?.name || null,
                     shipping_terms: selectedShippingTerm?.name || null,
                     shelf_life_requirement: detailsForm.shelf_life_requirement ? parseInt(detailsForm.shelf_life_requirement) : null,
                     vendor_guide: detailsForm.vendor_guide || null,
-                    company_urls: detailsForm.company_urls,
                     broker: detailsForm.broker === 'true',
                     customer_type: detailsForm.customer_type || null,
                     ar_edi: detailsForm.ar_edi,
@@ -810,6 +864,16 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                         <h2 className="text-xl font-semibold leading-tight text-gray-800">
                             {prospect.company_name}
                         </h2>
+                        <select
+                            value={prospect.status}
+                            onChange={(e) => handleStatusChange(e.target.value)}
+                            disabled={saving}
+                            className="rounded-full border-0 bg-blue-100 px-3 py-0.5 text-xs font-medium text-blue-800 cursor-pointer hover:bg-blue-200 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                            {Object.entries(statuses).map(([value, info]) => (
+                                <option key={value} value={value}>{info.label}</option>
+                            ))}
+                        </select>
                     </div>
                     <button
                         onClick={handlePromote}
@@ -925,44 +989,6 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             />
                                             {allDetailsErrors.company_name && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.company_name}</p>}
                                         </>
-                                    )}
-                                </div>
-
-                                {/* Status */}
-                                <div className="relative group">
-                                    <label className="block text-sm font-medium text-gray-500">Status</label>
-                                    {!editingDetails ? (
-                                        <div className="mt-1 text-sm text-gray-900 py-2">
-                                            {statuses[prospect.status]?.label || prospect.status}
-                                            {statuses[prospect.status] && (
-                                                <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-10">
-                                                    <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                                        {statuses[prospect.status].description}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="relative group inline-block w-full">
-                                            <select
-                                                value={detailsForm.status}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            >
-                                                {Object.entries(statuses).map(([value, info]) => (
-                                                    <option key={value} value={value}>
-                                                        {info.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {statuses[detailsForm.status] && (
-                                                <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-10">
-                                                    <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                                        {statuses[detailsForm.status].description}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
                                     )}
                                 </div>
 
@@ -1119,90 +1145,6 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                 <option value="true">Yes</option>
                                             </select>
                                             {allDetailsErrors.broker && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.broker}</p>}
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* Company URLs / Email Domains */}
-                                <div className="sm:col-span-2 lg:col-span-3">
-                                    <label className="block text-sm font-medium text-gray-500">Company URLs / Email Domains</label>
-                                    {!editingDetails ? (
-                                        <div className="mt-1 text-sm text-gray-900 py-2">
-                                            {prospect.company_urls && prospect.company_urls.length > 0 ? (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {prospect.company_urls.map((url, idx) => (
-                                                        <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-800">
-                                                            {url}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            ) : '-'}
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <p className="text-xs text-gray-500 mt-1 mb-2">
-                                                Domains used for matching emails from Gmail. Email domains are auto-added from contacts.
-                                            </p>
-
-                                            {detailsForm.company_urls.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 mb-2">
-                                                    {detailsForm.company_urls.map((url, index) => (
-                                                        <span
-                                                            key={index}
-                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded text-sm"
-                                                        >
-                                                            {url}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setDetailsForm(prev => ({
-                                                                    ...prev,
-                                                                    company_urls: prev.company_urls.filter((_, i) => i !== index)
-                                                                }))}
-                                                                className="text-gray-500 hover:text-gray-700"
-                                                            >
-                                                                <XIcon className="w-3 h-3" />
-                                                            </button>
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={newCompanyUrl}
-                                                    onChange={(e) => setNewCompanyUrl(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            if (newCompanyUrl.trim() && !detailsForm.company_urls.includes(newCompanyUrl.trim().toLowerCase())) {
-                                                                setDetailsForm(prev => ({
-                                                                    ...prev,
-                                                                    company_urls: [...prev.company_urls, newCompanyUrl.trim().toLowerCase()]
-                                                                }));
-                                                                setNewCompanyUrl('');
-                                                            }
-                                                        }
-                                                    }}
-                                                    placeholder="Enter domain (e.g., company.com)"
-                                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (newCompanyUrl.trim() && !detailsForm.company_urls.includes(newCompanyUrl.trim().toLowerCase())) {
-                                                            setDetailsForm(prev => ({
-                                                                ...prev,
-                                                                company_urls: [...prev.company_urls, newCompanyUrl.trim().toLowerCase()]
-                                                            }));
-                                                            setNewCompanyUrl('');
-                                                        }
-                                                    }}
-                                                    className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200"
-                                                >
-                                                    Add
-                                                </button>
-                                            </div>
                                         </>
                                     )}
                                 </div>
@@ -1899,6 +1841,95 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Company Domains */}
+                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-medium text-gray-900">Company Domains</h3>
+                                    <p className="text-sm text-gray-500">Email domains used for Gmail sync matching</p>
+                                </div>
+                                {!editingCompanyUrls ? (
+                                    <button
+                                        onClick={() => setEditingCompanyUrls(true)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                        title="Edit"
+                                    >
+                                        <PencilIcon />
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={cancelCompanyUrlsEdit}
+                                            className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={saveCompanyUrls}
+                                            disabled={saving}
+                                            className="rounded bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+                                        >
+                                            {saving ? 'Saving...' : 'Save'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {!editingCompanyUrls ? (
+                                <div>
+                                    {prospect.company_urls && prospect.company_urls.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {prospect.company_urls.map((url, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+                                                >
+                                                    {url}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400">No domains configured. Add domains to enable Gmail email tracking.</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {companyUrlsForm.map((url, idx) => (
+                                        <div key={idx} className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={url}
+                                                onChange={(e) => {
+                                                    const updated = [...companyUrlsForm];
+                                                    updated[idx] = e.target.value;
+                                                    setCompanyUrlsForm(updated);
+                                                }}
+                                                placeholder="e.g., example.com"
+                                                className="block flex-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setCompanyUrlsForm(prev => prev.filter((_, i) => i !== idx))}
+                                                className="text-red-400 hover:text-red-600"
+                                            >
+                                                <XIcon />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setCompanyUrlsForm(prev => [...prev, ''])}
+                                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                    >
+                                        <PlusIcon className="h-3 w-3" /> Add Domain
+                                    </button>
                                 </div>
                             )}
                         </div>
