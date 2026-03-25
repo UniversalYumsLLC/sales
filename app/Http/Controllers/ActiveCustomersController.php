@@ -363,8 +363,13 @@ class ActiveCustomersController extends Controller
             //    prospects that don't have orders yet)
             $hasDoneOrder = $partyOrders->where('state', 'done')->where('total_amount', '>', 0)->isNotEmpty();
             $hasOpenOrder = $partyOrders->whereIn('state', ['confirmed', 'processing'])->where('total_amount', '>', 0)->isNotEmpty();
-            $isRecentlyCreated = ! empty($customer['create_date'])
-                && Carbon::parse($customer['create_date'])->gte($sixMonthsAgo);
+            $createDate = $customer['create_date'] ?? null;
+            // Fulfil may return datetime as {"__class__":"datetime","iso_string":"..."}
+            if (is_array($createDate)) {
+                $createDate = $createDate['iso_string'] ?? null;
+            }
+            $isRecentlyCreated = ! empty($createDate)
+                && Carbon::parse($createDate)->gte($sixMonthsAgo);
 
             if (! $hasDoneOrder && ! $hasOpenOrder && ! $isRecentlyCreated) {
                 return null; // Not an active customer
