@@ -53,7 +53,7 @@ class ProspectController extends Controller
         $prospect = Prospect::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'status' => ['required', 'in:target,contacted,engaged,dormant,active'],
+            'status' => ['required', 'in:target,contacted,engaged,dormant'],
         ]);
 
         if ($validator->fails()) {
@@ -875,6 +875,7 @@ class ProspectController extends Controller
             'buyers' => $buyers->map(fn ($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
             'accounts_payable' => $prospect->accountsPayable->map(fn ($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
             'other' => $prospect->other->map(fn ($o) => ['name' => $o->name, 'email' => $o->value, 'function' => $o->function])->toArray(),
+            'customer_type' => $prospect->customer_type,
             'ar_edi' => $prospect->ar_edi ?? false,
             'ar_consolidated_invoicing' => $prospect->ar_consolidated_invoicing ?? false,
             'ar_requires_customer_skus' => $prospect->ar_requires_customer_skus ?? false,
@@ -962,6 +963,12 @@ class ProspectController extends Controller
             $prospect->delete();
 
             DB::commit();
+
+            // Dispatch Gmail sync for the new customer's domains (runs in background, after commit)
+            $companyUrls = $prospect->company_urls ?? [];
+            if (! empty($companyUrls)) {
+                SyncGmailForDomains::dispatch($companyUrls, 'customer', $partyId);
+            }
 
             // Redirect to the new customer page with success message
             return redirect()

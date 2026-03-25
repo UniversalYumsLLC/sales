@@ -787,7 +787,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 setPromotionErrors(errors as ValidationErrors);
                 const errorKeys = Object.keys(errors);
                 const hasDetailErrors = errorKeys.some(k =>
-                    ['company_name', 'discount_percent', 'payment_terms', 'shipping_terms', 'shelf_life_requirement', 'vendor_guide'].includes(k)
+                    ['company_name', 'discount_percent', 'payment_terms', 'shipping_terms', 'shelf_life_requirement', 'vendor_guide', 'broker', 'broker_company_name', 'broker_commission', 'customer_type'].includes(k)
                 );
                 const hasContactErrors = errorKeys.some(k =>
                     k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('other')
@@ -838,7 +838,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     // Merge promotion errors with form errors for highlighting
     const allDetailsErrors = { ...detailsErrors, ...Object.fromEntries(
         Object.entries(promotionErrors).filter(([k]) =>
-            ['company_name', 'discount_percent', 'payment_terms', 'shipping_terms', 'shelf_life_requirement', 'vendor_guide'].includes(k)
+            ['company_name', 'discount_percent', 'payment_terms', 'shipping_terms', 'shelf_life_requirement', 'vendor_guide', 'broker', 'broker_company_name', 'broker_commission', 'customer_type'].includes(k)
         )
     )};
     const allContactsErrors = { ...contactsErrors, ...Object.fromEntries(
@@ -870,7 +870,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                             disabled={saving}
                             className="rounded-full border-0 bg-blue-100 px-3 py-0.5 text-xs font-medium text-blue-800 cursor-pointer hover:bg-blue-200 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         >
-                            {Object.entries(statuses).map(([value, info]) => (
+                            {Object.entries(statuses).filter(([value]) => value !== 'active').map(([value, info]) => (
                                 <option key={value} value={value}>{info.label}</option>
                             ))}
                         </select>
