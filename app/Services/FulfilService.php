@@ -318,8 +318,15 @@ class FulfilService
         if (is_string($value)) {
             return $value;
         }
-        if (is_array($value) && isset($value['year'], $value['month'], $value['day'])) {
-            return sprintf('%04d-%02d-%02d', $value['year'], $value['month'], $value['day']);
+        if (is_array($value)) {
+            // Handle {"__class__": "date", "iso_string": "2024-03-15"}
+            if (isset($value['iso_string'])) {
+                return substr($value['iso_string'], 0, 10);
+            }
+            // Handle {"year": 2024, "month": 1, "day": 15}
+            if (isset($value['year'], $value['month'], $value['day'])) {
+                return sprintf('%04d-%02d-%02d', $value['year'], $value['month'], $value['day']);
+            }
         }
 
         return null;
@@ -342,16 +349,23 @@ class FulfilService
             // Handle ISO format strings
             return str_replace('T', ' ', substr($value, 0, 19));
         }
-        if (is_array($value) && isset($value['year'], $value['month'], $value['day'])) {
-            return sprintf(
-                '%04d-%02d-%02d %02d:%02d:%02d',
-                $value['year'],
-                $value['month'],
-                $value['day'],
-                $value['hour'] ?? 0,
-                $value['minute'] ?? 0,
-                $value['second'] ?? 0
-            );
+        if (is_array($value)) {
+            // Handle {"__class__": "datetime", "iso_string": "2024-03-15T10:30:00"}
+            if (isset($value['iso_string'])) {
+                return str_replace('T', ' ', substr($value['iso_string'], 0, 19));
+            }
+            // Handle {"year": 2024, "month": 1, "day": 15, "hour": 10, ...}
+            if (isset($value['year'], $value['month'], $value['day'])) {
+                return sprintf(
+                    '%04d-%02d-%02d %02d:%02d:%02d',
+                    $value['year'],
+                    $value['month'],
+                    $value['day'],
+                    $value['hour'] ?? 0,
+                    $value['minute'] ?? 0,
+                    $value['second'] ?? 0
+                );
+            }
         }
 
         return null;
@@ -498,7 +512,7 @@ class FulfilService
             'id' => $contact['id'],
             'name' => $contact['name'],
             'code' => $contact['code'] ?? null,
-            'create_date' => $contact['create_date'] ?? null,
+            'create_date' => $this->parseDateTime($contact['create_date'] ?? null),
             'buyers' => [],
             'accounts_payable' => [],
             'other' => [],
