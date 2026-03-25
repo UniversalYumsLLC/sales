@@ -392,6 +392,7 @@ class FulfilService
             'sale_price_list', 'customer_payment_term',
             'account_manager', 'is_customer',
             'receivable', 'receivable_today',
+            'create_date',
         ];
 
         try {
@@ -428,6 +429,7 @@ class FulfilService
             'sale_price_list', 'customer_payment_term',
             'account_manager', 'is_customer',
             'receivable', 'receivable_today',
+            'create_date',
         ];
 
         // Use search_read to filter by account_manager != null
@@ -496,6 +498,7 @@ class FulfilService
             'id' => $contact['id'],
             'name' => $contact['name'],
             'code' => $contact['code'] ?? null,
+            'create_date' => $contact['create_date'] ?? null,
             'buyers' => [],
             'accounts_payable' => [],
             'other' => [],

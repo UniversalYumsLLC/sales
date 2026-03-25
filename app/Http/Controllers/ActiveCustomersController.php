@@ -350,16 +350,23 @@ class ActiveCustomersController extends Controller
         // Calculate metrics for each customer
         $today = Carbon::today();
 
-        $mappedCustomers = array_map(function ($customer) use ($ordersByParty, $invoicesByParty, $t12mStart, $t24mStart, $today) {
+        $sixMonthsAgo = Carbon::now()->subMonths(6);
+
+        $mappedCustomers = array_map(function ($customer) use ($ordersByParty, $invoicesByParty, $t12mStart, $t24mStart, $today, $sixMonthsAgo) {
             $partyOrders = $ordersByParty->get($customer['id'], collect());
             $partyInvoices = $invoicesByParty->get($customer['id'], collect());
 
-            // Check if active customer (has done order or has open order with total > $0)
-            // Excludes $0 orders (e.g. sample shipments) from qualifying a customer as active
+            // Check if active customer:
+            // 1. Has a done order with total > $0, OR
+            // 2. Has an open order (confirmed/processing) with total > $0, OR
+            // 3. Was created in Fulfil within the last 6 months (covers freshly promoted
+            //    prospects that don't have orders yet)
             $hasDoneOrder = $partyOrders->where('state', 'done')->where('total_amount', '>', 0)->isNotEmpty();
             $hasOpenOrder = $partyOrders->whereIn('state', ['confirmed', 'processing'])->where('total_amount', '>', 0)->isNotEmpty();
+            $isRecentlyCreated = ! empty($customer['create_date'])
+                && Carbon::parse($customer['create_date'])->gte($sixMonthsAgo);
 
-            if (! $hasDoneOrder && ! $hasOpenOrder) {
+            if (! $hasDoneOrder && ! $hasOpenOrder && ! $isRecentlyCreated) {
                 return null; // Not an active customer
             }
 
