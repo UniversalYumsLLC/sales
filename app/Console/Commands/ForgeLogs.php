@@ -48,7 +48,7 @@ class ForgeLogs extends Command
 
         $shellCommand = "tail -n {$lines} {$file}";
         if ($grep) {
-            $shellCommand .= " | grep -i " . escapeshellarg($grep);
+            $shellCommand .= ' | grep -i '.escapeshellarg($grep);
         }
 
         $this->info("Running: {$shellCommand}");
