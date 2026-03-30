@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
+import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { useState, useRef, useEffect } from 'react';
 
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function EmailTemplates({ templates }: Props) {
+    const [localTemplates, setLocalTemplates] = useState<Template[]>(templates);
     const [selectedKey, setSelectedKey] = useState<string>(templates[0]?.key || '');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
@@ -26,7 +28,7 @@ export default function EmailTemplates({ templates }: Props) {
     const [showPreview, setShowPreview] = useState(false);
     const editorRef = useRef<HTMLDivElement>(null);
 
-    const selectedTemplate = templates.find(t => t.key === selectedKey);
+    const selectedTemplate = localTemplates.find(t => t.key === selectedKey);
 
     // Load template content when selection changes
     useEffect(() => {
@@ -56,29 +58,19 @@ export default function EmailTemplates({ templates }: Props) {
         setNotification(null);
 
         try {
-            const response = await fetch(route('admin.email-templates.update', { key: selectedKey }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ subject, body }),
-            });
+            await axios.put(route('admin.email-templates.update', { key: selectedKey }), { subject, body });
 
-            const data = await response.json();
-
-            if (response.ok) {
-                setNotification({ type: 'success', message: 'Template saved successfully' });
-            } else if (data.errors) {
-                // Laravel validation errors
-                const firstError = Object.values(data.errors).flat()[0] as string;
+            setLocalTemplates(prev =>
+                prev.map(t => t.key === selectedKey ? { ...t, subject, body } : t)
+            );
+            setNotification({ type: 'success', message: 'Template saved successfully' });
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.data?.errors) {
+                const firstError = Object.values(error.response.data.errors).flat()[0] as string;
                 setNotification({ type: 'error', message: firstError || 'Validation failed' });
             } else {
-                setNotification({ type: 'error', message: data.message || 'Failed to save template' });
+                setNotification({ type: 'error', message: 'An error occurred while saving' });
             }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'An error occurred while saving' });
         } finally {
             setSaving(false);
         }
@@ -184,7 +176,7 @@ export default function EmailTemplates({ templates }: Props) {
                                     onChange={(e) => setSelectedKey(e.target.value)}
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 >
-                                    {templates.map((template) => (
+                                    {localTemplates.map((template) => (
                                         <option key={template.key} value={template.key}>
                                             {template.name}
                                         </option>
