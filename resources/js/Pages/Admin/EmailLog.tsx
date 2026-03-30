@@ -104,7 +104,7 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             {/* Filters */}
                             <div className="mb-6 flex items-center gap-4">
@@ -114,7 +114,7 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
                                 <select
                                     value={typeFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
-                                    className="rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="rounded-md border-gray-300 text-sm shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                 >
                                     {emailTypes.map((option) => (
                                         <option key={option.value} value={option.value}>

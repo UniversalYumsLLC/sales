@@ -140,7 +140,7 @@ export default function EmailTemplates({ templates }: Props) {
                     {notification && (
                         <div className={`rounded-md p-4 ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
                             <div className="flex">
-                                <div className="flex-shrink-0">
+                                <div className="shrink-0">
                                     {notification.type === 'success' ? (
                                         <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -171,7 +171,7 @@ export default function EmailTemplates({ templates }: Props) {
                         </div>
                     )}
 
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             {/* Template Selector */}
                             <div className="mb-6">
@@ -182,7 +182,7 @@ export default function EmailTemplates({ templates }: Props) {
                                     id="template-select"
                                     value={selectedKey}
                                     onChange={(e) => setSelectedKey(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                 >
                                     {templates.map((template) => (
                                         <option key={template.key} value={template.key}>
@@ -212,7 +212,7 @@ export default function EmailTemplates({ templates }: Props) {
                                             id="subject"
                                             value={subject}
                                             onChange={(e) => setSubject(e.target.value)}
-                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                             placeholder="Email subject line..."
                                         />
                                     </div>

@@ -325,9 +325,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
 
     const isFormValid = data.company_name.trim().length >= 2 && Object.keys(validationErrors).length === 0;
 
-    const inputClass = 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
-    const selectClass = 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
-    const errorInputClass = 'mt-1 block w-full rounded-md border-red-300 shadow-sm focus:border-red-500 focus:ring-red-500';
+    const inputClass = 'mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500';
+    const selectClass = 'mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500';
+    const errorInputClass = 'mt-1 block w-full rounded-md border-red-300 shadow-xs focus:border-red-500 focus:ring-red-500';
 
     const getClass = (field: string, base: string = inputClass) => {
         if (!touched[field]) return base;
@@ -364,7 +364,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                         )}
 
                         {/* Company Information */}
-                        <div className="bg-white shadow-sm sm:rounded-lg p-6">
+                        <div className="bg-white shadow-xs sm:rounded-lg p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Company Information</h3>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -511,7 +511,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 }
                                             }}
                                             placeholder="Enter domain (e.g., company.com)"
-                                            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                            className="flex-1 rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                         />
                                         <button
                                             type="button"
@@ -602,7 +602,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         max="100"
                                         step="0.01"
                                         placeholder="0"
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                     />
                                     {validationErrors.ar_invoice_discount && <p className="mt-1 text-xs text-red-600">{validationErrors.ar_invoice_discount}</p>}
                                 </div>
@@ -611,7 +611,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
 
                         {/* Broker Section */}
                         {data.broker === 'true' && (
-                            <div className="bg-white shadow-sm sm:rounded-lg p-6 border-l-4 border-purple-400">
+                            <div className="bg-white shadow-xs sm:rounded-lg p-6 border-l-4 border-purple-400">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Broker Information</h3>
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div>
@@ -637,7 +637,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             max="100"
                                             step="0.1"
                                             placeholder="0.0"
-                                            className={getClass('broker_commission', 'mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500')}
+                                            className={getClass('broker_commission', 'mt-1 block w-32 rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500')}
                                         />
                                         {validationErrors.broker_commission && <p className="mt-1 text-sm text-red-600">{validationErrors.broker_commission}</p>}
                                     </div>
@@ -659,7 +659,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                     onChange={(e) => updateBrokerContact(idx, 'name', e.target.value)}
                                                     onBlur={() => markTouched(`broker_contacts.${idx}.name`)}
                                                     placeholder="Name"
-                                                    className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`broker_contacts.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                    className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`broker_contacts.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                 />
                                                 <input
                                                     type="email"
@@ -667,7 +667,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                     onChange={(e) => updateBrokerContact(idx, 'email', e.target.value)}
                                                     onBlur={() => markTouched(`broker_contacts.${idx}.email`)}
                                                     placeholder="Email"
-                                                    className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`broker_contacts.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                    className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`broker_contacts.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                                 />
                                                 <button type="button" onClick={() => removeBrokerContact(idx)} className="text-red-400 hover:text-red-600">
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -680,7 +680,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                         )}
 
                         {/* Contacts */}
-                        <div className="bg-white shadow-sm sm:rounded-lg p-6">
+                        <div className="bg-white shadow-xs sm:rounded-lg p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Contacts</h3>
 
                             {/* Buyers */}
@@ -699,7 +699,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 onChange={(e) => updateBuyer(idx, 'name', e.target.value)}
                                                 onBlur={() => markTouched(`buyers.${idx}.name`)}
                                                 placeholder="Name"
-                                                className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`buyers.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`buyers.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                             />
                                             <input
                                                 type="email"
@@ -707,7 +707,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 onChange={(e) => updateBuyer(idx, 'email', e.target.value)}
                                                 onBlur={() => markTouched(`buyers.${idx}.email`)}
                                                 placeholder="Email"
-                                                className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`buyers.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`buyers.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                             />
                                             <button type="button" onClick={() => removeBuyer(idx)} className="text-red-400 hover:text-red-600">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -763,7 +763,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                         onChange={(e) => updateAP(idx, 'name', e.target.value)}
                                                         onBlur={() => markTouched(`ap.${idx}.name`)}
                                                         placeholder="Name"
-                                                        className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`ap.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                        className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`ap.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                     />
                                                     <input
                                                         type="text"
@@ -771,7 +771,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                         onChange={(e) => updateAP(idx, 'value', e.target.value)}
                                                         onBlur={() => markTouched(`ap.${idx}.value`)}
                                                         placeholder="Email or portal URL"
-                                                        className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`ap.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                        className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`ap.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                     />
                                                     <button type="button" onClick={() => removeAP(idx)} className="text-red-400 hover:text-red-600">
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -799,14 +799,14 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 onChange={(e) => updateOther(idx, 'name', e.target.value)}
                                                 onBlur={() => markTouched(`other.${idx}.name`)}
                                                 placeholder="Name"
-                                                className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                             />
                                             <input
                                                 type="text"
                                                 value={contact.function || ''}
                                                 onChange={(e) => updateOther(idx, 'function', e.target.value)}
                                                 placeholder="Function"
-                                                className="w-28 rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300"
+                                                className="w-28 rounded-md text-sm shadow-xs focus:ring-indigo-500 border-gray-300"
                                             />
                                             <input
                                                 type="email"
@@ -814,7 +814,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 onChange={(e) => updateOther(idx, 'email', e.target.value)}
                                                 onBlur={() => markTouched(`other.${idx}.email`)}
                                                 placeholder="Email"
-                                                className={`flex-1 rounded-md text-sm shadow-sm focus:ring-indigo-500 ${validationErrors[`other.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`other.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                             />
                                             <button type="button" onClick={() => removeOther(idx)} className="text-red-400 hover:text-red-600">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -826,7 +826,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                         </div>
 
                         {/* Products of Interest */}
-                        <div className="bg-white shadow-sm sm:rounded-lg p-6">
+                        <div className="bg-white shadow-xs sm:rounded-lg p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Products of Interest</h3>
 
                             {selectedProducts.length > 0 && (
@@ -850,7 +850,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     onChange={(e) => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
                                     onFocus={() => setShowProductDropdown(true)}
                                     placeholder="Search products by name or SKU..."
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                 />
                                 {showProductDropdown && productSearch && filteredProducts.length > 0 && (
                                     <div className="absolute z-50 bottom-full mb-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">

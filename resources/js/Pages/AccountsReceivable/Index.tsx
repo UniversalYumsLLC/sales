@@ -226,25 +226,25 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     {/* Summary Cards */}
                     <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
+                        <div className="rounded-lg bg-white p-6 shadow-xs">
                             <div className="text-sm font-medium text-gray-500">Customers with Outstanding Invoices</div>
                             <div className="mt-1 text-2xl font-semibold text-gray-900">
                                 {customers.length}
                             </div>
                         </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
+                        <div className="rounded-lg bg-white p-6 shadow-xs">
                             <div className="text-sm font-medium text-gray-500">Total Outstanding</div>
                             <div className="mt-1 text-2xl font-semibold text-gray-900">
                                 {formatCurrency(totals.total_due)}
                             </div>
                         </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
+                        <div className="rounded-lg bg-white p-6 shadow-xs">
                             <div className="text-sm font-medium text-gray-500">Total Overdue</div>
                             <div className="mt-1 text-2xl font-semibold text-orange-600">
                                 {formatCurrency(totals.total_overdue)}
                             </div>
                         </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
+                        <div className="rounded-lg bg-white p-6 shadow-xs">
                             <div className="text-sm font-medium text-gray-500">Severely Overdue (30+ days)</div>
                             <div className="mt-1 text-2xl font-semibold text-red-600">
                                 {formatCurrency(totals.total_severely_overdue)}
@@ -252,7 +252,7 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                         </div>
                     </div>
 
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             {/* Search */}
                             <form onSubmit={handleSearch} className="mb-6 flex gap-2">
@@ -261,7 +261,7 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     placeholder="Search customers..."
-                                    className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                 />
                                 <button
                                     type="submit"
@@ -421,7 +421,7 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                                                                                     leaveFrom="transform opacity-100 scale-100"
                                                                                     leaveTo="transform opacity-0 scale-95"
                                                                                 >
-                                                                                    <Menu.Items className="absolute right-0 z-10 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                                                                    <Menu.Items className="absolute right-0 z-10 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none">
                                                                                         <div className="py-1">
                                                                                             {EMAIL_TYPES.map((emailType) => (
                                                                                                 <Menu.Item key={emailType.key}>

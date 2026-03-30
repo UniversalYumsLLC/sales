@@ -908,7 +908,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
                     <div className="rounded-md bg-red-50 p-4">
                         <div className="flex">
-                            <div className="flex-shrink-0">
+                            <div className="shrink-0">
                                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
                                 </svg>
@@ -941,7 +941,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             <div className="py-12">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
                     {/* Prospect Details */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="text-lg font-medium text-gray-900">Prospect Details</h3>
@@ -985,7 +985,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                 type="text"
                                                 value={detailsForm.company_name}
                                                 onChange={(e) => setDetailsForm(prev => ({ ...prev, company_name: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.company_name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 block w-full rounded-md shadow-xs focus:ring-indigo-500 ${allDetailsErrors.company_name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             />
                                             {allDetailsErrors.company_name && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.company_name}</p>}
                                         </>
@@ -1004,7 +1004,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             <select
                                                 value={detailsForm.discount_percent}
                                                 onChange={(e) => setDetailsForm(prev => ({ ...prev, discount_percent: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.discount_percent ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 block w-full rounded-md shadow-xs focus:ring-indigo-500 ${allDetailsErrors.discount_percent ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             >
                                                 <option value="">Select...</option>
                                                 {priceLists.map((pl) => (
@@ -1026,7 +1026,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             <select
                                                 value={detailsForm.payment_terms}
                                                 onChange={(e) => setDetailsForm(prev => ({ ...prev, payment_terms: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.payment_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 block w-full rounded-md shadow-xs focus:ring-indigo-500 ${allDetailsErrors.payment_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             >
                                                 <option value="">Select...</option>
                                                 {paymentTerms.map((pt) => (
@@ -1048,7 +1048,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             <select
                                                 value={detailsForm.shipping_terms}
                                                 onChange={(e) => setDetailsForm(prev => ({ ...prev, shipping_terms: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shipping_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 block w-full rounded-md shadow-xs focus:ring-indigo-500 ${allDetailsErrors.shipping_terms ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             >
                                                 <option value="">Select...</option>
                                                 {shippingTerms.map((st) => (
@@ -1076,7 +1076,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                 min="30"
                                                 max="365"
                                                 placeholder="days"
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 block w-full rounded-md shadow-xs focus:ring-indigo-500 ${allDetailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             />
                                             {allDetailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.shelf_life_requirement}</p>}
                                         </>
@@ -1101,7 +1101,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                 value={detailsForm.vendor_guide}
                                                 onChange={(e) => setDetailsForm(prev => ({ ...prev, vendor_guide: e.target.value }))}
                                                 placeholder="https://..."
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 block w-full rounded-md shadow-xs focus:ring-indigo-500 ${allDetailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             />
                                             {allDetailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{allDetailsErrors.vendor_guide}</p>}
                                         </>
@@ -1119,7 +1119,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                         <select
                                             value={detailsForm.customer_type}
                                             onChange={(e) => setDetailsForm(prev => ({ ...prev, customer_type: e.target.value }))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                         >
                                             <option value="">Select...</option>
                                             <option value="retailer">Retailer</option>
@@ -1142,7 +1142,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             <select
                                                 value={detailsForm.broker}
                                                 onChange={(e) => setDetailsForm(prev => ({ ...prev, broker: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${allDetailsErrors.broker ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 block w-full rounded-md shadow-xs focus:ring-indigo-500 ${allDetailsErrors.broker ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             >
                                                 <option value="">Select...</option>
                                                 <option value="false">No</option>
@@ -1249,7 +1249,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             min="0"
                                             max="100"
                                             step="0.01"
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                         />
                                     )}
                                 </div>
@@ -1259,7 +1259,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
 
                     {/* Broker Section - Only visible when broker=true */}
                     {(prospect.broker || detailsForm.broker === 'true') && (
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-400">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg border-l-4 border-purple-400">
                             <div className="p-6">
                                 <div className="mb-4 flex items-center justify-between">
                                     <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
@@ -1338,7 +1338,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                     type="text"
                                                     value={detailsForm.broker_company_name}
                                                     onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_company_name: e.target.value }))}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                                     placeholder="e.g., HRG Brokers"
                                                 />
                                             </div>
@@ -1351,7 +1351,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                     step="0.1"
                                                     value={detailsForm.broker_commission}
                                                     onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_commission: e.target.value }))}
-                                                    className="mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    className="mt-1 block w-32 rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                                     placeholder="0.0"
                                                 />
                                             </div>
@@ -1379,7 +1379,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                     value={contact.name}
                                                                     onChange={(e) => updateBrokerContact(idx, 'name', e.target.value)}
                                                                     placeholder="Name"
-                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${brokerContactsErrors[`broker_contacts.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                    className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${brokerContactsErrors[`broker_contacts.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                                 />
                                                             </div>
                                                             <div className="flex-1">
@@ -1388,7 +1388,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                     value={contact.value}
                                                                     onChange={(e) => updateBrokerContact(idx, 'value', e.target.value)}
                                                                     placeholder="Email"
-                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${brokerContactsErrors[`broker_contacts.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                    className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${brokerContactsErrors[`broker_contacts.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                                 />
                                                             </div>
                                                             <button
@@ -1410,7 +1410,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     )}
 
                     {/* Contacts */}
-                    <div className={`overflow-hidden bg-white shadow-sm sm:rounded-lg ${allContactsErrors.buyers ? 'ring-2 ring-red-500' : ''}`}>
+                    <div className={`overflow-hidden bg-white shadow-xs sm:rounded-lg ${allContactsErrors.buyers ? 'ring-2 ring-red-500' : ''}`}>
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -1605,7 +1605,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 value={buyer.name}
                                                                 onChange={(e) => updateBuyer(idx, 'name', e.target.value)}
                                                                 placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`buyers.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`buyers.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <div className="flex-1">
@@ -1614,7 +1614,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 value={buyer.value}
                                                                 onChange={(e) => updateBuyer(idx, 'value', e.target.value)}
                                                                 placeholder="Email (optional)"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`buyers.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`buyers.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <button
@@ -1673,7 +1673,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                     value={contactsForm.ap_portal_url}
                                                     onChange={(e) => setContactsForm(prev => ({ ...prev, ap_portal_url: e.target.value }))}
                                                     placeholder="https://portal.example.com/invoices"
-                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors.ap_portal_url ? 'border-red-300' : 'border-gray-300'}`}
+                                                    className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors.ap_portal_url ? 'border-red-300' : 'border-gray-300'}`}
                                                 />
                                                 {contactsErrors.ap_portal_url && (
                                                     <p className="mt-1 text-sm text-red-600">{contactsErrors.ap_portal_url}</p>
@@ -1705,7 +1705,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                         value={ap.name}
                                                                         onChange={(e) => updateAP(idx, 'name', e.target.value)}
                                                                         placeholder="Name"
-                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                        className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                                     />
                                                                 </div>
                                                                 <div className="flex-1">
@@ -1714,7 +1714,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                         value={ap.value}
                                                                         onChange={(e) => updateAP(idx, 'value', e.target.value)}
                                                                         placeholder="Email"
-                                                                        className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                        className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                                     />
                                                                 </div>
                                                                 <button
@@ -1756,7 +1756,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 value={other.name}
                                                                 onChange={(e) => updateOther(idx, 'name', e.target.value)}
                                                                 placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <div className="w-28">
@@ -1765,7 +1765,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 value={other.function || ''}
                                                                 onChange={(e) => updateOther(idx, 'function', e.target.value)}
                                                                 placeholder="Function"
-                                                                className="block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300"
+                                                                className="block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 border-gray-300"
                                                             />
                                                         </div>
                                                         <div className="flex-1">
@@ -1774,7 +1774,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 value={other.value}
                                                                 onChange={(e) => updateOther(idx, 'value', e.target.value)}
                                                                 placeholder="Email (optional)"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`other.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <button
@@ -1821,7 +1821,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 value={contact.name}
                                                                 onChange={(e) => updateUncategorized(idx, 'name', e.target.value)}
                                                                 placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`uncategorized.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`uncategorized.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <div className="flex-1">
@@ -1830,7 +1830,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                                 value={contact.value}
                                                                 onChange={(e) => updateUncategorized(idx, 'value', e.target.value)}
                                                                 placeholder="Email"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`uncategorized.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`block w-full rounded-md text-sm shadow-xs focus:ring-indigo-500 ${contactsErrors[`uncategorized.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <button
@@ -1851,7 +1851,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     </div>
 
                     {/* Company Domains */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <div>
@@ -1916,7 +1916,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                                     setCompanyUrlsForm(updated);
                                                 }}
                                                 placeholder="e.g., example.com"
-                                                className="block flex-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                className="block flex-1 rounded-md border-gray-300 text-sm shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                             />
                                             <button
                                                 type="button"
@@ -1946,7 +1946,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                     />
 
                     {/* Products of Interest */}
-                    <div className="bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="text-lg font-medium text-gray-900">Products of Interest</h3>
@@ -2031,7 +2031,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                                             }}
                                             onFocus={() => setShowProductDropdown(true)}
                                             placeholder="Search products by name or SKU..."
-                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                         />
 
                                         {showProductDropdown && productSearch && filteredProducts.length > 0 && (

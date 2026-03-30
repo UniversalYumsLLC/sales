@@ -272,7 +272,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
 
     // Get input class based on validation state
     const getInputClass = (field: string, value: string, isValid?: boolean) => {
-        const baseClass = 'mt-1 block w-full rounded-md shadow-sm focus:ring-2';
+        const baseClass = 'mt-1 block w-full rounded-md shadow-xs focus:ring-2';
 
         if (!touched[field]) {
             return `${baseClass} border-gray-300 focus:border-indigo-500 focus:ring-indigo-500`;
@@ -292,7 +292,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
 
     // Get select class based on validation state
     const getSelectClass = (field: string, value: string) => {
-        const baseClass = 'mt-1 block w-full rounded-md shadow-sm focus:ring-2';
+        const baseClass = 'mt-1 block w-full rounded-md shadow-xs focus:ring-2';
 
         if (!touched[field]) {
             return `${baseClass} border-gray-300 focus:border-indigo-500 focus:ring-indigo-500`;
@@ -541,7 +541,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                 <div className="mx-auto max-w-3xl sm:px-6 lg:px-8">
                     <form onSubmit={submit}>
                         {/* Company Information */}
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Company Information</h3>
 
@@ -569,7 +569,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         </div>
 
                         {/* Commercial Terms */}
-                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Commercial Terms</h3>
 
@@ -650,7 +650,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         </div>
 
                         {/* Requirements */}
-                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Requirements</h3>
 
@@ -700,7 +700,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         </div>
 
                         {/* Broker Section */}
-                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Broker Information</h3>
 
@@ -849,7 +849,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         </div>
 
                         {/* Buyer Contacts */}
-                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <div className="mb-4 flex items-center justify-between">
                                     <h3 className="text-lg font-medium text-gray-900">
@@ -912,7 +912,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         </div>
 
                         {/* Accounts Payable */}
-                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                                     Accounts Payable <span className="text-red-500">*</span>
@@ -1036,7 +1036,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         </div>
 
                         {/* Other Contacts */}
-                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <div className="mb-4 flex items-center justify-between">
                                     <h3 className="text-lg font-medium text-gray-900">Other Contacts</h3>
@@ -1073,7 +1073,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                         type="text"
                                                         value={other.function || ''}
                                                         onChange={(e) => updateOther(index, 'function', e.target.value)}
-                                                        className="mt-1 block w-full rounded-md shadow-sm focus:ring-2 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                                        className="mt-1 block w-full rounded-md shadow-xs focus:ring-2 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                                                         placeholder="Function (e.g. Logistics)"
                                                     />
                                                 </div>
@@ -1107,7 +1107,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         </div>
 
                         {/* Invoicing Preferences (AR Settings) */}
-                        <div className="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Invoicing Preferences</h3>
                                 <p className="text-sm text-gray-500 mb-4">Configure AR automation settings for this customer (optional)</p>

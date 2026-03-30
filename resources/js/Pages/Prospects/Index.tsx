@@ -80,7 +80,7 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
                     {showFlash && flash?.success && (
                         <div className="mb-6 rounded-md bg-green-50 p-4">
                             <div className="flex">
-                                <div className="flex-shrink-0">
+                                <div className="shrink-0">
                                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                                     </svg>
@@ -102,7 +102,7 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
                         </div>
                     )}
 
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             {/* Table */}
                             <div className="overflow-x-auto">
@@ -138,7 +138,7 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
                                                             onChange={(e) => handleStatusChange(prospect.id, e.target.value)}
                                                             disabled={updatingId === prospect.id}
                                                             className={`
-                                                                rounded-md border-gray-300 text-sm shadow-sm
+                                                                rounded-md border-gray-300 text-sm shadow-xs
                                                                 focus:border-indigo-500 focus:ring-indigo-500
                                                                 ${updatingId === prospect.id ? 'opacity-50 cursor-wait' : ''}
                                                             `}

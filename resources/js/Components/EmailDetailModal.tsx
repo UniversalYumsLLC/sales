@@ -141,7 +141,7 @@ export default function EmailDetailModal({ entityType, entityId, emailId, onClos
                 <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div className="flex items-center gap-3 min-w-0">
                         {activeEmail && (
-                            <div className={`flex-shrink-0 rounded-full p-2 ${
+                            <div className={`shrink-0 rounded-full p-2 ${
                                 activeEmail.direction === 'inbound'
                                     ? 'bg-blue-100 text-blue-600'
                                     : 'bg-green-100 text-green-600'
@@ -157,7 +157,7 @@ export default function EmailDetailModal({ entityType, entityId, emailId, onClos
                             {activeEmail?.subject || '(No subject)'}
                         </h3>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                         {gmailUrl && (
                             <a
                                 href={gmailUrl}
@@ -213,7 +213,7 @@ export default function EmailDetailModal({ entityType, entityId, emailId, onClos
                             {/* Email metadata */}
                             <div className="mb-4 space-y-1 text-sm">
                                 <div className="flex">
-                                    <span className="w-16 flex-shrink-0 font-medium text-gray-500">From:</span>
+                                    <span className="w-16 shrink-0 font-medium text-gray-500">From:</span>
                                     <span className="text-gray-900">
                                         {activeEmail.from_name ? (
                                             <>
@@ -226,21 +226,21 @@ export default function EmailDetailModal({ entityType, entityId, emailId, onClos
                                     </span>
                                 </div>
                                 <div className="flex">
-                                    <span className="w-16 flex-shrink-0 font-medium text-gray-500">To:</span>
+                                    <span className="w-16 shrink-0 font-medium text-gray-500">To:</span>
                                     <span className="text-gray-900">
                                         {activeEmail.to_emails?.join(', ') || '-'}
                                     </span>
                                 </div>
                                 {activeEmail.cc_emails && activeEmail.cc_emails.length > 0 && (
                                     <div className="flex">
-                                        <span className="w-16 flex-shrink-0 font-medium text-gray-500">Cc:</span>
+                                        <span className="w-16 shrink-0 font-medium text-gray-500">Cc:</span>
                                         <span className="text-gray-900">
                                             {activeEmail.cc_emails.join(', ')}
                                         </span>
                                     </div>
                                 )}
                                 <div className="flex">
-                                    <span className="w-16 flex-shrink-0 font-medium text-gray-500">Date:</span>
+                                    <span className="w-16 shrink-0 font-medium text-gray-500">Date:</span>
                                     <span className="text-gray-900">
                                         {formatDateTime(activeEmail.email_date)}
                                     </span>

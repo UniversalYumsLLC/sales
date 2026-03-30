@@ -95,7 +95,7 @@ export default function Index({ customers, totals, search, lastUpdated, error }:
                     {showFlash && flash?.success && (
                         <div className="mb-6 rounded-md bg-green-50 p-4">
                             <div className="flex">
-                                <div className="flex-shrink-0">
+                                <div className="shrink-0">
                                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                                     </svg>
@@ -121,7 +121,7 @@ export default function Index({ customers, totals, search, lastUpdated, error }:
                     {error && (
                         <div className="mb-6 rounded-md bg-red-50 p-4">
                             <div className="flex">
-                                <div className="flex-shrink-0">
+                                <div className="shrink-0">
                                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
                                     </svg>
@@ -143,19 +143,19 @@ export default function Index({ customers, totals, search, lastUpdated, error }:
 
                     {/* Summary Cards */}
                     <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
+                        <div className="rounded-lg bg-white p-6 shadow-xs">
                             <div className="text-sm font-medium text-gray-500">Active Customers</div>
                             <div className="mt-1 text-2xl font-semibold text-gray-900">
                                 {totals.total_customers}
                             </div>
                         </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
+                        <div className="rounded-lg bg-white p-6 shadow-xs">
                             <div className="text-sm font-medium text-gray-500">Open POs Revenue</div>
                             <div className="mt-1 text-2xl font-semibold text-gray-900">
                                 {formatCurrency(totals.open_po_revenue)}
                             </div>
                         </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
+                        <div className="rounded-lg bg-white p-6 shadow-xs">
                             <div className="text-sm font-medium text-gray-500">T12M Revenue</div>
                             <div className="mt-1 text-2xl font-semibold text-gray-900">
                                 {formatCurrency(totals.t12m_revenue)}
@@ -163,7 +163,7 @@ export default function Index({ customers, totals, search, lastUpdated, error }:
                         </div>
                     </div>
 
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             {/* Search */}
                             <form onSubmit={handleSearch} className="mb-6">
@@ -173,7 +173,7 @@ export default function Index({ customers, totals, search, lastUpdated, error }:
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         placeholder="Search customers..."
-                                        className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="flex-1 rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                     />
                                     <button
                                         type="submit"

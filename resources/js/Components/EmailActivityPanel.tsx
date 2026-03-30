@@ -160,7 +160,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
     };
 
     return (
-        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
             <div className="p-6">
                 {/* Header */}
                 <div className="mb-4 flex items-center justify-between">
@@ -221,7 +221,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                                         >
                                             <div className="flex items-start gap-3">
                                                 {/* Direction icon */}
-                                                <div className={`mt-0.5 flex-shrink-0 rounded-full p-1.5 ${
+                                                <div className={`mt-0.5 shrink-0 rounded-full p-1.5 ${
                                                     email.direction === 'inbound'
                                                         ? 'bg-blue-100 text-blue-600'
                                                         : 'bg-green-100 text-green-600'
@@ -243,14 +243,14 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                                                             }
                                                         </span>
                                                         {email.distributor_customer_name && (
-                                                            <span className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700 flex-shrink-0">
+                                                            <span className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700 shrink-0">
                                                                 {email.distributor_customer_name}
                                                             </span>
                                                         )}
                                                         {email.has_attachments && (
-                                                            <PaperClipIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                                                            <PaperClipIcon className="h-3.5 w-3.5 text-gray-400 shrink-0" />
                                                         )}
-                                                        <span className="ml-auto text-xs text-gray-500 flex-shrink-0">
+                                                        <span className="ml-auto text-xs text-gray-500 shrink-0">
                                                             {formatRelativeDate(email.email_date)}
                                                         </span>
                                                     </div>

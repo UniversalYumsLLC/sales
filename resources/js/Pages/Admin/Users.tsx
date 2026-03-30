@@ -91,7 +91,7 @@ export default function Users({ users, invites }: Props) {
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
                     {/* Invite Form */}
                     {showInviteForm && (
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Invite New User</h3>
                                 <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-4">
@@ -104,7 +104,7 @@ export default function Users({ users, invites }: Props) {
                                             id="email"
                                             value={data.email}
                                             onChange={(e) => setData('email', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                             placeholder="user@example.com"
                                         />
                                         {errors.email && (
@@ -119,7 +119,7 @@ export default function Users({ users, invites }: Props) {
                                             id="role"
                                             value={data.role}
                                             onChange={(e) => setData('role', e.target.value as 'admin' | 'user' | 'salesperson')}
-                                            className="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="mt-1 block rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                         >
                                             <option value="user">Accounts Receivable</option>
                                             <option value="salesperson">Salesperson</option>
@@ -143,7 +143,7 @@ export default function Users({ users, invites }: Props) {
 
                     {/* Pending Invites */}
                     {invites.length > 0 && (
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Pending Invites</h3>
                                 <div className="overflow-x-auto">
@@ -202,7 +202,7 @@ export default function Users({ users, invites }: Props) {
                     )}
 
                     {/* Active Users */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             <h3 className="mb-4 text-lg font-medium text-gray-900">Active Users</h3>
                             <div className="overflow-x-auto">
@@ -270,7 +270,7 @@ export default function Users({ users, invites }: Props) {
                                                         <select
                                                             value={user.role}
                                                             onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                            className="rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                            className="rounded-md border-gray-300 text-sm shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                                         >
                                                             <option value="user">Accounts Receivable</option>
                                                             <option value="salesperson">Salesperson</option>

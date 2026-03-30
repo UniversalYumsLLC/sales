@@ -159,7 +159,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                         {flash?.success && (
                             <div className="rounded-md bg-green-50 p-4">
                                 <div className="flex">
-                                    <div className="flex-shrink-0">
+                                    <div className="shrink-0">
                                         <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
@@ -174,7 +174,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                         {flash?.error && (
                             <div className="rounded-md bg-red-50 p-4">
                                 <div className="flex">
-                                    <div className="flex-shrink-0">
+                                    <div className="shrink-0">
                                         <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                         </svg>
@@ -187,7 +187,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                         )}
 
                         {/* Admin Actions */}
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Admin Actions</h3>
                                 <p className="text-sm text-gray-600 mb-4">
@@ -225,7 +225,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                         </div>
 
                         {/* Salesperson Connection Status */}
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Salesperson Gmail Connections</h3>
 
@@ -289,7 +289,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                         </div>
 
                         {/* All Sync History */}
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Sync History (All Salespersons)</h3>
 
@@ -384,7 +384,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                     {flash?.success && (
                         <div className="rounded-md bg-green-50 p-4">
                             <div className="flex">
-                                <div className="flex-shrink-0">
+                                <div className="shrink-0">
                                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                     </svg>
@@ -399,7 +399,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                     {flash?.error && (
                         <div className="rounded-md bg-red-50 p-4">
                             <div className="flex">
-                                <div className="flex-shrink-0">
+                                <div className="shrink-0">
                                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                     </svg>
@@ -412,14 +412,14 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                     )}
 
                     {/* Connection Status Card */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                         <div className="p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Connection Status</h3>
 
                             {isConnected ? (
                                 <div className="space-y-4">
                                     <div className="flex items-center">
-                                        <div className="flex-shrink-0">
+                                        <div className="shrink-0">
                                             <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                                                 <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -467,7 +467,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                             ) : (
                                 <div className="space-y-4">
                                     <div className="flex items-center">
-                                        <div className="flex-shrink-0">
+                                        <div className="shrink-0">
                                             <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
                                                 <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -506,7 +506,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
 
                     {/* Sync History */}
                     {syncHistory.length > 0 && (
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Sync History</h3>
 
@@ -577,7 +577,7 @@ export default function Index({ isAdmin, isConnected, gmailEmail, connectedAt, l
                     {/* Help Text */}
                     <div className="bg-blue-50 rounded-lg p-4">
                         <div className="flex">
-                            <div className="flex-shrink-0">
+                            <div className="shrink-0">
                                 <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                                 </svg>
