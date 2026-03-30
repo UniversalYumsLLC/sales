@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/forms";
 
 @theme {
     --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
