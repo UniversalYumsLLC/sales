@@ -114,40 +114,22 @@ return [
     | These IDs differ between sandbox and production environments.
     | Use `php artisan fulfil:discover-metafields` to discover IDs.
     |
-    | AR Automation metafields:
-    | - edi: Boolean - Do we communicate with customer via EDI?
-    | - consolidated_invoicing: Boolean - Consolidate same-day shipments into one invoice
-    | - requires_customer_skus: Boolean - Customer requires their SKUs on invoices
+    | Metafields still stored in Fulfil:
     | - invoice_discount: Float - Discounts applied at invoice level
-    |
-    | Customer detail metafields:
     | - shelf_life: Integer - Shelf life required on arrival (days)
-    | - broker: Boolean - Does customer use a broker?
-    | - broker_commission: Float - Broker commission percentage
+    |
+    | The following fields have been migrated to local DB (local_customer_metadata):
+    | edi, consolidated_invoicing, requires_customer_skus, broker, broker_commission
     |
     */
     'metafields' => [
         'sandbox' => [
-            // AR Automation
-            'edi' => env('FULFIL_SANDBOX_METAFIELD_EDI'),
-            'consolidated_invoicing' => env('FULFIL_SANDBOX_METAFIELD_CONSOLIDATED_INVOICING'),
-            'requires_customer_skus' => env('FULFIL_SANDBOX_METAFIELD_REQUIRES_CUSTOMER_SKUS'),
             'invoice_discount' => env('FULFIL_SANDBOX_METAFIELD_INVOICE_DISCOUNT'),
-            // Customer details
             'shelf_life' => env('FULFIL_SANDBOX_METAFIELD_SHELF_LIFE'),
-            'broker' => env('FULFIL_SANDBOX_METAFIELD_BROKER'),
-            'broker_commission' => env('FULFIL_SANDBOX_METAFIELD_BROKER_COMMISSION'),
         ],
         'production' => [
-            // AR Automation
-            'edi' => env('FULFIL_PRODUCTION_METAFIELD_EDI'),
-            'consolidated_invoicing' => env('FULFIL_PRODUCTION_METAFIELD_CONSOLIDATED_INVOICING'),
-            'requires_customer_skus' => env('FULFIL_PRODUCTION_METAFIELD_REQUIRES_CUSTOMER_SKUS'),
             'invoice_discount' => env('FULFIL_PRODUCTION_METAFIELD_INVOICE_DISCOUNT'),
-            // Customer details
             'shelf_life' => env('FULFIL_PRODUCTION_METAFIELD_SHELF_LIFE'),
-            'broker' => env('FULFIL_PRODUCTION_METAFIELD_BROKER'),
-            'broker_commission' => env('FULFIL_PRODUCTION_METAFIELD_BROKER_COMMISSION'),
         ],
     ],
 ];

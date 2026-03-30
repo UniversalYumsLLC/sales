@@ -35,6 +35,10 @@ class LocalCustomerMetadata extends Model
         'broker',
         'broker_commission',
         'broker_company_name',
+        'ar_edi',
+        'ar_consolidated_invoicing',
+        'ar_requires_customer_skus',
+        'vendor_guide',
     ];
 
     protected function casts(): array
@@ -43,6 +47,9 @@ class LocalCustomerMetadata extends Model
             'company_urls' => 'array',
             'broker' => 'boolean',
             'broker_commission' => 'decimal:2',
+            'ar_edi' => 'boolean',
+            'ar_consolidated_invoicing' => 'boolean',
+            'ar_requires_customer_skus' => 'boolean',
         ];
     }
 

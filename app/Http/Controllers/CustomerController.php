@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\FulfilUnavailableException;
 use App\Jobs\SyncGmailForDomains;
+use App\Models\LocalCustomerMetadata;
 use App\Services\FulfilService;
 use App\Support\CompanyFields;
 use Illuminate\Http\JsonResponse;
@@ -51,6 +52,10 @@ class CustomerController extends Controller
 
     /**
      * Create a new customer.
+     *
+     * Creates the customer in Fulfil, then saves local-only fields
+     * (broker, AR settings, vendor_guide) to local_customer_metadata.
+     * Only invoice_discount is sent to Fulfil metafields.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -61,6 +66,20 @@ class CustomerController extends Controller
         }
 
         $data = CompanyFields::castTypes($validator->validated());
+
+        // Extract local-only fields before sending to Fulfil
+        $localFields = [];
+        $localFieldKeys = [
+            'broker', 'broker_commission', 'broker_company_name',
+            'vendor_guide',
+            'ar_edi', 'ar_consolidated_invoicing', 'ar_requires_customer_skus',
+        ];
+        foreach ($localFieldKeys as $key) {
+            if (array_key_exists($key, $data)) {
+                $localFields[$key] = $data[$key];
+                unset($data[$key]);
+            }
+        }
 
         try {
             $customer = $this->fulfil->createCustomer($data);
@@ -73,28 +92,21 @@ class CustomerController extends Controller
                 SyncGmailForDomains::dispatch($domains, 'customer', $customer['id']);
             }
 
-            // Save AR settings to Fulfil metafields if any were provided
             if (isset($customer['id'])) {
-                $arSettings = [];
-                if (isset($data['ar_edi'])) {
-                    $arSettings['edi'] = $data['ar_edi'];
-                }
-                if (isset($data['ar_consolidated_invoicing'])) {
-                    $arSettings['consolidated_invoicing'] = $data['ar_consolidated_invoicing'];
-                }
-                if (isset($data['ar_requires_customer_skus'])) {
-                    $arSettings['requires_customer_skus'] = $data['ar_requires_customer_skus'];
-                }
-                if (isset($data['ar_invoice_discount']) && $data['ar_invoice_discount'] !== '' && $data['ar_invoice_discount'] !== null) {
-                    $arSettings['invoice_discount'] = (float) $data['ar_invoice_discount'];
-                }
+                // Create local metadata with local-only fields
+                LocalCustomerMetadata::create(array_merge(
+                    ['fulfil_party_id' => $customer['id']],
+                    $localFields,
+                ));
 
-                if (! empty($arSettings)) {
+                // Save invoice_discount to Fulfil metafields (only AR field still in Fulfil)
+                if (isset($data['ar_invoice_discount']) && $data['ar_invoice_discount'] !== '' && $data['ar_invoice_discount'] !== null) {
                     try {
-                        $this->fulfil->updateCustomerArSettings($customer['id'], $arSettings);
+                        $this->fulfil->updateCustomerArSettings($customer['id'], [
+                            'invoice_discount' => (float) $data['ar_invoice_discount'],
+                        ]);
                     } catch (\Exception $e) {
-                        // Log but don't fail the customer creation
-                        \Log::warning('Failed to save AR settings for new customer', [
+                        \Log::warning('Failed to save invoice discount for new customer', [
                             'customer_id' => $customer['id'],
                             'error' => $e->getMessage(),
                         ]);
@@ -161,6 +173,10 @@ class CustomerController extends Controller
 
     /**
      * Update an existing customer.
+     *
+     * Local fields (broker, broker_commission, vendor_guide, ar_edi,
+     * ar_consolidated_invoicing, ar_requires_customer_skus) are saved to
+     * local_customer_metadata. Remaining fields go to Fulfil.
      */
     public function update(Request $request, int $id): JsonResponse
     {
@@ -175,7 +191,29 @@ class CustomerController extends Controller
 
         $data = CompanyFields::castTypes($validator->validated());
 
+        // Extract local-only fields from the data before sending to Fulfil
+        $localFields = [];
+        $localFieldKeys = [
+            'broker', 'broker_commission', 'broker_company_name',
+            'vendor_guide',
+            'ar_edi', 'ar_consolidated_invoicing', 'ar_requires_customer_skus',
+        ];
+        foreach ($localFieldKeys as $key) {
+            if (array_key_exists($key, $data)) {
+                $localFields[$key] = $data[$key];
+                unset($data[$key]);
+            }
+        }
+
         try {
+            // Save local fields to local_customer_metadata
+            if (! empty($localFields)) {
+                $metadata = LocalCustomerMetadata::findOrCreateForCustomer($id);
+                $metadata->update($localFields);
+            }
+
+            // Send remaining fields to Fulfil (name, price list, payment terms,
+            // shipping terms, shelf_life, ar_invoice_discount, contacts, etc.)
             $customer = $this->fulfil->updateCustomer($id, $data);
 
             return response()->json([

@@ -7,6 +7,7 @@ use App\Models\CustomerSku;
 use App\Models\EmailRecord;
 use App\Models\EmailTemplate;
 use App\Models\Invoice;
+use App\Models\LocalCustomerMetadata;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -73,8 +74,14 @@ class ArAutomationService
                 // Sync invoice to local database
                 $invoice = Invoice::syncFromFulfil($invoiceData);
 
-                // Get customer AR settings
-                $arSettings = $this->fulfil->getCustomerArSettings($invoice->fulfil_party_id);
+                // Get customer AR settings from local DB (edi, consolidated_invoicing,
+                // requires_customer_skus are local; invoice_discount stays in Fulfil)
+                $localMetadata = LocalCustomerMetadata::find($invoice->fulfil_party_id);
+                $arSettings = [
+                    'edi' => $localMetadata?->ar_edi ?? false,
+                    'consolidated_invoicing' => $localMetadata?->ar_consolidated_invoicing ?? false,
+                    'requires_customer_skus' => $localMetadata?->ar_requires_customer_skus ?? false,
+                ];
 
                 // Skip EDI customers
                 if ($arSettings['edi']) {

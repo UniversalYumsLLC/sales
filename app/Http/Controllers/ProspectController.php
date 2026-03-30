@@ -861,25 +861,18 @@ class ProspectController extends Controller
             return back()->withErrors($errors);
         }
 
-        // Transform data for customer creation
+        // Transform data for customer creation in Fulfil.
+        // Local-only fields (broker, vendor_guide, AR settings except invoice_discount)
+        // are saved to local_customer_metadata below, not sent to Fulfil.
         $customerData = [
             'name' => $prospect->company_name,
             'sale_price_list' => $priceListId,
             'customer_payment_term' => $paymentTermId,
             'shipping_terms_category_id' => $shippingTermId,
             'shelf_life_requirement' => $prospect->shelf_life_requirement,
-            'vendor_guide' => $prospect->vendor_guide,
-            'broker' => $prospect->broker ?? false,
-            'broker_company_name' => $prospect->broker_company_name,
-            'broker_commission' => $prospect->broker_commission,
             'buyers' => $buyers->map(fn ($b) => ['name' => $b->name, 'email' => $b->value])->toArray(),
             'accounts_payable' => $prospect->accountsPayable->map(fn ($ap) => ['name' => $ap->name, 'value' => $ap->value])->toArray(),
             'other' => $prospect->other->map(fn ($o) => ['name' => $o->name, 'email' => $o->value, 'function' => $o->function])->toArray(),
-            'customer_type' => $prospect->customer_type,
-            'ar_edi' => $prospect->ar_edi ?? false,
-            'ar_consolidated_invoicing' => $prospect->ar_consolidated_invoicing ?? false,
-            'ar_requires_customer_skus' => $prospect->ar_requires_customer_skus ?? false,
-            'ar_invoice_discount' => $prospect->ar_invoice_discount,
         ];
 
         // Add broker contacts if broker is enabled
@@ -897,13 +890,18 @@ class ProspectController extends Controller
             $result = $this->fulfil->createCustomer($customerData);
             $partyId = $result['id'];
 
-            // Create local metadata
+            // Create local metadata (includes all locally-stored fields)
             $metadata = LocalCustomerMetadata::create([
                 'fulfil_party_id' => $partyId,
                 'company_urls' => $prospect->company_urls ?? [],
+                'customer_type' => $prospect->customer_type,
                 'broker' => $prospect->broker ?? false,
                 'broker_commission' => $prospect->broker_commission,
                 'broker_company_name' => $prospect->broker_company_name,
+                'ar_edi' => $prospect->ar_edi ?? false,
+                'ar_consolidated_invoicing' => $prospect->ar_consolidated_invoicing ?? false,
+                'ar_requires_customer_skus' => $prospect->ar_requires_customer_skus ?? false,
+                'vendor_guide' => $prospect->vendor_guide,
             ]);
 
             // Create broker contact records for email tracking
@@ -934,25 +932,14 @@ class ProspectController extends Controller
                 }
             }
 
-            // Sync invoicing fields to Fulfil metafields (separate API call)
-            $arSettings = [];
-            if ($prospect->ar_edi) {
-                $arSettings['edi'] = true;
-            }
-            if ($prospect->ar_consolidated_invoicing) {
-                $arSettings['consolidated_invoicing'] = true;
-            }
-            if ($prospect->ar_requires_customer_skus) {
-                $arSettings['requires_customer_skus'] = true;
-            }
+            // Sync invoice_discount to Fulfil metafields (only AR field still in Fulfil)
             if ($prospect->ar_invoice_discount !== null) {
-                $arSettings['invoice_discount'] = (float) $prospect->ar_invoice_discount;
-            }
-            if (! empty($arSettings)) {
                 try {
-                    $this->fulfil->updateCustomerArSettings($partyId, $arSettings);
+                    $this->fulfil->updateCustomerArSettings($partyId, [
+                        'invoice_discount' => (float) $prospect->ar_invoice_discount,
+                    ]);
                 } catch (\Exception $e) {
-                    \Log::warning('Failed to save invoicing fields during promotion', [
+                    \Log::warning('Failed to save invoice discount during promotion', [
                         'party_id' => $partyId,
                         'error' => $e->getMessage(),
                     ]);

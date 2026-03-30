@@ -21,17 +21,14 @@ class DiscoverFulfilMetafields extends Command
     /**
      * The metafield codes we're looking for.
      * Maps internal code => Fulfil metafield display name.
+     *
+     * Only metafields still stored in Fulfil are listed here.
+     * edi, consolidated_invoicing, requires_customer_skus, broker, and
+     * broker_commission have been migrated to local_customer_metadata.
      */
     protected array $targetMetafields = [
-        // AR Automation
-        'edi' => 'EDI',
-        'consolidated_invoicing' => 'Consolidated Invoicing',
-        'requires_customer_skus' => 'Invoice Requires Customer SKUs',
         'invoice_discount' => 'Invoice Discount',
-        // Customer details
         'shelf_life' => 'Shelf Life Required on Arrival (Days)',
-        'broker' => 'Broker',
-        'broker_commission' => 'Broker Commission',
     ];
 
     /**

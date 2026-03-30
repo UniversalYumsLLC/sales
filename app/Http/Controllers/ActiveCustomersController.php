@@ -145,11 +145,13 @@ class ActiveCustomersController extends Controller
                 ? $e->getUserMessage()
                 : 'Unable to load data from Fulfil. Please try again in a few minutes.';
 
+            $localMetadata = LocalCustomerMetadata::find($id);
+
             return Inertia::render('ActiveCustomers/Show', [
                 'customer' => ['id' => $id, 'name' => 'Customer #'.$id, 'ar_settings' => [
-                    'edi' => false,
-                    'consolidated_invoicing' => false,
-                    'requires_customer_skus' => false,
+                    'edi' => $localMetadata?->ar_edi ?? false,
+                    'consolidated_invoicing' => $localMetadata?->ar_consolidated_invoicing ?? false,
+                    'requires_customer_skus' => $localMetadata?->ar_requires_customer_skus ?? false,
                     'invoice_discount' => null,
                 ]],
                 'buyerContacts' => [],
@@ -180,30 +182,33 @@ class ActiveCustomersController extends Controller
             }
         }
 
-        // Merge in local metadata (company_urls for Gmail matching, broker info, customer type)
+        // Merge in local metadata (company_urls, broker info, customer type, AR settings, vendor guide)
         $localMetadata = LocalCustomerMetadata::find($id);
         $customer['company_urls'] = $localMetadata?->company_urls ?? [];
         $customer['customer_type'] = $localMetadata?->customer_type ?? 'retailer';
         $customer['broker'] = $localMetadata?->broker ?? false;
         $customer['broker_commission'] = $localMetadata?->broker_commission;
         $customer['broker_company_name'] = $localMetadata?->broker_company_name;
+        $customer['vendor_guide'] = $localMetadata?->vendor_guide;
 
-        // Get AR automation settings from Fulfil metafields
+        // AR settings: edi, consolidated_invoicing, requires_customer_skus are local;
+        // invoice_discount is still in Fulfil metafields.
+        $invoiceDiscount = null;
         try {
-            $arSettings = $this->fulfil->getCustomerArSettings($id);
+            $fulfilArSettings = $this->fulfil->getCustomerArSettings($id);
+            $invoiceDiscount = $fulfilArSettings['invoice_discount'] ?? null;
         } catch (\Exception $e) {
-            Log::warning('Failed to fetch AR settings for customer', [
+            Log::warning('Failed to fetch invoice discount from Fulfil for customer', [
                 'customer_id' => $id,
                 'error' => $e->getMessage(),
             ]);
-            $arSettings = [
-                'edi' => false,
-                'consolidated_invoicing' => false,
-                'requires_customer_skus' => false,
-                'invoice_discount' => null,
-            ];
         }
-        $customer['ar_settings'] = $arSettings;
+        $customer['ar_settings'] = [
+            'edi' => $localMetadata?->ar_edi ?? false,
+            'consolidated_invoicing' => $localMetadata?->ar_consolidated_invoicing ?? false,
+            'requires_customer_skus' => $localMetadata?->ar_requires_customer_skus ?? false,
+            'invoice_discount' => $invoiceDiscount,
+        ];
 
         // Get broker contacts
         $brokerContacts = FulfilBrokerContact::where('fulfil_party_id', $id)->get()->map(fn ($c) => [
@@ -899,6 +904,9 @@ class ActiveCustomersController extends Controller
 
     /**
      * Update AR automation settings for a customer.
+     *
+     * edi, consolidated_invoicing, and requires_customer_skus are stored locally.
+     * invoice_discount is still stored in Fulfil metafields.
      */
     public function updateArSettings(Request $request, int $id): JsonResponse
     {
@@ -917,12 +925,21 @@ class ActiveCustomersController extends Controller
         }
 
         try {
-            $this->fulfil->updateCustomerArSettings($id, [
-                'edi' => $request->boolean('edi'),
-                'consolidated_invoicing' => $request->boolean('consolidated_invoicing'),
-                'requires_customer_skus' => $request->boolean('requires_customer_skus'),
-                'invoice_discount' => $request->input('invoice_discount'),
+            // Save local AR fields to local_customer_metadata
+            $metadata = LocalCustomerMetadata::findOrCreateForCustomer($id);
+            $metadata->update([
+                'ar_edi' => $request->boolean('edi'),
+                'ar_consolidated_invoicing' => $request->boolean('consolidated_invoicing'),
+                'ar_requires_customer_skus' => $request->boolean('requires_customer_skus'),
             ]);
+
+            // Save invoice_discount to Fulfil (the only AR field still in Fulfil)
+            $invoiceDiscount = $request->input('invoice_discount');
+            if ($invoiceDiscount !== null && $invoiceDiscount !== '') {
+                $this->fulfil->updateCustomerArSettings($id, [
+                    'invoice_discount' => $invoiceDiscount,
+                ]);
+            }
 
             return response()->json([
                 'message' => 'AR settings updated successfully',
@@ -930,7 +947,7 @@ class ActiveCustomersController extends Controller
                     'edi' => $request->boolean('edi'),
                     'consolidated_invoicing' => $request->boolean('consolidated_invoicing'),
                     'requires_customer_skus' => $request->boolean('requires_customer_skus'),
-                    'invoice_discount' => $request->input('invoice_discount'),
+                    'invoice_discount' => $invoiceDiscount,
                 ],
             ]);
         } catch (\Exception $e) {

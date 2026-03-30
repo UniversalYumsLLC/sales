@@ -1697,8 +1697,8 @@ class FulfilService
             ];
         }
 
-        // Broker contacts (optional)
-        // Format: "Broker (Company Name): Contact Name"
+        // Broker contacts (optional) — synced to Fulfil for visibility in Fulfil UI.
+        // Broker data fields (broker flag, commission, company name) are local-only.
         $brokerCompanyName = $data['broker_company_name'] ?? '';
         foreach ($data['broker_contacts'] ?? [] as $broker) {
             $mechName = $brokerCompanyName
@@ -1721,16 +1721,8 @@ class FulfilService
             'value' => 'shelf_life_req:'.$data['shelf_life_requirement'],
         ];
 
-        // Vendor guide (optional)
-        // Using type 'email' so it's exposed to data warehouse
-        if (! empty($data['vendor_guide'])) {
-            $contactMechanisms[] = [
-                'party' => $partyId,
-                'type' => 'email',
-                'name' => 'data',
-                'value' => 'vendor_guide:'.$data['vendor_guide'],
-            ];
-        }
+        // Note: vendor_guide is now stored locally in local_customer_metadata,
+        // no longer written as a Fulfil contact mechanism.
 
         // Batch create all contact mechanisms
         if (! empty($contactMechanisms)) {
@@ -1739,8 +1731,8 @@ class FulfilService
             ]);
         }
 
-        // 4. Sync metafields (shelf_life, broker, broker_commission)
-        // AR metafields are handled separately by the controller after creation.
+        // 4. Sync metafields (shelf_life only — broker/broker_commission are now local)
+        // invoice_discount is handled separately by the controller after creation.
         // Shelf life is dual-written: contact mechanism (above) + metafield (here).
         $metafields = $this->buildMetafieldPayload($data);
         if (! empty($metafields)) {
@@ -1821,10 +1813,10 @@ class FulfilService
 
         // 4. Sync contacts and/or data fields stored as contact mechanisms
         if ($this->hasContactUpdates($data)) {
-            // Full sync: contacts + data fields (buyers, AP, other, broker, shelf_life, vendor_guide)
+            // Full sync: contacts + data fields (buyers, AP, other, broker contacts, shelf_life)
             $this->syncContactMechanisms($partyId, $data);
         } elseif ($this->hasDataFieldUpdates($data)) {
-            // Lightweight sync: only data fields (shelf_life, vendor_guide)
+            // Lightweight sync: only data fields (shelf_life)
             $this->syncDataFields($partyId, $data);
         }
 
@@ -1840,8 +1832,7 @@ class FulfilService
     /**
      * Build metafield set payload from customer data array.
      *
-     * Handles both AR settings (ar_* prefixed keys) and customer detail
-     * metafields (shelf_life_requirement, broker, broker_commission).
+     * Only invoice_discount and shelf_life are still stored as Fulfil metafields.
      * Returns an empty array if no metafield-backed values are present.
      *
      * @return array<int, array{field: int, value: string|null}>
@@ -1850,29 +1841,16 @@ class FulfilService
     {
         $metafieldValues = [];
 
-        // AR settings (ar_* prefixed keys)
-        if (array_key_exists('ar_edi', $data)) {
-            $metafieldValues['edi'] = $data['ar_edi'] ? 'true' : 'false';
-        }
-        if (array_key_exists('ar_consolidated_invoicing', $data)) {
-            $metafieldValues['consolidated_invoicing'] = $data['ar_consolidated_invoicing'] ? 'true' : 'false';
-        }
-        if (array_key_exists('ar_requires_customer_skus', $data)) {
-            $metafieldValues['requires_customer_skus'] = $data['ar_requires_customer_skus'] ? 'true' : 'false';
-        }
+        // AR settings — only invoice_discount is still stored as a Fulfil metafield.
+        // edi, consolidated_invoicing, and requires_customer_skus are now local-only.
         if (array_key_exists('ar_invoice_discount', $data) && $data['ar_invoice_discount'] !== null && $data['ar_invoice_discount'] !== '') {
             $metafieldValues['invoice_discount'] = (string) $data['ar_invoice_discount'];
         }
 
-        // Customer detail metafields
+        // Customer detail metafields — only shelf_life is still stored as a Fulfil metafield.
+        // broker and broker_commission are now local-only.
         if (isset($data['shelf_life_requirement'])) {
             $metafieldValues['shelf_life'] = (string) $data['shelf_life_requirement'];
-        }
-        if (array_key_exists('broker', $data)) {
-            $metafieldValues['broker'] = $data['broker'] ? 'true' : 'false';
-        }
-        if (array_key_exists('broker_commission', $data) && $data['broker_commission'] !== '' && $data['broker_commission'] !== null) {
-            $metafieldValues['broker_commission'] = (string) $data['broker_commission'];
         }
 
         if (empty($metafieldValues)) {
@@ -1977,16 +1955,19 @@ class FulfilService
      */
     protected function hasDataFieldUpdates(array $data): bool
     {
-        return isset($data['shelf_life_requirement'])
-            || array_key_exists('vendor_guide', $data);
+        // Only shelf_life is still stored as a Fulfil contact mechanism.
+        // vendor_guide is now local-only.
+        return isset($data['shelf_life_requirement']);
     }
 
     /**
-     * Sync only data fields (shelf_life, vendor_guide) stored as contact mechanisms.
+     * Sync only data fields (shelf_life) stored as contact mechanisms.
      *
      * This is a lightweight alternative to syncContactMechanisms for when only
      * data fields are being updated (e.g. details-only saves). It fetches only
      * the "data" mechanisms instead of all contacts for the party.
+     *
+     * Note: vendor_guide was previously synced here but is now local-only.
      */
     protected function syncDataFields(int $partyId, array $data): void
     {
@@ -2000,7 +1981,6 @@ class FulfilService
 
         $toCreate = [];
         $toUpdate = [];
-        $toDelete = [];
 
         if (isset($data['shelf_life_requirement'])) {
             $existingShelfLife = collect($existing)->first(fn ($m) => str_starts_with($m['value'] ?? '', 'shelf_life_req:'));
@@ -2020,28 +2000,6 @@ class FulfilService
             }
         }
 
-        if (array_key_exists('vendor_guide', $data)) {
-            $existingVendorGuide = collect($existing)->first(fn ($m) => str_starts_with($m['value'] ?? '', 'vendor_guide:'));
-
-            if ($existingVendorGuide) {
-                if (empty($data['vendor_guide'])) {
-                    $toDelete[] = $existingVendorGuide['id'];
-                } else {
-                    $newValue = 'vendor_guide:'.$data['vendor_guide'];
-                    if ($existingVendorGuide['value'] !== $newValue) {
-                        $toUpdate[] = ['id' => $existingVendorGuide['id'], 'value' => $newValue];
-                    }
-                }
-            } elseif (! empty($data['vendor_guide'])) {
-                $toCreate[] = [
-                    'party' => $partyId,
-                    'type' => 'email',
-                    'name' => 'data',
-                    'value' => 'vendor_guide:'.$data['vendor_guide'],
-                ];
-            }
-        }
-
         if (! empty($toCreate)) {
             $this->request('POST', 'model/party.contact_mechanism', [
                 'json' => $toCreate,
@@ -2053,12 +2011,6 @@ class FulfilService
             unset($update['id']);
             $this->request('PUT', "model/party.contact_mechanism/{$id}", [
                 'json' => $update,
-            ]);
-        }
-
-        if (! empty($toDelete)) {
-            $this->request('PUT', 'model/party.contact_mechanism/delete', [
-                'json' => [$toDelete],
             ]);
         }
     }
@@ -2284,31 +2236,8 @@ class FulfilService
             }
         }
 
-        // Process vendor guide
-        if (array_key_exists('vendor_guide', $data)) {
-            $existingVendorGuide = collect($existing)->first(fn ($m) => $m['name'] === 'data' && str_starts_with($m['value'] ?? '', 'vendor_guide:'));
-
-            if ($existingVendorGuide) {
-                $matchedIds[] = $existingVendorGuide['id'];
-                if (empty($data['vendor_guide'])) {
-                    // Delete if cleared
-                    $toDelete[] = $existingVendorGuide['id'];
-                } else {
-                    $newValue = 'vendor_guide:'.$data['vendor_guide'];
-                    if ($existingVendorGuide['value'] !== $newValue) {
-                        $toUpdate[] = ['id' => $existingVendorGuide['id'], 'value' => $newValue];
-                    }
-                }
-            } elseif (! empty($data['vendor_guide'])) {
-                // Using type 'email' so it's exposed to data warehouse
-                $toCreate[] = [
-                    'party' => $partyId,
-                    'type' => 'email',
-                    'name' => 'data',
-                    'value' => 'vendor_guide:'.$data['vendor_guide'],
-                ];
-            }
-        }
+        // Note: vendor_guide is now stored locally in local_customer_metadata,
+        // no longer synced as a Fulfil contact mechanism.
 
         // Execute operations
         if (! empty($toCreate)) {
@@ -2686,10 +2615,9 @@ class FulfilService
     {
         $metafields = $this->getContactMetafields($partyId);
 
+        // Only invoice_discount is still stored as a Fulfil metafield.
+        // edi, consolidated_invoicing, and requires_customer_skus are now in local DB.
         return [
-            'edi' => (bool) ($metafields['edi'] ?? false),
-            'consolidated_invoicing' => filter_var($metafields['consolidated_invoicing'] ?? false, FILTER_VALIDATE_BOOLEAN),
-            'requires_customer_skus' => (bool) ($metafields['requires_customer_skus'] ?? false),
             'invoice_discount' => isset($metafields['invoice_discount'])
                 ? (float) $metafields['invoice_discount']
                 : null,
@@ -2697,26 +2625,17 @@ class FulfilService
     }
 
     /**
-     * Update AR automation settings for a customer.
+     * Update AR automation settings for a customer in Fulfil.
+     *
+     * Only invoice_discount is still stored in Fulfil metafields.
+     * edi, consolidated_invoicing, and requires_customer_skus are now local-only.
      *
      * @param  int  $partyId  The Fulfil party ID
-     * @param  array  $settings  Array with keys: edi, consolidated_invoicing, requires_customer_skus, invoice_discount
+     * @param  array  $settings  Array with key: invoice_discount
      */
     public function updateCustomerArSettings(int $partyId, array $settings): void
     {
         $values = [];
-
-        if (array_key_exists('edi', $settings)) {
-            $values['edi'] = $settings['edi'] ? 'true' : 'false';
-        }
-
-        if (array_key_exists('consolidated_invoicing', $settings)) {
-            $values['consolidated_invoicing'] = $settings['consolidated_invoicing'] ? 'true' : 'false';
-        }
-
-        if (array_key_exists('requires_customer_skus', $settings)) {
-            $values['requires_customer_skus'] = $settings['requires_customer_skus'] ? 'true' : 'false';
-        }
 
         if (array_key_exists('invoice_discount', $settings) && $settings['invoice_discount'] !== null && $settings['invoice_discount'] !== '') {
             $values['invoice_discount'] = (string) $settings['invoice_discount'];
