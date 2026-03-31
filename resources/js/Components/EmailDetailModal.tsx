@@ -1,3 +1,4 @@
+import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
@@ -103,20 +104,9 @@ export default function EmailDetailModal({ entityType, entityId, emailId, onClos
                     ? route('prospects.emails.show', { prospectId: entityId, emailId })
                     : route('customers.emails.show', { customerId: entityId, emailId });
 
-                const response = await fetch(url, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch email');
-                }
-
-                const data = await response.json();
-                setEmail(data.email);
-                setThread(data.thread || []);
+                const response = await axios.get(url);
+                setEmail(response.data.email);
+                setThread(response.data.thread || []);
             } catch (err) {
                 setError('Failed to load email');
                 console.error('Error fetching email:', err);

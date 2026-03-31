@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
+import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { useState, useRef, useEffect } from 'react';
 
@@ -56,29 +57,20 @@ export default function EmailTemplates({ templates }: Props) {
         setNotification(null);
 
         try {
-            const response = await fetch(route('admin.email-templates.update', { key: selectedKey }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ subject, body }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setNotification({ type: 'success', message: 'Template saved successfully' });
-            } else if (data.errors) {
-                // Laravel validation errors
-                const firstError = Object.values(data.errors).flat()[0] as string;
-                setNotification({ type: 'error', message: firstError || 'Validation failed' });
-            } else {
-                setNotification({ type: 'error', message: data.message || 'Failed to save template' });
-            }
+            await axios.put(route('admin.email-templates.update', { key: selectedKey }), { subject, body });
+            setNotification({ type: 'success', message: 'Template saved successfully' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'An error occurred while saving' });
+            if (axios.isAxiosError(error)) {
+                const data = error.response?.data;
+                if (data?.errors) {
+                    const firstError = Object.values(data.errors).flat()[0] as string;
+                    setNotification({ type: 'error', message: firstError || 'Validation failed' });
+                } else {
+                    setNotification({ type: 'error', message: data?.message || 'Failed to save template' });
+                }
+            } else {
+                setNotification({ type: 'error', message: 'An error occurred while saving' });
+            }
         } finally {
             setSaving(false);
         }

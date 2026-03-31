@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import EmailActivityPanel from '@/Components/EmailActivityPanel';
 import { Head, Link, router } from '@inertiajs/react';
+import axios from 'axios';
 import { useState, useEffect } from 'react';
 
 interface Contact {
@@ -372,27 +373,18 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     const saveCompanyUrls = async () => {
         setSaving(true);
         try {
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
-                }),
+            await axios.put(route('prospects.update', prospect.id), {
+                company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
             });
-
-            if (response.ok) {
-                setEditingCompanyUrls(false);
-                setNewCompanyUrl('');
-                router.reload({ only: ['prospect'] });
+            setEditingCompanyUrls(false);
+            setNewCompanyUrl('');
+            router.reload({ only: ['prospect'] });
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Failed to save changes');
             } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
+                alert('An error occurred while saving.');
             }
-        } catch {
-            alert('An error occurred while saving.');
         } finally {
             setSaving(false);
         }
@@ -401,23 +393,14 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     const handleStatusChange = async (newStatus: string) => {
         setSaving(true);
         try {
-            const response = await fetch(`/prospects/${prospect.id}/status`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ status: newStatus }),
-            });
-
-            if (response.ok) {
-                router.reload({ only: ['prospect'] });
+            await axios.patch(`/prospects/${prospect.id}/status`, { status: newStatus });
+            router.reload({ only: ['prospect'] });
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Failed to update status');
             } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to update status');
+                alert('An error occurred while updating status.');
             }
-        } catch {
-            alert('An error occurred while updating status.');
         } finally {
             setSaving(false);
         }
@@ -457,37 +440,28 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
 
         setSaving(true);
         try {
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    company_name: detailsForm.company_name,
-                    discount_percent: selectedPriceList?.discount_percent ?? null,
-                    payment_terms: selectedPaymentTerm?.name || null,
-                    shipping_terms: selectedShippingTerm?.name || null,
-                    shelf_life_requirement: detailsForm.shelf_life_requirement ? parseInt(detailsForm.shelf_life_requirement) : null,
-                    vendor_guide: detailsForm.vendor_guide || null,
-                    broker: detailsForm.broker === 'true',
-                    customer_type: detailsForm.customer_type || null,
-                    ar_edi: detailsForm.ar_edi,
-                    ar_consolidated_invoicing: detailsForm.ar_consolidated_invoicing,
-                    ar_requires_customer_skus: detailsForm.ar_requires_customer_skus,
-                    ar_invoice_discount: detailsForm.ar_invoice_discount ? parseFloat(detailsForm.ar_invoice_discount) : null,
-                }),
+            await axios.put(route('prospects.update', prospect.id), {
+                company_name: detailsForm.company_name,
+                discount_percent: selectedPriceList?.discount_percent ?? null,
+                payment_terms: selectedPaymentTerm?.name || null,
+                shipping_terms: selectedShippingTerm?.name || null,
+                shelf_life_requirement: detailsForm.shelf_life_requirement ? parseInt(detailsForm.shelf_life_requirement) : null,
+                vendor_guide: detailsForm.vendor_guide || null,
+                broker: detailsForm.broker === 'true',
+                customer_type: detailsForm.customer_type || null,
+                ar_edi: detailsForm.ar_edi,
+                ar_consolidated_invoicing: detailsForm.ar_consolidated_invoicing,
+                ar_requires_customer_skus: detailsForm.ar_requires_customer_skus,
+                ar_invoice_discount: detailsForm.ar_invoice_discount ? parseFloat(detailsForm.ar_invoice_discount) : null,
             });
-
-            if (response.ok) {
-                setEditingDetails(false);
-                router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
-            }
+            setEditingDetails(false);
+            router.reload({ only: ['prospect'] });
         } catch (error) {
-            alert('Failed to save changes');
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Failed to save changes');
+            } else {
+                alert('Failed to save changes');
+            }
         } finally {
             setSaving(false);
         }
@@ -511,34 +485,25 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             }
             // If ap_method is '', send empty array
 
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    buyers: cleanContacts(contactsForm.buyers),
-                    accounts_payable: accountsPayable,
-                    other: contactsForm.other.filter(c => c.name.trim()).map(c => ({
-                        name: c.name.trim(),
-                        value: c.value?.trim() || '',
-                        function: c.function?.trim() || '',
-                    })),
-                    uncategorized: cleanContacts(contactsForm.uncategorized),
-                }),
+            await axios.put(route('prospects.update', prospect.id), {
+                buyers: cleanContacts(contactsForm.buyers),
+                accounts_payable: accountsPayable,
+                other: contactsForm.other.filter(c => c.name.trim()).map(c => ({
+                    name: c.name.trim(),
+                    value: c.value?.trim() || '',
+                    function: c.function?.trim() || '',
+                })),
+                uncategorized: cleanContacts(contactsForm.uncategorized),
             });
-
-            if (response.ok) {
-                setEditingContacts(false);
-                setCategorizingContacts({});
-                router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
-            }
+            setEditingContacts(false);
+            setCategorizingContacts({});
+            router.reload({ only: ['prospect'] });
         } catch (error) {
-            alert('Failed to save changes');
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Failed to save changes');
+            } else {
+                alert('Failed to save changes');
+            }
         } finally {
             setSaving(false);
         }
@@ -547,28 +512,19 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     const saveProducts = async () => {
         setSaving(true);
         try {
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    product_ids: productsForm.product_ids,
-                }),
+            await axios.put(route('prospects.update', prospect.id), {
+                product_ids: productsForm.product_ids,
             });
-
-            if (response.ok) {
-                setEditingProducts(false);
-                setProductSearch('');
-                setShowProductDropdown(false);
-                router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
-            }
+            setEditingProducts(false);
+            setProductSearch('');
+            setShowProductDropdown(false);
+            router.reload({ only: ['prospect'] });
         } catch (error) {
-            alert('Failed to save changes');
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Failed to save changes');
+            } else {
+                alert('Failed to save changes');
+            }
         } finally {
             setSaving(false);
         }
@@ -667,24 +623,15 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         if (!contactId || !newType) return;
 
         try {
-            const response = await fetch(route('prospects.contacts.categorize', { prospectId: prospect.id, contactId }), {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ type: newType }),
-            });
-
-            if (response.ok) {
-                setCategorizingContacts({});
-                router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to categorize contact');
-            }
+            await axios.patch(route('prospects.contacts.categorize', { prospectId: prospect.id, contactId }), { type: newType });
+            setCategorizingContacts({});
+            router.reload({ only: ['prospect'] });
         } catch (error) {
-            alert('Failed to categorize contact');
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Failed to categorize contact');
+            } else {
+                alert('Failed to categorize contact');
+            }
         }
     };
 
@@ -726,29 +673,20 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             const cleanContacts = (contacts: BrokerContact[]) =>
                 contacts.filter(c => c.name).map(c => ({ name: c.name, value: c.value || '' }));
 
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    broker: detailsForm.broker === 'true',
-                    broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
-                    broker_company_name: detailsForm.broker_company_name || null,
-                    broker_contacts: cleanContacts(brokerContactsForm.broker_contacts),
-                }),
+            await axios.put(route('prospects.update', prospect.id), {
+                broker: detailsForm.broker === 'true',
+                broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
+                broker_company_name: detailsForm.broker_company_name || null,
+                broker_contacts: cleanContacts(brokerContactsForm.broker_contacts),
             });
-
-            if (response.ok) {
-                setEditingBroker(false);
-                router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save broker settings');
-            }
+            setEditingBroker(false);
+            router.reload({ only: ['prospect'] });
         } catch (error) {
-            alert('Failed to save broker settings');
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Failed to save broker settings');
+            } else {
+                alert('Failed to save broker settings');
+            }
         } finally {
             setSaving(false);
         }

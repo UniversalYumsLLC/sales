@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
+import axios from 'axios';
 import { useState, Fragment } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 
@@ -111,25 +112,15 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
         setMessage(null);
 
         try {
-            const response = await fetch(route('invoices.pdf.regenerate', { id: invoiceId }), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setMessage({ type: 'success', text: 'PDF regenerated successfully' });
-                // Open the newly generated PDF
-                window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
-            } else {
-                setMessage({ type: 'error', text: data.message || 'Failed to regenerate PDF' });
-            }
+            await axios.post(route('invoices.pdf.regenerate', { id: invoiceId }));
+            setMessage({ type: 'success', text: 'PDF regenerated successfully' });
+            window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
         } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to regenerate PDF' });
+            if (axios.isAxiosError(error)) {
+                setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to regenerate PDF' });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to regenerate PDF' });
+            }
         } finally {
             setRegeneratingPdf(null);
             setTimeout(() => setMessage(null), 5000);
@@ -143,24 +134,14 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
         setMessage(null);
 
         try {
-            const response = await fetch(route('invoices.resend-email', { id: invoiceId }), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ email_type: emailType }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setMessage({ type: 'success', text: `Email sent successfully` });
-            } else {
-                setMessage({ type: 'error', text: data.message || 'Failed to send email' });
-            }
+            await axios.post(route('invoices.resend-email', { id: invoiceId }), { email_type: emailType });
+            setMessage({ type: 'success', text: `Email sent successfully` });
         } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to send email' });
+            if (axios.isAxiosError(error)) {
+                setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to send email' });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to send email' });
+            }
         } finally {
             setSendingEmail(null);
             setTimeout(() => setMessage(null), 5000);

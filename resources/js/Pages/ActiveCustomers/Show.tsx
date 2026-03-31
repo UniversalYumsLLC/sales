@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import EmailActivityPanel from '@/Components/EmailActivityPanel';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import axios from 'axios';
 import { useState, useEffect } from 'react';
 
 interface Contact {
@@ -600,38 +601,29 @@ export default function Show({
         try {
             // Save customer details and AR settings in a single request
             // so they're written to Fulfil atomically (avoiding metafield race conditions)
-            const response = await fetch(route('customers.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    name: detailsForm.name,
-                    sale_price_list: parseInt(detailsForm.sale_price_list),
-                    customer_payment_term: parseInt(detailsForm.customer_payment_term),
-                    shipping_terms_category_id: parseInt(detailsForm.shipping_terms_category_id),
-                    shelf_life_requirement: parseInt(detailsForm.shelf_life_requirement),
-                    vendor_guide: detailsForm.vendor_guide || null,
-                    // AR settings (saved atomically with party data)
-                    ar_edi: arSettingsForm.edi,
-                    ar_consolidated_invoicing: arSettingsForm.consolidated_invoicing,
-                    ar_requires_customer_skus: arSettingsForm.requires_customer_skus,
-                    ar_invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
-                    // Note: broker is updated via the broker section, not here
-                }),
+            await axios.put(route('customers.update', customer.id), {
+                name: detailsForm.name,
+                sale_price_list: parseInt(detailsForm.sale_price_list),
+                customer_payment_term: parseInt(detailsForm.customer_payment_term),
+                shipping_terms_category_id: parseInt(detailsForm.shipping_terms_category_id),
+                shelf_life_requirement: parseInt(detailsForm.shelf_life_requirement),
+                vendor_guide: detailsForm.vendor_guide || null,
+                // AR settings (saved atomically with party data)
+                ar_edi: arSettingsForm.edi,
+                ar_consolidated_invoicing: arSettingsForm.consolidated_invoicing,
+                ar_requires_customer_skus: arSettingsForm.requires_customer_skus,
+                ar_invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
+                // Note: broker is updated via the broker section, not here
             });
-
-            if (response.ok) {
-                setEditingDetails(false);
-                setNotification({ type: 'success', message: 'Customer details updated successfully' });
-                router.reload({ only: ['customer'] });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
-            }
+            setEditingDetails(false);
+            setNotification({ type: 'success', message: 'Customer details updated successfully' });
+            router.reload({ only: ['customer'] });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to save changes' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
+            }
         } finally {
             setSaving(false);
         }
@@ -649,33 +641,24 @@ export default function Show({
 
         setSaving(true);
         try {
-            const response = await fetch(route('customers.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    buyers: contactsForm.buyers,
-                    accounts_payable: accountsPayable,
-                    other: contactsForm.other.map(o => ({
-                        name: o.name,
-                        email: o.email,
-                        function: o.function || '',
-                    })),
-                }),
+            await axios.put(route('customers.update', customer.id), {
+                buyers: contactsForm.buyers,
+                accounts_payable: accountsPayable,
+                other: contactsForm.other.map(o => ({
+                    name: o.name,
+                    email: o.email,
+                    function: o.function || '',
+                })),
             });
-
-            if (response.ok) {
-                setEditingContacts(false);
-                setNotification({ type: 'success', message: 'Contacts updated successfully' });
-                router.reload({ only: ['customer', 'buyerContacts', 'localBuyers', 'localAP', 'localOther'] });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
-            }
+            setEditingContacts(false);
+            setNotification({ type: 'success', message: 'Contacts updated successfully' });
+            router.reload({ only: ['customer', 'buyerContacts', 'localBuyers', 'localAP', 'localOther'] });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to save changes' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
+            }
         } finally {
             setSaving(false);
         }
@@ -691,30 +674,20 @@ export default function Show({
 
         setAddingSku(true);
         try {
-            const response = await fetch(route('customers.skus.store', customer.id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    yums_sku: newSkuYums,
-                    customer_sku: newSkuCustomer,
-                }),
+            const response = await axios.post(route('customers.skus.store', customer.id), {
+                yums_sku: newSkuYums,
+                customer_sku: newSkuCustomer,
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                setCustomerSkus(prev => [...prev, data.sku]);
-                setNewSkuYums('');
-                setNewSkuCustomer('');
-                setNotification({ type: 'success', message: 'SKU mapping added successfully' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to add SKU mapping' });
-            }
+            setCustomerSkus(prev => [...prev, response.data.sku]);
+            setNewSkuYums('');
+            setNewSkuCustomer('');
+            setNotification({ type: 'success', message: 'SKU mapping added successfully' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to add SKU mapping. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to add SKU mapping' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to add SKU mapping. Please try again.' });
+            }
         } finally {
             setAddingSku(false);
         }
@@ -724,22 +697,15 @@ export default function Show({
         if (!confirm('Are you sure you want to delete this SKU mapping?')) return;
 
         try {
-            const response = await fetch(route('customers.skus.destroy', { customerId: customer.id, skuId }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
-                setCustomerSkus(prev => prev.filter(s => s.id !== skuId));
-                setNotification({ type: 'success', message: 'SKU mapping deleted successfully' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete SKU mapping' });
-            }
+            await axios.delete(route('customers.skus.destroy', { customerId: customer.id, skuId }));
+            setCustomerSkus(prev => prev.filter(s => s.id !== skuId));
+            setNotification({ type: 'success', message: 'SKU mapping deleted successfully' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete SKU mapping. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to delete SKU mapping' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to delete SKU mapping. Please try again.' });
+            }
         }
     };
 
@@ -758,29 +724,13 @@ export default function Show({
         try {
             setNotification({ type: 'success', message: `Regenerating PDF for invoice ${invoiceNumber || invoiceId}...` });
 
-            const response = await fetch(route('invoices.pdf.regenerate', { id: invoiceId }), {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                    'Accept': 'application/pdf',
-                },
+            const response = await axios.post(route('invoices.pdf.regenerate', { id: invoiceId }), {}, {
+                responseType: 'blob',
+                headers: { 'Accept': 'application/pdf' },
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ message: 'Failed to regenerate PDF' }));
-                if (errorData.error === 'sku_mapping_required' && errorData.unmapped_skus) {
-                    setNotification({
-                        type: 'error',
-                        message: `Cannot generate PDF: unmapped SKUs: ${errorData.unmapped_skus.join(', ')}. Please add the missing SKU mappings.`
-                    });
-                } else {
-                    setNotification({ type: 'error', message: errorData.message || 'Failed to regenerate PDF' });
-                }
-                return;
-            }
-
             // Handle the PDF blob response
-            const blob = await response.blob();
+            const blob = new Blob([response.data], { type: 'application/pdf' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -792,8 +742,31 @@ export default function Show({
 
             setNotification({ type: 'success', message: `PDF regenerated for invoice ${invoiceNumber || invoiceId}` });
         } catch (error) {
-            console.error('Error regenerating PDF:', error);
-            setNotification({ type: 'error', message: 'Failed to regenerate PDF. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                // When responseType is 'blob', error response data is also a blob — parse it
+                const errorData = error.response?.data;
+                if (errorData instanceof Blob) {
+                    try {
+                        const text = await errorData.text();
+                        const parsed = JSON.parse(text);
+                        if (parsed.error === 'sku_mapping_required' && parsed.unmapped_skus) {
+                            setNotification({
+                                type: 'error',
+                                message: `Cannot generate PDF: unmapped SKUs: ${parsed.unmapped_skus.join(', ')}. Please add the missing SKU mappings.`
+                            });
+                        } else {
+                            setNotification({ type: 'error', message: parsed.message || 'Failed to regenerate PDF' });
+                        }
+                    } catch {
+                        setNotification({ type: 'error', message: 'Failed to regenerate PDF' });
+                    }
+                } else {
+                    setNotification({ type: 'error', message: errorData?.message || 'Failed to regenerate PDF' });
+                }
+            } else {
+                console.error('Error regenerating PDF:', error);
+                setNotification({ type: 'error', message: 'Failed to regenerate PDF. Please try again.' });
+            }
         }
     };
 
@@ -871,25 +844,16 @@ export default function Show({
         if (!contactId || !newType) return;
 
         try {
-            const response = await fetch(route('customers.contacts.categorize', { customerId: customer.id, contactId }), {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ type: newType }),
-            });
-
-            if (response.ok) {
-                setCategorizingContacts({});
-                setNotification({ type: 'success', message: 'Contact categorized successfully' });
-                router.reload();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to categorize contact' });
-            }
+            await axios.patch(route('customers.contacts.categorize', { customerId: customer.id, contactId }), { type: newType });
+            setCategorizingContacts({});
+            setNotification({ type: 'success', message: 'Contact categorized successfully' });
+            router.reload();
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to categorize contact. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to categorize contact' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to categorize contact. Please try again.' });
+            }
         }
     };
 
@@ -898,22 +862,15 @@ export default function Show({
         if (!confirm('Are you sure you want to delete this contact?')) return;
 
         try {
-            const response = await fetch(route('customers.contacts.delete', { customerId: customer.id, contactId }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
-                setNotification({ type: 'success', message: 'Contact deleted successfully' });
-                router.reload();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
-            }
+            await axios.delete(route('customers.contacts.delete', { customerId: customer.id, contactId }));
+            setNotification({ type: 'success', message: 'Contact deleted successfully' });
+            router.reload();
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete contact. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to delete contact' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to delete contact. Please try again.' });
+            }
         }
     };
 
@@ -977,31 +934,21 @@ export default function Show({
     const saveBroker = async () => {
         setSaving(true);
         try {
-            // First update broker flag and commission
-            const brokerResponse = await fetch(route('customers.broker.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    broker: detailsForm.broker === 'true',
-                    broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
-                    broker_company_name: detailsForm.broker_company_name || null,
-                    broker_contacts: brokerContactsForm.filter(c => c.name.trim()),
-                }),
+            await axios.put(route('customers.broker.update', customer.id), {
+                broker: detailsForm.broker === 'true',
+                broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
+                broker_company_name: detailsForm.broker_company_name || null,
+                broker_contacts: brokerContactsForm.filter(c => c.name.trim()),
             });
-
-            if (brokerResponse.ok) {
-                setEditingBroker(false);
-                setNotification({ type: 'success', message: 'Broker settings updated successfully' });
-                router.reload();
-            } else {
-                const data = await brokerResponse.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save broker settings' });
-            }
+            setEditingBroker(false);
+            setNotification({ type: 'success', message: 'Broker settings updated successfully' });
+            router.reload();
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save broker settings. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to save broker settings' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to save broker settings. Please try again.' });
+            }
         } finally {
             setSaving(false);
         }
@@ -1013,25 +960,16 @@ export default function Show({
 
         setChangingCustomerType(true);
         try {
-            const response = await fetch(route('customers.update-customer-type', customer.id), {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ customer_type: newType }),
-            });
-
-            if (response.ok) {
-                setCustomerType(newType);
-                setNotification({ type: 'success', message: `Customer type updated to ${newType}` });
-                router.reload();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update customer type' });
-            }
+            await axios.patch(route('customers.update-customer-type', customer.id), { customer_type: newType });
+            setCustomerType(newType);
+            setNotification({ type: 'success', message: `Customer type updated to ${newType}` });
+            router.reload();
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update customer type' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to update customer type' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to update customer type' });
+            }
         } finally {
             setChangingCustomerType(false);
         }
@@ -1055,26 +993,16 @@ export default function Show({
 
         setAddingDistributorCustomer(true);
         try {
-            const response = await fetch(route('customers.distributor-customers.create', customer.id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ name: newDistributorCustomerName.trim() }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers(prev => [...prev, data.distributor_customer]);
-                setNewDistributorCustomerName('');
-                setNotification({ type: 'success', message: 'Distributor customer added' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to add distributor customer' });
-            }
+            const response = await axios.post(route('customers.distributor-customers.create', customer.id), { name: newDistributorCustomerName.trim() });
+            setLocalDistributorCustomers(prev => [...prev, response.data.distributor_customer]);
+            setNewDistributorCustomerName('');
+            setNotification({ type: 'success', message: 'Distributor customer added' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to add distributor customer' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to add distributor customer' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to add distributor customer' });
+            }
         } finally {
             setAddingDistributorCustomer(false);
         }
@@ -1085,23 +1013,16 @@ export default function Show({
 
         setDeletingDC(true);
         try {
-            const response = await fetch(route('customers.distributor-customers.delete', { customerId: customer.id, distributorCustomerId: deleteConfirmDC.id }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
-                setLocalDistributorCustomers(prev => prev.filter(dc => dc.id !== deleteConfirmDC.id));
-                setDeleteConfirmDC(null);
-                setNotification({ type: 'success', message: 'Distributor customer deleted' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete' });
-            }
+            await axios.delete(route('customers.distributor-customers.delete', { customerId: customer.id, distributorCustomerId: deleteConfirmDC.id }));
+            setLocalDistributorCustomers(prev => prev.filter(dc => dc.id !== deleteConfirmDC.id));
+            setDeleteConfirmDC(null);
+            setNotification({ type: 'success', message: 'Distributor customer deleted' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete distributor customer' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to delete' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to delete distributor customer' });
+            }
         } finally {
             setDeletingDC(false);
         }
@@ -1109,27 +1030,19 @@ export default function Show({
 
     const updateDistributorCustomerUrls = async (dcId: number, urls: string[]) => {
         try {
-            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ company_urls: urls.filter(u => u.trim()) }),
+            const response = await axios.put(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
+                company_urls: urls.filter(u => u.trim()),
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, company_urls: data.distributor_customer.company_urls } : dc
-                ));
-                setNotification({ type: 'success', message: 'Domains updated' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update domains' });
-            }
+            setLocalDistributorCustomers(prev => prev.map(dc =>
+                dc.id === dcId ? { ...dc, company_urls: response.data.distributor_customer.company_urls } : dc
+            ));
+            setNotification({ type: 'success', message: 'Domains updated' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update domains' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to update domains' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to update domains' });
+            }
         }
     };
 
@@ -1151,31 +1064,21 @@ export default function Show({
 
         setSavingDC(true);
         try {
-            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: editingDCId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    name: editingDCName.trim(),
-                    company_urls: editingDCUrls.filter(u => u.trim()),
-                }),
+            const response = await axios.put(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: editingDCId }), {
+                name: editingDCName.trim(),
+                company_urls: editingDCUrls.filter(u => u.trim()),
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === editingDCId ? { ...dc, name: data.distributor_customer.name, company_urls: data.distributor_customer.company_urls } : dc
-                ));
-                setNotification({ type: 'success', message: 'Distributor customer updated' });
-                cancelEditingDC();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update' });
-            }
+            setLocalDistributorCustomers(prev => prev.map(dc =>
+                dc.id === editingDCId ? { ...dc, name: response.data.distributor_customer.name, company_urls: response.data.distributor_customer.company_urls } : dc
+            ));
+            setNotification({ type: 'success', message: 'Distributor customer updated' });
+            cancelEditingDC();
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update distributor customer' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to update' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to update distributor customer' });
+            }
         } finally {
             setSavingDC(false);
         }
@@ -1199,28 +1102,18 @@ export default function Show({
 
         setAddingDCContact(true);
         try {
-            const response = await fetch(route('distributor-customers.contacts.create', { distributorCustomerId: dcId }), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ email: newDCContactEmail.trim() }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, contacts: [...(dc.contacts || []), data.contact] } : dc
-                ));
-                setNewDCContactEmail('');
-                setNotification({ type: 'success', message: 'Contact added' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to add contact' });
-            }
+            const response = await axios.post(route('distributor-customers.contacts.create', { distributorCustomerId: dcId }), { email: newDCContactEmail.trim() });
+            setLocalDistributorCustomers(prev => prev.map(dc =>
+                dc.id === dcId ? { ...dc, contacts: [...(dc.contacts || []), response.data.contact] } : dc
+            ));
+            setNewDCContactEmail('');
+            setNotification({ type: 'success', message: 'Contact added' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to add contact' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to add contact' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to add contact' });
+            }
         } finally {
             setAddingDCContact(false);
         }
@@ -1243,34 +1136,24 @@ export default function Show({
 
         setSavingDCContact(true);
         try {
-            const response = await fetch(route('distributor-customers.contacts.update', { distributorCustomerId: dcId, contactId: editingDCContactId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    name: editingDCContactName.trim(),
-                    type: editingDCContactType,
-                }),
+            const response = await axios.put(route('distributor-customers.contacts.update', { distributorCustomerId: dcId, contactId: editingDCContactId }), {
+                name: editingDCContactName.trim(),
+                type: editingDCContactType,
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? {
-                        ...dc,
-                        contacts: dc.contacts.map(c => c.id === editingDCContactId ? data.contact : c)
-                    } : dc
-                ));
-                setNotification({ type: 'success', message: 'Contact updated' });
-                cancelEditingDCContact();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update contact' });
-            }
+            setLocalDistributorCustomers(prev => prev.map(dc =>
+                dc.id === dcId ? {
+                    ...dc,
+                    contacts: dc.contacts.map(c => c.id === editingDCContactId ? response.data.contact : c)
+                } : dc
+            ));
+            setNotification({ type: 'success', message: 'Contact updated' });
+            cancelEditingDCContact();
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update contact' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to update contact' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to update contact' });
+            }
         } finally {
             setSavingDCContact(false);
         }
@@ -1279,24 +1162,17 @@ export default function Show({
     const deleteDistributorCustomerContact = async (dcId: number, contactId: number) => {
         setDeletingDCContactId(contactId);
         try {
-            const response = await fetch(route('distributor-customers.contacts.delete', { distributorCustomerId: dcId, contactId }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, contacts: dc.contacts.filter(c => c.id !== contactId) } : dc
-                ));
-                setNotification({ type: 'success', message: 'Contact deleted' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
-            }
+            await axios.delete(route('distributor-customers.contacts.delete', { distributorCustomerId: dcId, contactId }));
+            setLocalDistributorCustomers(prev => prev.map(dc =>
+                dc.id === dcId ? { ...dc, contacts: dc.contacts.filter(c => c.id !== contactId) } : dc
+            ));
+            setNotification({ type: 'success', message: 'Contact deleted' });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete contact' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to delete contact' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to delete contact' });
+            }
         } finally {
             setDeletingDCContactId(null);
         }
@@ -1327,27 +1203,18 @@ export default function Show({
     const saveCompanyUrls = async () => {
         setSaving(true);
         try {
-            const response = await fetch(route('customers.update-company-urls', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
-                }),
+            await axios.put(route('customers.update-company-urls', customer.id), {
+                company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
             });
-
-            if (response.ok) {
-                setEditingCompanyUrls(false);
-                setNotification({ type: 'success', message: 'Company domains updated successfully' });
-                router.reload({ only: ['customer'] });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
-            }
+            setEditingCompanyUrls(false);
+            setNotification({ type: 'success', message: 'Company domains updated successfully' });
+            router.reload({ only: ['customer'] });
         } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
+            if (axios.isAxiosError(error)) {
+                setNotification({ type: 'error', message: error.response?.data?.message || 'Failed to save changes' });
+            } else {
+                setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
+            }
         } finally {
             setSaving(false);
         }

@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
+import axios from 'axios';
 import { useState } from 'react';
 
 interface Props {
@@ -27,34 +28,26 @@ export default function Settings({ settings, testModeInfo, environment }: Props)
         setNotification(null);
 
         try {
-            const response = await fetch(route('admin.settings.update'), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ ar_test_mode: newValue }),
+            const response = await axios.put(route('admin.settings.update'), { ar_test_mode: newValue });
+            const data = response.data;
+
+            setTestMode(data.settings.ar_test_mode);
+            setNotification({
+                type: 'success',
+                message: `Test Mode ${data.settings.ar_test_mode ? 'enabled' : 'disabled'} successfully`,
             });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setTestMode(data.settings.ar_test_mode);
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
                 setNotification({
-                    type: 'success',
-                    message: `Test Mode ${data.settings.ar_test_mode ? 'enabled' : 'disabled'} successfully`,
+                    type: 'error',
+                    message: error.response?.data?.message || 'Failed to update settings',
                 });
             } else {
                 setNotification({
                     type: 'error',
-                    message: data.message || 'Failed to update settings',
+                    message: 'An error occurred while updating settings',
                 });
             }
-        } catch (error) {
-            setNotification({
-                type: 'error',
-                message: 'An error occurred while updating settings',
-            });
         } finally {
             setSaving(false);
         }

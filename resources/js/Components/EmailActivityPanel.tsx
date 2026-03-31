@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useState, useEffect } from 'react';
 import EmailDetailModal from './EmailDetailModal';
 
@@ -114,25 +115,14 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                 ? route('prospects.emails', { id: entityId, per_page: 10, page })
                 : route('customers.emails', { id: entityId, per_page: 10, page });
 
-            const response = await fetch(url, {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch emails');
-            }
-
-            const data = await response.json();
+            const response = await axios.get(url);
 
             if (page === 1) {
-                setEmails(data.emails);
+                setEmails(response.data.emails);
             } else {
-                setEmails(prev => [...prev, ...data.emails]);
+                setEmails(prev => [...prev, ...response.data.emails]);
             }
-            setPagination(data.pagination);
+            setPagination(response.data.pagination);
         } catch (err) {
             setError('Failed to load emails');
             console.error('Error fetching emails:', err);
