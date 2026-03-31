@@ -28,15 +28,6 @@ export default function EmailTemplates({ templates }: Props) {
     const [showPreview, setShowPreview] = useState(false);
     const editorRef = useRef<HTMLDivElement>(null);
 
-    // Reset local state when server provides fresh template data (e.g. Inertia re-navigation)
-    useEffect(() => {
-        setLocalTemplates(templates);
-        const first = templates[0];
-        setSelectedKey(first?.key || '');
-        setSubject(first?.subject || '');
-        setBody(first?.body || '');
-    }, [templates]);
-
     const selectedTemplate = localTemplates.find(t => t.key === selectedKey);
 
     const handleTemplateChange = (key: string) => {
