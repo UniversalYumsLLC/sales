@@ -21,22 +21,14 @@ interface Props {
 export default function EmailTemplates({ templates }: Props) {
     const [localTemplates, setLocalTemplates] = useState<Template[]>(templates);
     const [selectedKey, setSelectedKey] = useState<string>(templates[0]?.key || '');
-    const [subject, setSubject] = useState('');
-    const [body, setBody] = useState('');
+    const [subject, setSubject] = useState(templates[0]?.subject || '');
+    const [body, setBody] = useState(templates[0]?.body || '');
     const [saving, setSaving] = useState(false);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [showPreview, setShowPreview] = useState(false);
     const editorRef = useRef<HTMLDivElement>(null);
 
     const selectedTemplate = localTemplates.find(t => t.key === selectedKey);
-
-    // Set initial template content on mount
-    useEffect(() => {
-        if (selectedTemplate) {
-            setSubject(selectedTemplate.subject);
-            setBody(selectedTemplate.body);
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleTemplateChange = (key: string) => {
         const template = localTemplates.find(t => t.key === key);
