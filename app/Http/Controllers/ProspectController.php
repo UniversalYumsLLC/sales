@@ -106,7 +106,7 @@ class ProspectController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $sanitized = CompanyFields::sanitizeContacts($request->all());
+        $sanitized = CompanyFields::sanitizeInput($request->all());
 
         $rules = array_merge(
             ['company_name' => ['required', 'string', 'min:2', 'max:255']],
@@ -362,7 +362,7 @@ class ProspectController extends Controller
     {
         $prospect = Prospect::findOrFail($id);
 
-        $sanitized = CompanyFields::sanitizeContacts($request->all());
+        $sanitized = CompanyFields::sanitizeInput($request->all());
 
         $rules = array_merge(
             ['company_name' => ['sometimes', 'string', 'min:2', 'max:255']],

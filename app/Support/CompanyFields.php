@@ -198,12 +198,15 @@ class CompanyFields
     // ──────────────────────────────────────────────
 
     /**
-     * Strip out blank placeholder entries from contact arrays.
+     * Sanitize incoming request data before validation.
      *
-     * The frontend initialises empty contact rows for the user to type into.
-     * These must be removed before validation.
+     * - Strips blank placeholder entries from contact arrays (the frontend
+     *   initialises empty rows for the user to type into).
+     * - Casts boolean-like strings to actual booleans so Laravel's strict
+     *   'boolean' validation rule accepts them (HTTP form data may arrive
+     *   as strings like 'true'/'false').
      */
-    public static function sanitizeContacts(array $data): array
+    public static function sanitizeInput(array $data): array
     {
         $contactFields = [
             'buyers' => 'name',
@@ -219,6 +222,13 @@ class CompanyFields
                     $data[$field],
                     fn ($entry) => ! empty(trim($entry[$keyField] ?? ''))
                 ));
+            }
+        }
+
+        $booleanFields = ['broker', 'ar_edi', 'ar_consolidated_invoicing', 'ar_requires_customer_skus'];
+        foreach ($booleanFields as $field) {
+            if (array_key_exists($field, $data)) {
+                $data[$field] = filter_var($data[$field], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             }
         }
 

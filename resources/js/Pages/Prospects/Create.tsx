@@ -75,7 +75,7 @@ function isValidUrl(url: string): boolean {
 }
 
 export default function Create({ products = [], priceLists = [], paymentTerms = [], shippingTerms = [] }: Props) {
-    const { data, setData, post, processing, errors: serverErrors } = useForm({
+    const { data, setData, post, processing, errors, transform } = useForm({
         company_name: '',
         company_urls: [] as string[],
         // Commercial terms (stored as display values for prospects)
@@ -105,8 +105,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
         product_ids: [] as number[],
     });
 
-    // Cast errors to include potential general error from server
-    const errors = serverErrors as typeof serverErrors & { general?: string };
 
     const [newUrl, setNewUrl] = useState('');
     const [touched, setTouched] = useState<TouchedFields>({});
@@ -294,33 +292,29 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
             accountsPayable = data.accounts_payable.filter(ap => ap.name.trim());
         }
 
-        // Use setData to update the form before posting - but since Inertia's post
-        // uses the current data state, we need to use the transform option
-        post(route('prospects.store'), {
-            // @ts-expect-error - Inertia transform types
-            transform: (formData: typeof data) => ({
-                company_name: formData.company_name,
-                company_urls: formData.company_urls,
-                discount_percent: selectedPriceList?.discount_percent ?? null,
-                payment_terms: selectedPaymentTerm?.name || null,
-                shipping_terms: selectedShippingTerm?.name || null,
-                shelf_life_requirement: formData.shelf_life_requirement ? parseInt(formData.shelf_life_requirement) : null,
-                vendor_guide: formData.vendor_guide || null,
-                broker: formData.broker === 'true',
-                broker_company_name: formData.broker_company_name || null,
-                broker_commission: formData.broker_commission ? parseFloat(formData.broker_commission) : null,
-                broker_contacts: formData.broker_contacts.filter(c => c.name.trim()),
-                buyers: formData.buyers.filter(b => b.name.trim()),
-                accounts_payable: accountsPayable,
-                other: formData.other.filter(o => o.name.trim()),
-                ar_edi: formData.ar_edi,
-                ar_consolidated_invoicing: formData.ar_consolidated_invoicing,
-                ar_requires_customer_skus: formData.ar_requires_customer_skus,
-                ar_invoice_discount: formData.ar_invoice_discount ? parseFloat(formData.ar_invoice_discount) : null,
-                customer_type: formData.customer_type || null,
-                product_ids: formData.product_ids,
-            }),
-        });
+        transform((formData) => ({
+            company_name: formData.company_name,
+            company_urls: formData.company_urls,
+            discount_percent: selectedPriceList?.discount_percent ?? null,
+            payment_terms: selectedPaymentTerm?.name || null,
+            shipping_terms: selectedShippingTerm?.name || null,
+            shelf_life_requirement: formData.shelf_life_requirement ? parseInt(formData.shelf_life_requirement) : null,
+            vendor_guide: formData.vendor_guide || null,
+            broker: formData.broker,
+            broker_company_name: formData.broker_company_name || null,
+            broker_commission: formData.broker_commission ? parseFloat(formData.broker_commission) : null,
+            broker_contacts: formData.broker_contacts.filter(c => c.name.trim()),
+            buyers: formData.buyers.filter(b => b.name.trim()),
+            accounts_payable: accountsPayable,
+            other: formData.other.filter(o => o.name.trim()),
+            ar_edi: formData.ar_edi,
+            ar_consolidated_invoicing: formData.ar_consolidated_invoicing,
+            ar_requires_customer_skus: formData.ar_requires_customer_skus,
+            ar_invoice_discount: formData.ar_invoice_discount ? parseFloat(formData.ar_invoice_discount) : null,
+            customer_type: formData.customer_type || null,
+            product_ids: formData.product_ids,
+        }));
+        post(route('prospects.store'));
     };
 
     const isFormValid = data.company_name.trim().length >= 2 && Object.keys(validationErrors).length === 0;
@@ -356,10 +350,14 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* General Error */}
-                        {errors.general && (
+                        {/* Server Validation Errors */}
+                        {Object.keys(errors).length > 0 && (
                             <div className="rounded-md bg-red-50 p-4">
-                                <p className="text-sm text-red-700">{errors.general}</p>
+                                <ul className="text-sm text-red-700 list-disc list-inside">
+                                    {Object.entries(errors).map(([key, msg]) => (
+                                        <li key={key}>{msg}</li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
 
@@ -382,7 +380,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         placeholder="Enter company name"
                                     />
                                     {validationErrors.company_name && <p className="mt-1 text-sm text-red-600">{validationErrors.company_name}</p>}
-                                    {errors.company_name && <p className="mt-1 text-sm text-red-600">{errors.company_name}</p>}
                                 </div>
 
                                 {/* Customer Type */}

@@ -187,6 +187,67 @@ test('update with buyers replaces existing buyers', function () {
         ->and($buyers->first()->name)->toBe('New Buyer');
 });
 
+test('store creates prospect with broker enabled', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post('/prospects', [
+        'company_name' => 'Broker Test Co',
+        'broker' => 'true',
+        'broker_company_name' => 'Brokerage LLC',
+        'broker_commission' => '5.5',
+        'broker_contacts' => [
+            ['name' => 'Broker Person', 'email' => 'broker@brokerage.com'],
+        ],
+        'buyers' => [
+            ['name' => 'Main Buyer', 'email' => 'buyer@brokertest.com'],
+        ],
+    ]);
+
+    $response->assertRedirect(route('prospects.index'));
+
+    $prospect = Prospect::where('company_name', 'Broker Test Co')->first();
+    expect($prospect)->not->toBeNull()
+        ->and($prospect->broker)->toBeTrue()
+        ->and($prospect->broker_company_name)->toBe('Brokerage LLC')
+        ->and((float) $prospect->broker_commission)->toBe(5.5);
+
+    $brokerContacts = ProspectContact::where('prospect_id', $prospect->id)
+        ->where('type', ProspectContact::TYPE_BROKER)
+        ->get();
+    expect($brokerContacts)->toHaveCount(1)
+        ->and($brokerContacts->first()->name)->toBe('Broker Person');
+});
+
+test('store creates prospect with broker disabled', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post('/prospects', [
+        'company_name' => 'No Broker Co',
+        'broker' => 'false',
+        'buyers' => [
+            ['name' => 'Buyer', 'email' => 'buyer@nobroker.com'],
+        ],
+    ]);
+
+    $response->assertRedirect(route('prospects.index'));
+
+    $prospect = Prospect::where('company_name', 'No Broker Co')->first();
+    expect($prospect)->not->toBeNull()
+        ->and($prospect->broker)->toBeFalse();
+});
+
+test('store fails when broker is enabled but required broker fields are missing', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post('/prospects', [
+        'company_name' => 'Missing Broker Fields Co',
+        'broker' => 'true',
+        // Missing broker_company_name, broker_commission, broker_contacts
+    ]);
+
+    $response->assertSessionHasErrors(['broker_company_name', 'broker_commission', 'broker_contacts']);
+});
+
 test('store validates company name', function () {
     $user = User::factory()->create();
 
