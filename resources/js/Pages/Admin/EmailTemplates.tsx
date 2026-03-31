@@ -36,7 +36,7 @@ export default function EmailTemplates({ templates }: Props) {
             setSubject(selectedTemplate.subject);
             setBody(selectedTemplate.body);
         }
-    }, [selectedKey, selectedTemplate]);
+    }, [selectedKey]);
 
     // Update contenteditable when body changes programmatically
     useEffect(() => {
