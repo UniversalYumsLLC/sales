@@ -9,7 +9,7 @@ B2B sales tool suite integrating with Fulfil ERP for customer data and Gmail for
 
 ## Tech Stack
 
-- **Backend**: PHP 8.2+, Laravel 12.x, Inertia.js 2.0
+- **Backend**: PHP 8.2+, Laravel 12.x, Inertia.js 3.x
 - **Frontend**: React 19, TypeScript 5.7+, Tailwind CSS 3.x, Radix UI
 - **Database**: SQLite (dev), MySQL 8.0 (production), Redis for caching
 - **Queue**: Database driver
@@ -44,7 +44,7 @@ npm run format                # Prettier
 
 ## Universal Rules
 
-- **Always use axios** for HTTP requests in React/TypeScript. Never use `fetch()`. Axios is configured with automatic CSRF token handling via the `XSRF-TOKEN` cookie.
+- **Use `useHttp` from `@inertiajs/react`** for standalone HTTP requests in React/TypeScript. Never use `fetch()` or `axios`. For Inertia page visits and form submissions, use `useForm` or `router`. Inertia v3's built-in XHR client handles CSRF automatically.
 - **MySQL index name limit**: MySQL enforces a 64-character limit on index/key names. When adding composite indexes or unique constraints on tables with long names, always pass an explicit shorter name as the second argument (e.g., `$table->unique(['col_a', 'col_b'], 'short_custom_name')`). SQLite does not enforce this, so it will not be caught locally.
 - **Every change should be tested.** Run the minimum needed tests with `--filter` to target specific tests.
 - **Use `php artisan make:*`** commands (with `--no-interaction`) to scaffold new files instead of hand-creating them.

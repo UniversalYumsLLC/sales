@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import EmailActivityPanel from '@/Components/EmailActivityPanel';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, useHttp, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 
 interface Contact {
@@ -352,6 +352,16 @@ export default function Show({
         }
     }, [notification]);
 
+    // HTTP instances for Inertia useHttp
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const detailsHttp = useHttp<Record<string, any>, any>({});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const contactsHttp = useHttp<Record<string, any>, any>({});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const skuHttp = useHttp<Record<string, any>, any>({});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const actionHttp = useHttp<Record<string, any>, any>({});
+
     // Edit mode states
     const [editingDetails, setEditingDetails] = useState(false);
     const [editingContacts, setEditingContacts] = useState(false);
@@ -593,51 +603,43 @@ export default function Show({
         setContactsErrors({});
     };
 
-    const saveDetails = async () => {
+    const saveDetails = () => {
         if (Object.keys(detailsErrors).length > 0) return;
 
         setSaving(true);
-        try {
-            // Save customer details and AR settings in a single request
-            // so they're written to Fulfil atomically (avoiding metafield race conditions)
-            const response = await fetch(route('customers.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    name: detailsForm.name,
-                    sale_price_list: parseInt(detailsForm.sale_price_list),
-                    customer_payment_term: parseInt(detailsForm.customer_payment_term),
-                    shipping_terms_category_id: parseInt(detailsForm.shipping_terms_category_id),
-                    shelf_life_requirement: parseInt(detailsForm.shelf_life_requirement),
-                    vendor_guide: detailsForm.vendor_guide || null,
-                    // AR settings (saved atomically with party data)
-                    ar_edi: arSettingsForm.edi,
-                    ar_consolidated_invoicing: arSettingsForm.consolidated_invoicing,
-                    ar_requires_customer_skus: arSettingsForm.requires_customer_skus,
-                    ar_invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
-                    // Note: broker is updated via the broker section, not here
-                }),
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        // Save customer details and AR settings in a single request
+        // so they're written to Fulfil atomically (avoiding metafield race conditions)
+        detailsHttp.setData({
+            name: detailsForm.name,
+            sale_price_list: parseInt(detailsForm.sale_price_list),
+            customer_payment_term: parseInt(detailsForm.customer_payment_term),
+            shipping_terms_category_id: parseInt(detailsForm.shipping_terms_category_id),
+            shelf_life_requirement: parseInt(detailsForm.shelf_life_requirement),
+            vendor_guide: detailsForm.vendor_guide || null,
+            // AR settings (saved atomically with party data)
+            ar_edi: arSettingsForm.edi,
+            ar_consolidated_invoicing: arSettingsForm.consolidated_invoicing,
+            ar_requires_customer_skus: arSettingsForm.requires_customer_skus,
+            ar_invoice_discount: arSettingsForm.invoice_discount ? parseFloat(arSettingsForm.invoice_discount) : null,
+            // Note: broker is updated via the broker section, not here
+        });
+        detailsHttp.put(route('customers.update', customer.id), {
+            onSuccess: () => {
                 setEditingDetails(false);
                 setNotification({ type: 'success', message: 'Customer details updated successfully' });
                 router.reload({ only: ['customer'] });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to save changes' });
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
-    const saveContacts = async () => {
+    const saveContacts = () => {
         if (Object.keys(contactsErrors).length > 0) return;
 
         // Build accounts_payable array - always include AP contacts, optionally prepend portal
@@ -648,37 +650,29 @@ export default function Show({
         }
 
         setSaving(true);
-        try {
-            const response = await fetch(route('customers.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    buyers: contactsForm.buyers,
-                    accounts_payable: accountsPayable,
-                    other: contactsForm.other.map(o => ({
-                        name: o.name,
-                        email: o.email,
-                        function: o.function || '',
-                    })),
-                }),
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        contactsHttp.setData({
+            buyers: contactsForm.buyers,
+            accounts_payable: accountsPayable,
+            other: contactsForm.other.map(o => ({
+                name: o.name,
+                email: o.email,
+                function: o.function || '',
+            })),
+        });
+        contactsHttp.put(route('customers.update', customer.id), {
+            onSuccess: () => {
                 setEditingContacts(false);
                 setNotification({ type: 'success', message: 'Contacts updated successfully' });
                 router.reload({ only: ['customer', 'buyerContacts', 'localBuyers', 'localAP', 'localOther'] });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to save changes' });
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
     // Customer SKU management functions
@@ -686,61 +680,45 @@ export default function Show({
     const [newSkuCustomer, setNewSkuCustomer] = useState('');
     const [addingSku, setAddingSku] = useState(false);
 
-    const addCustomerSku = async () => {
+    const addCustomerSku = () => {
         if (!newSkuYums || !newSkuCustomer) return;
 
         setAddingSku(true);
-        try {
-            const response = await fetch(route('customers.skus.store', customer.id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    yums_sku: newSkuYums,
-                    customer_sku: newSkuCustomer,
-                }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setCustomerSkus(prev => [...prev, data.sku]);
+        setNotification(null);
+        skuHttp.setData({
+            yums_sku: newSkuYums,
+            customer_sku: newSkuCustomer,
+        });
+        skuHttp.post(route('customers.skus.store', customer.id), {
+            onSuccess: (response) => {
+                setCustomerSkus(prev => [...prev, response.sku]);
                 setNewSkuYums('');
                 setNewSkuCustomer('');
                 setNotification({ type: 'success', message: 'SKU mapping added successfully' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to add SKU mapping' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to add SKU mapping. Please try again.' });
-        } finally {
-            setAddingSku(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to add SKU mapping' });
+            },
+            onFinish: () => {
+                setAddingSku(false);
+            },
+        });
     };
 
-    const deleteCustomerSku = async (skuId: number) => {
+    const deleteCustomerSku = (skuId: number) => {
         if (!confirm('Are you sure you want to delete this SKU mapping?')) return;
 
-        try {
-            const response = await fetch(route('customers.skus.destroy', { customerId: customer.id, skuId }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        skuHttp.setData({});
+        skuHttp.delete(route('customers.skus.destroy', { customerId: customer.id, skuId }), {
+            onSuccess: () => {
                 setCustomerSkus(prev => prev.filter(s => s.id !== skuId));
                 setNotification({ type: 'success', message: 'SKU mapping deleted successfully' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete SKU mapping' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete SKU mapping. Please try again.' });
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to delete SKU mapping' });
+            },
+        });
     };
 
     // Get available products (not yet mapped)
@@ -754,47 +732,25 @@ export default function Show({
         window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
     };
 
-    const handleRegeneratePdf = async (invoiceId: number, invoiceNumber: string | null) => {
-        try {
-            setNotification({ type: 'success', message: `Regenerating PDF for invoice ${invoiceNumber || invoiceId}...` });
-
-            const response = await fetch(route('invoices.pdf.regenerate', { id: invoiceId }), {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                    'Accept': 'application/pdf',
-                },
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ message: 'Failed to regenerate PDF' }));
-                if (errorData.error === 'sku_mapping_required' && errorData.unmapped_skus) {
+    const handleRegeneratePdf = (invoiceId: number, invoiceNumber: string | null) => {
+        setNotification({ type: 'success', message: `Regenerating PDF for invoice ${invoiceNumber || invoiceId}...` });
+        actionHttp.setData({});
+        actionHttp.post(route('invoices.pdf.regenerate', { id: invoiceId }), {
+            onSuccess: () => {
+                setNotification({ type: 'success', message: `PDF regenerated for invoice ${invoiceNumber || invoiceId}` });
+                window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
+            },
+            onError: (errors) => {
+                if (errors.error === 'sku_mapping_required' && errors.unmapped_skus) {
                     setNotification({
                         type: 'error',
-                        message: `Cannot generate PDF: unmapped SKUs: ${errorData.unmapped_skus.join(', ')}. Please add the missing SKU mappings.`
+                        message: `Cannot generate PDF: unmapped SKUs: ${errors.unmapped_skus}. Please add the missing SKU mappings.`
                     });
                 } else {
-                    setNotification({ type: 'error', message: errorData.message || 'Failed to regenerate PDF' });
+                    setNotification({ type: 'error', message: errors.message || 'Failed to regenerate PDF' });
                 }
-                return;
-            }
-
-            // Handle the PDF blob response
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${invoiceNumber || `invoice-${invoiceId}`}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
-            setNotification({ type: 'success', message: `PDF regenerated for invoice ${invoiceNumber || invoiceId}` });
-        } catch (error) {
-            console.error('Error regenerating PDF:', error);
-            setNotification({ type: 'error', message: 'Failed to regenerate PDF. Please try again.' });
-        }
+            },
+        });
     };
 
     // Contact management functions
@@ -867,54 +823,38 @@ export default function Show({
     };
 
     // Categorize an uncategorized local contact
-    const categorizeContact = async (contactId: number, newType: string) => {
+    const categorizeContact = (contactId: number, newType: string) => {
         if (!contactId || !newType) return;
 
-        try {
-            const response = await fetch(route('customers.contacts.categorize', { customerId: customer.id, contactId }), {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ type: newType }),
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        contactsHttp.setData({ type: newType });
+        contactsHttp.patch(route('customers.contacts.categorize', { customerId: customer.id, contactId }), {
+            onSuccess: () => {
                 setCategorizingContacts({});
                 setNotification({ type: 'success', message: 'Contact categorized successfully' });
                 router.reload();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to categorize contact' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to categorize contact. Please try again.' });
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to categorize contact' });
+            },
+        });
     };
 
     // Delete a local contact
-    const deleteLocalContact = async (contactId: number) => {
+    const deleteLocalContact = (contactId: number) => {
         if (!confirm('Are you sure you want to delete this contact?')) return;
 
-        try {
-            const response = await fetch(route('customers.contacts.delete', { customerId: customer.id, contactId }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        contactsHttp.setData({});
+        contactsHttp.delete(route('customers.contacts.delete', { customerId: customer.id, contactId }), {
+            onSuccess: () => {
                 setNotification({ type: 'success', message: 'Contact deleted successfully' });
                 router.reload();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete contact. Please try again.' });
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to delete contact' });
+            },
+        });
     };
 
     // Broker contact management
@@ -974,67 +914,50 @@ export default function Show({
         setBrokerContactsForm(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
     };
 
-    const saveBroker = async () => {
+    const saveBroker = () => {
         setSaving(true);
-        try {
-            // First update broker flag and commission
-            const brokerResponse = await fetch(route('customers.broker.update', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    broker: detailsForm.broker === 'true',
-                    broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
-                    broker_company_name: detailsForm.broker_company_name || null,
-                    broker_contacts: brokerContactsForm.filter(c => c.name.trim()),
-                }),
-            });
-
-            if (brokerResponse.ok) {
+        setNotification(null);
+        actionHttp.setData({
+            broker: detailsForm.broker === 'true',
+            broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
+            broker_company_name: detailsForm.broker_company_name || null,
+            broker_contacts: brokerContactsForm.filter(c => c.name.trim()),
+        });
+        actionHttp.put(route('customers.broker.update', customer.id), {
+            onSuccess: () => {
                 setEditingBroker(false);
                 setNotification({ type: 'success', message: 'Broker settings updated successfully' });
                 router.reload();
-            } else {
-                const data = await brokerResponse.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save broker settings' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save broker settings. Please try again.' });
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to save broker settings' });
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
     // Customer type management
-    const handleCustomerTypeChange = async (newType: 'retailer' | 'distributor') => {
+    const handleCustomerTypeChange = (newType: 'retailer' | 'distributor') => {
         if (newType === customerType) return;
 
         setChangingCustomerType(true);
-        try {
-            const response = await fetch(route('customers.update-customer-type', customer.id), {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ customer_type: newType }),
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        actionHttp.setData({ customer_type: newType });
+        actionHttp.patch(route('customers.update-customer-type', customer.id), {
+            onSuccess: () => {
                 setCustomerType(newType);
                 setNotification({ type: 'success', message: `Customer type updated to ${newType}` });
                 router.reload();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update customer type' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update customer type' });
-        } finally {
-            setChangingCustomerType(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to update customer type' });
+            },
+            onFinish: () => {
+                setChangingCustomerType(false);
+            },
+        });
     };
 
     // Distributor customer management
@@ -1050,87 +973,62 @@ export default function Show({
         });
     };
 
-    const addDistributorCustomer = async () => {
+    const addDistributorCustomer = () => {
         if (!newDistributorCustomerName.trim()) return;
 
         setAddingDistributorCustomer(true);
-        try {
-            const response = await fetch(route('customers.distributor-customers.create', customer.id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ name: newDistributorCustomerName.trim() }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers(prev => [...prev, data.distributor_customer]);
+        setNotification(null);
+        actionHttp.setData({ name: newDistributorCustomerName.trim() });
+        actionHttp.post(route('customers.distributor-customers.create', customer.id), {
+            onSuccess: (response) => {
+                setLocalDistributorCustomers(prev => [...prev, response.distributor_customer]);
                 setNewDistributorCustomerName('');
                 setNotification({ type: 'success', message: 'Distributor customer added' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to add distributor customer' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to add distributor customer' });
-        } finally {
-            setAddingDistributorCustomer(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to add distributor customer' });
+            },
+            onFinish: () => {
+                setAddingDistributorCustomer(false);
+            },
+        });
     };
 
-    const deleteDistributorCustomer = async () => {
+    const deleteDistributorCustomer = () => {
         if (!deleteConfirmDC) return;
 
         setDeletingDC(true);
-        try {
-            const response = await fetch(route('customers.distributor-customers.delete', { customerId: customer.id, distributorCustomerId: deleteConfirmDC.id }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        actionHttp.setData({});
+        actionHttp.delete(route('customers.distributor-customers.delete', { customerId: customer.id, distributorCustomerId: deleteConfirmDC.id }), {
+            onSuccess: () => {
                 setLocalDistributorCustomers(prev => prev.filter(dc => dc.id !== deleteConfirmDC.id));
                 setDeleteConfirmDC(null);
                 setNotification({ type: 'success', message: 'Distributor customer deleted' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete distributor customer' });
-        } finally {
-            setDeletingDC(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to delete' });
+            },
+            onFinish: () => {
+                setDeletingDC(false);
+            },
+        });
     };
 
-    const updateDistributorCustomerUrls = async (dcId: number, urls: string[]) => {
-        try {
-            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ company_urls: urls.filter(u => u.trim()) }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
+    const updateDistributorCustomerUrls = (dcId: number, urls: string[]) => {
+        setNotification(null);
+        actionHttp.setData({ company_urls: urls.filter(u => u.trim()) });
+        actionHttp.put(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
+            onSuccess: (response) => {
                 setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, company_urls: data.distributor_customer.company_urls } : dc
+                    dc.id === dcId ? { ...dc, company_urls: response.distributor_customer.company_urls } : dc
                 ));
                 setNotification({ type: 'success', message: 'Domains updated' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update domains' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update domains' });
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to update domains' });
+            },
+        });
     };
 
     const startEditingDC = (dc: DistributorCustomer) => {
@@ -1146,39 +1044,30 @@ export default function Show({
         setEditingDCUrls([]);
     };
 
-    const saveDistributorCustomer = async () => {
+    const saveDistributorCustomer = () => {
         if (!editingDCId) return;
 
         setSavingDC(true);
-        try {
-            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: editingDCId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    name: editingDCName.trim(),
-                    company_urls: editingDCUrls.filter(u => u.trim()),
-                }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
+        setNotification(null);
+        actionHttp.setData({
+            name: editingDCName.trim(),
+            company_urls: editingDCUrls.filter(u => u.trim()),
+        });
+        actionHttp.put(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: editingDCId }), {
+            onSuccess: (response) => {
                 setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === editingDCId ? { ...dc, name: data.distributor_customer.name, company_urls: data.distributor_customer.company_urls } : dc
+                    dc.id === editingDCId ? { ...dc, name: response.distributor_customer.name, company_urls: response.distributor_customer.company_urls } : dc
                 ));
                 setNotification({ type: 'success', message: 'Distributor customer updated' });
                 cancelEditingDC();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update distributor customer' });
-        } finally {
-            setSavingDC(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to update' });
+            },
+            onFinish: () => {
+                setSavingDC(false);
+            },
+        });
     };
 
     const addDCUrl = () => {
@@ -1194,36 +1083,27 @@ export default function Show({
     };
 
     // Distributor customer contact management
-    const addDistributorCustomerContact = async (dcId: number) => {
+    const addDistributorCustomerContact = (dcId: number) => {
         if (!newDCContactEmail.trim()) return;
 
         setAddingDCContact(true);
-        try {
-            const response = await fetch(route('distributor-customers.contacts.create', { distributorCustomerId: dcId }), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ email: newDCContactEmail.trim() }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
+        setNotification(null);
+        actionHttp.setData({ email: newDCContactEmail.trim() });
+        actionHttp.post(route('distributor-customers.contacts.create', { distributorCustomerId: dcId }), {
+            onSuccess: (response) => {
                 setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, contacts: [...(dc.contacts || []), data.contact] } : dc
+                    dc.id === dcId ? { ...dc, contacts: [...(dc.contacts || []), response.contact] } : dc
                 ));
                 setNewDCContactEmail('');
                 setNotification({ type: 'success', message: 'Contact added' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to add contact' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to add contact' });
-        } finally {
-            setAddingDCContact(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to add contact' });
+            },
+            onFinish: () => {
+                setAddingDCContact(false);
+            },
+        });
     };
 
     const startEditingDCContact = (contact: DistributorCustomerContact) => {
@@ -1238,68 +1118,53 @@ export default function Show({
         setEditingDCContactType('');
     };
 
-    const saveDistributorCustomerContact = async (dcId: number) => {
+    const saveDistributorCustomerContact = (dcId: number) => {
         if (!editingDCContactId) return;
 
         setSavingDCContact(true);
-        try {
-            const response = await fetch(route('distributor-customers.contacts.update', { distributorCustomerId: dcId, contactId: editingDCContactId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    name: editingDCContactName.trim(),
-                    type: editingDCContactType,
-                }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
+        setNotification(null);
+        actionHttp.setData({
+            name: editingDCContactName.trim(),
+            type: editingDCContactType,
+        });
+        actionHttp.put(route('distributor-customers.contacts.update', { distributorCustomerId: dcId, contactId: editingDCContactId }), {
+            onSuccess: (response) => {
                 setLocalDistributorCustomers(prev => prev.map(dc =>
                     dc.id === dcId ? {
                         ...dc,
-                        contacts: dc.contacts.map(c => c.id === editingDCContactId ? data.contact : c)
+                        contacts: dc.contacts.map(c => c.id === editingDCContactId ? response.contact : c)
                     } : dc
                 ));
                 setNotification({ type: 'success', message: 'Contact updated' });
                 cancelEditingDCContact();
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update contact' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update contact' });
-        } finally {
-            setSavingDCContact(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to update contact' });
+            },
+            onFinish: () => {
+                setSavingDCContact(false);
+            },
+        });
     };
 
-    const deleteDistributorCustomerContact = async (dcId: number, contactId: number) => {
+    const deleteDistributorCustomerContact = (dcId: number, contactId: number) => {
         setDeletingDCContactId(contactId);
-        try {
-            const response = await fetch(route('distributor-customers.contacts.delete', { distributorCustomerId: dcId, contactId }), {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        actionHttp.setData({});
+        actionHttp.delete(route('distributor-customers.contacts.delete', { distributorCustomerId: dcId, contactId }), {
+            onSuccess: () => {
                 setLocalDistributorCustomers(prev => prev.map(dc =>
                     dc.id === dcId ? { ...dc, contacts: dc.contacts.filter(c => c.id !== contactId) } : dc
                 ));
                 setNotification({ type: 'success', message: 'Contact deleted' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to delete contact' });
-        } finally {
-            setDeletingDCContactId(null);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to delete contact' });
+            },
+            onFinish: () => {
+                setDeletingDCContactId(null);
+            },
+        });
     };
 
     // Company URL management
@@ -1324,33 +1189,25 @@ export default function Show({
         setEditingCompanyUrls(false);
     };
 
-    const saveCompanyUrls = async () => {
+    const saveCompanyUrls = () => {
         setSaving(true);
-        try {
-            const response = await fetch(route('customers.update-company-urls', customer.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
-                }),
-            });
-
-            if (response.ok) {
+        setNotification(null);
+        detailsHttp.setData({
+            company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
+        });
+        detailsHttp.put(route('customers.update-company-urls', customer.id), {
+            onSuccess: () => {
                 setEditingCompanyUrls(false);
                 setNotification({ type: 'success', message: 'Company domains updated successfully' });
                 router.reload({ only: ['customer'] });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                setNotification({ type: 'error', message: errors.message || 'Failed to save changes' });
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
     // Format relative date for email tracking

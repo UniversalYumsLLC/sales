@@ -1,3 +1,4 @@
+import { useHttp } from '@inertiajs/react';
 import DOMPurify from 'dompurify';
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
@@ -93,39 +94,28 @@ export default function EmailDetailModal({ entityType, entityId, emailId, onClos
     const [error, setError] = useState<string | null>(null);
     const [activeEmailId, setActiveEmailId] = useState<number>(emailId);
 
+    const emailHttp = useHttp<Record<string, never>, { email: EmailDetail; thread: EmailDetail[] }>({});
+
     useEffect(() => {
-        const fetchEmail = async () => {
-            setLoading(true);
-            setError(null);
+        setLoading(true);
+        setError(null);
 
-            try {
-                const url = entityType === 'prospect'
-                    ? route('prospects.emails.show', { prospectId: entityId, emailId })
-                    : route('customers.emails.show', { customerId: entityId, emailId });
+        const url = entityType === 'prospect'
+            ? route('prospects.emails.show', { prospectId: entityId, emailId })
+            : route('customers.emails.show', { customerId: entityId, emailId });
 
-                const response = await fetch(url, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch email');
-                }
-
-                const data = await response.json();
-                setEmail(data.email);
-                setThread(data.thread || []);
-            } catch (err) {
+        emailHttp.get(url, {
+            onSuccess: (response) => {
+                setEmail(response.email);
+                setThread(response.thread || []);
+            },
+            onError: () => {
                 setError('Failed to load email');
-                console.error('Error fetching email:', err);
-            } finally {
+            },
+            onFinish: () => {
                 setLoading(false);
-            }
-        };
-
-        fetchEmail();
+            },
+        });
     }, [entityType, entityId, emailId]);
 
     const activeEmail = thread.find(e => e.id === activeEmailId) || email;

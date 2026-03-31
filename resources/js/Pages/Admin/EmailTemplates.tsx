@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, useHttp } from '@inertiajs/react';
 import DOMPurify from 'dompurify';
 import { useState, useRef, useEffect } from 'react';
 
@@ -21,10 +21,11 @@ export default function EmailTemplates({ templates }: Props) {
     const [selectedKey, setSelectedKey] = useState<string>(templates[0]?.key || '');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
-    const [saving, setSaving] = useState(false);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [showPreview, setShowPreview] = useState(false);
     const editorRef = useRef<HTMLDivElement>(null);
+
+    const http = useHttp<{ subject: string; body: string }>({ subject: '', body: '' });
 
     const selectedTemplate = templates.find(t => t.key === selectedKey);
 
@@ -49,39 +50,21 @@ export default function EmailTemplates({ templates }: Props) {
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!selectedKey) return;
 
-        setSaving(true);
         setNotification(null);
+        http.setData({ subject, body });
 
-        try {
-            const response = await fetch(route('admin.email-templates.update', { key: selectedKey }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ subject, body }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
+        http.put(route('admin.email-templates.update', { key: selectedKey }), {
+            onSuccess: () => {
                 setNotification({ type: 'success', message: 'Template saved successfully' });
-            } else if (data.errors) {
-                // Laravel validation errors
-                const firstError = Object.values(data.errors).flat()[0] as string;
-                setNotification({ type: 'error', message: firstError || 'Validation failed' });
-            } else {
-                setNotification({ type: 'error', message: data.message || 'Failed to save template' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'An error occurred while saving' });
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors).flat()[0] as string;
+                setNotification({ type: 'error', message: firstError || 'Failed to save template' });
+            },
+        });
     };
 
     const insertPlaceholder = (placeholder: string) => {
@@ -339,12 +322,12 @@ export default function EmailTemplates({ templates }: Props) {
                                         <button
                                             type="button"
                                             onClick={handleSave}
-                                            disabled={saving}
+                                            disabled={http.processing}
                                             className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                                                saving ? 'opacity-50 cursor-not-allowed' : ''
+                                                http.processing ? 'opacity-50 cursor-not-allowed' : ''
                                             }`}
                                         >
-                                            {saving ? (
+                                            {http.processing ? (
                                                 <>
                                                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

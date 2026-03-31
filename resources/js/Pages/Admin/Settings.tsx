@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, useHttp } from '@inertiajs/react';
 import { useState } from 'react';
 
 interface Props {
@@ -18,46 +18,30 @@ interface Props {
 
 export default function Settings({ settings, testModeInfo, environment }: Props) {
     const [testMode, setTestMode] = useState(settings.ar_test_mode);
-    const [saving, setSaving] = useState(false);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    const handleTestModeToggle = async () => {
+    const http = useHttp<{ ar_test_mode: boolean }, { settings: { ar_test_mode: boolean } }>({ ar_test_mode: !testMode });
+
+    const handleTestModeToggle = () => {
         const newValue = !testMode;
-        setSaving(true);
         setNotification(null);
+        http.setData({ ar_test_mode: newValue });
 
-        try {
-            const response = await fetch(route('admin.settings.update'), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ ar_test_mode: newValue }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setTestMode(data.settings.ar_test_mode);
+        http.put(route('admin.settings.update'), {
+            onSuccess: (response) => {
+                setTestMode(response.settings.ar_test_mode);
                 setNotification({
                     type: 'success',
-                    message: `Test Mode ${data.settings.ar_test_mode ? 'enabled' : 'disabled'} successfully`,
+                    message: `Test Mode ${response.settings.ar_test_mode ? 'enabled' : 'disabled'} successfully`,
                 });
-            } else {
+            },
+            onError: (errors) => {
                 setNotification({
                     type: 'error',
-                    message: data.message || 'Failed to update settings',
+                    message: errors.message || 'Failed to update settings',
                 });
-            }
-        } catch (error) {
-            setNotification({
-                type: 'error',
-                message: 'An error occurred while updating settings',
-            });
-        } finally {
-            setSaving(false);
-        }
+            },
+        });
     };
 
     return (
@@ -184,10 +168,10 @@ export default function Settings({ settings, testModeInfo, environment }: Props)
                                     <button
                                         type="button"
                                         onClick={handleTestModeToggle}
-                                        disabled={saving || environment.isLocal}
+                                        disabled={http.processing || environment.isLocal}
                                         className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
                                             testMode ? 'bg-indigo-600' : 'bg-gray-200'
-                                        } ${saving || environment.isLocal ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                        } ${http.processing || environment.isLocal ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                         role="switch"
                                         aria-checked={testMode}
                                     >
