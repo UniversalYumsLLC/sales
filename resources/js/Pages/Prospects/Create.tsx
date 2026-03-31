@@ -300,7 +300,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
             shipping_terms: selectedShippingTerm?.name || null,
             shelf_life_requirement: formData.shelf_life_requirement ? parseInt(formData.shelf_life_requirement) : null,
             vendor_guide: formData.vendor_guide || null,
-            broker: formData.broker === 'true',
+            broker: formData.broker,
             broker_company_name: formData.broker_company_name || null,
             broker_commission: formData.broker_commission ? parseFloat(formData.broker_commission) : null,
             broker_contacts: formData.broker_contacts.filter(c => c.name.trim()),
