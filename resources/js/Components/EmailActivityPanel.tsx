@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import EmailDetailModal from './EmailDetailModal';
 
 interface Email {
@@ -32,31 +32,46 @@ interface Props {
 }
 
 // Icon components
-function InboxArrowDownIcon({ className = "h-4 w-4" }: { className?: string }) {
+function InboxArrowDownIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3.75H6.912a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H15M2.25 13.5h6.293a1 1 0 01.707.293l1.414 1.414a1 1 0 00.707.293h1.257a1 1 0 00.707-.293l1.414-1.414a1 1 0 01.707-.293H21.75M12 3v8.25m0 0l-3-3m3 3l3-3" />
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 3.75H6.912a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H15M2.25 13.5h6.293a1 1 0 01.707.293l1.414 1.414a1 1 0 00.707.293h1.257a1 1 0 00.707-.293l1.414-1.414a1 1 0 01.707-.293H21.75M12 3v8.25m0 0l-3-3m3 3l3-3"
+            />
         </svg>
     );
 }
 
-function PaperAirplaneIcon({ className = "h-4 w-4" }: { className?: string }) {
+function PaperAirplaneIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+            />
         </svg>
     );
 }
 
-function PaperClipIcon({ className = "h-4 w-4" }: { className?: string }) {
+function PaperClipIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
+            />
         </svg>
     );
 }
 
-function ChevronDownIcon({ className = "h-4 w-4" }: { className?: string }) {
+function ChevronDownIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -64,7 +79,7 @@ function ChevronDownIcon({ className = "h-4 w-4" }: { className?: string }) {
     );
 }
 
-function ChevronUpIcon({ className = "h-4 w-4" }: { className?: string }) {
+function ChevronUpIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -72,10 +87,15 @@ function ChevronUpIcon({ className = "h-4 w-4" }: { className?: string }) {
     );
 }
 
-function EnvelopeIcon({ className = "h-5 w-5" }: { className?: string }) {
+function EnvelopeIcon({ className = 'h-5 w-5' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+            />
         </svg>
     );
 }
@@ -110,13 +130,14 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
         setError(null);
 
         try {
-            const url = entityType === 'prospect'
-                ? route('prospects.emails', { id: entityId, per_page: 10, page })
-                : route('customers.emails', { id: entityId, per_page: 10, page });
+            const url =
+                entityType === 'prospect'
+                    ? route('prospects.emails', { id: entityId, per_page: 10, page })
+                    : route('customers.emails', { id: entityId, per_page: 10, page });
 
             const response = await fetch(url, {
                 headers: {
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
             });
@@ -130,7 +151,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
             if (page === 1) {
                 setEmails(data.emails);
             } else {
-                setEmails(prev => [...prev, ...data.emails]);
+                setEmails((prev) => [...prev, ...data.emails]);
             }
             setPagination(data.pagination);
         } catch (err) {
@@ -175,11 +196,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                                 ({pagination.total} email{pagination.total !== 1 ? 's' : ''})
                             </span>
                         )}
-                        {expanded ? (
-                            <ChevronUpIcon className="h-4 w-4 text-gray-400" />
-                        ) : (
-                            <ChevronDownIcon className="h-4 w-4 text-gray-400" />
-                        )}
+                        {expanded ? <ChevronUpIcon className="h-4 w-4 text-gray-400" /> : <ChevronDownIcon className="h-4 w-4 text-gray-400" />}
                     </button>
                 </div>
 
@@ -194,10 +211,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                         ) : error ? (
                             <div className="py-8 text-center text-red-500">
                                 <p>{error}</p>
-                                <button
-                                    onClick={() => fetchEmails()}
-                                    className="mt-2 text-sm text-indigo-600 hover:text-indigo-800"
-                                >
+                                <button onClick={() => fetchEmails()} className="mt-2 text-sm text-indigo-600 hover:text-indigo-800">
                                     Try again
                                 </button>
                             </div>
@@ -205,9 +219,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                             <div className="py-8 text-center text-gray-500">
                                 <EnvelopeIcon className="mx-auto h-8 w-8 text-gray-300" />
                                 <p className="mt-2 text-sm">No emails found</p>
-                                <p className="text-xs text-gray-400">
-                                    Emails will appear here once synced from Gmail
-                                </p>
+                                <p className="text-xs text-gray-400">Emails will appear here once synced from Gmail</p>
                             </div>
                         ) : (
                             <>
@@ -217,15 +229,15 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                                         <button
                                             key={email.id}
                                             onClick={() => handleEmailClick(email.id)}
-                                            className="w-full py-3 px-2 -mx-2 text-left hover:bg-gray-50 rounded transition-colors"
+                                            className="-mx-2 w-full rounded px-2 py-3 text-left transition-colors hover:bg-gray-50"
                                         >
                                             <div className="flex items-start gap-3">
                                                 {/* Direction icon */}
-                                                <div className={`mt-0.5 shrink-0 rounded-full p-1.5 ${
-                                                    email.direction === 'inbound'
-                                                        ? 'bg-blue-100 text-blue-600'
-                                                        : 'bg-green-100 text-green-600'
-                                                }`}>
+                                                <div
+                                                    className={`mt-0.5 shrink-0 rounded-full p-1.5 ${
+                                                        email.direction === 'inbound' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
+                                                    }`}
+                                                >
                                                     {email.direction === 'inbound' ? (
                                                         <InboxArrowDownIcon className="h-3.5 w-3.5" />
                                                     ) : (
@@ -236,30 +248,23 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
                                                 {/* Content */}
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-medium text-gray-900 truncate">
+                                                        <span className="truncate text-sm font-medium text-gray-900">
                                                             {email.direction === 'inbound'
-                                                                ? (email.from_name || email.from_email)
-                                                                : `To: ${email.to_emails?.[0] || 'Unknown'}`
-                                                            }
+                                                                ? email.from_name || email.from_email
+                                                                : `To: ${email.to_emails?.[0] || 'Unknown'}`}
                                                         </span>
                                                         {email.distributor_customer_name && (
-                                                            <span className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700 shrink-0">
+                                                            <span className="inline-flex shrink-0 items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
                                                                 {email.distributor_customer_name}
                                                             </span>
                                                         )}
-                                                        {email.has_attachments && (
-                                                            <PaperClipIcon className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                                                        )}
-                                                        <span className="ml-auto text-xs text-gray-500 shrink-0">
+                                                        {email.has_attachments && <PaperClipIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />}
+                                                        <span className="ml-auto shrink-0 text-xs text-gray-500">
                                                             {formatRelativeDate(email.email_date)}
                                                         </span>
                                                     </div>
-                                                    <p className="text-sm text-gray-700 truncate">
-                                                        {email.subject || '(No subject)'}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500 truncate">
-                                                        {email.snippet || '(No content)'}
-                                                    </p>
+                                                    <p className="truncate text-sm text-gray-700">{email.subject || '(No subject)'}</p>
+                                                    <p className="truncate text-xs text-gray-500">{email.snippet || '(No content)'}</p>
                                                 </div>
                                             </div>
                                         </button>
@@ -285,14 +290,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
             </div>
 
             {/* Email detail modal */}
-            {selectedEmailId && (
-                <EmailDetailModal
-                    entityType={entityType}
-                    entityId={entityId}
-                    emailId={selectedEmailId}
-                    onClose={closeModal}
-                />
-            )}
+            {selectedEmailId && <EmailDetailModal entityType={entityType} entityId={entityId} emailId={selectedEmailId} onClose={closeModal} />}
         </div>
     );
 }

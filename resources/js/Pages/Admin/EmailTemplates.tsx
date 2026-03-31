@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
 import DOMPurify from 'dompurify';
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Template {
     key: string;
@@ -26,7 +26,7 @@ export default function EmailTemplates({ templates }: Props) {
     const [showPreview, setShowPreview] = useState(false);
     const editorRef = useRef<HTMLDivElement>(null);
 
-    const selectedTemplate = templates.find(t => t.key === selectedKey);
+    const selectedTemplate = templates.find((t) => t.key === selectedKey);
 
     // Load template content when selection changes
     useEffect(() => {
@@ -60,7 +60,7 @@ export default function EmailTemplates({ templates }: Props) {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 body: JSON.stringify({ subject, body }),
@@ -77,7 +77,7 @@ export default function EmailTemplates({ templates }: Props) {
             } else {
                 setNotification({ type: 'error', message: data.message || 'Failed to save template' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'An error occurred while saving' });
         } finally {
             setSaving(false);
@@ -125,13 +125,7 @@ export default function EmailTemplates({ templates }: Props) {
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Email Templates
-                </h2>
-            }
-        >
+        <AuthenticatedLayout header={<h2 className="text-xl leading-tight font-semibold text-gray-800">Email Templates</h2>}>
             <Head title="Email Templates" />
 
             <div className="py-12">
@@ -143,11 +137,19 @@ export default function EmailTemplates({ templates }: Props) {
                                 <div className="shrink-0">
                                     {notification.type === 'success' ? (
                                         <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                clipRule="evenodd"
+                                            />
                                         </svg>
                                     ) : (
                                         <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                clipRule="evenodd"
+                                            />
                                         </svg>
                                     )}
                                 </div>
@@ -163,7 +165,11 @@ export default function EmailTemplates({ templates }: Props) {
                                     >
                                         <span className="sr-only">Dismiss</span>
                                         <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                clipRule="evenodd"
+                                            />
                                         </svg>
                                     </button>
                                 </div>
@@ -175,7 +181,7 @@ export default function EmailTemplates({ templates }: Props) {
                         <div className="p-6">
                             {/* Template Selector */}
                             <div className="mb-6">
-                                <label htmlFor="template-select" className="block text-sm font-medium text-gray-700 mb-2">
+                                <label htmlFor="template-select" className="mb-2 block text-sm font-medium text-gray-700">
                                     Select Template
                                 </label>
                                 <select
@@ -197,14 +203,14 @@ export default function EmailTemplates({ templates }: Props) {
                                     {/* Template Info */}
                                     <div className="mb-6 rounded-md bg-gray-50 p-4">
                                         <p className="text-sm text-gray-600">{selectedTemplate.description}</p>
-                                        <p className="text-sm text-gray-500 mt-1">
+                                        <p className="mt-1 text-sm text-gray-500">
                                             <strong>Recipient:</strong> {getRecipientLabel(selectedTemplate.recipient)}
                                         </p>
                                     </div>
 
                                     {/* Subject */}
                                     <div className="mb-6">
-                                        <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                                        <label htmlFor="subject" className="mb-2 block text-sm font-medium text-gray-700">
                                             Subject
                                         </label>
                                         <input
@@ -219,10 +225,8 @@ export default function EmailTemplates({ templates }: Props) {
 
                                     {/* Body Editor */}
                                     <div className="mb-6">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="block text-sm font-medium text-gray-700">
-                                                Body
-                                            </label>
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <label className="block text-sm font-medium text-gray-700">Body</label>
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPreview(!showPreview)}
@@ -233,11 +237,11 @@ export default function EmailTemplates({ templates }: Props) {
                                         </div>
 
                                         {/* Formatting Toolbar */}
-                                        <div className="flex flex-wrap gap-1 mb-2 p-2 bg-gray-100 rounded-t-md border border-b-0 border-gray-300">
+                                        <div className="mb-2 flex flex-wrap gap-1 rounded-t-md border border-b-0 border-gray-300 bg-gray-100 p-2">
                                             <button
                                                 type="button"
                                                 onClick={() => execCommand('bold')}
-                                                className="px-2 py-1 text-sm font-bold bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm font-bold hover:bg-gray-50"
                                                 title="Bold"
                                             >
                                                 B
@@ -245,7 +249,7 @@ export default function EmailTemplates({ templates }: Props) {
                                             <button
                                                 type="button"
                                                 onClick={() => execCommand('italic')}
-                                                className="px-2 py-1 text-sm italic bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm italic hover:bg-gray-50"
                                                 title="Italic"
                                             >
                                                 I
@@ -253,19 +257,19 @@ export default function EmailTemplates({ templates }: Props) {
                                             <button
                                                 type="button"
                                                 onClick={() => execCommand('underline')}
-                                                className="px-2 py-1 text-sm underline bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm underline hover:bg-gray-50"
                                                 title="Underline"
                                             >
                                                 U
                                             </button>
-                                            <span className="border-l border-gray-300 mx-1"></span>
+                                            <span className="mx-1 border-l border-gray-300"></span>
                                             <button
                                                 type="button"
                                                 onClick={() => execCommand('insertUnorderedList')}
-                                                className="px-2 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm hover:bg-gray-50"
                                                 title="Bullet List"
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                                                 </svg>
                                             </button>
@@ -275,11 +279,16 @@ export default function EmailTemplates({ templates }: Props) {
                                                     const url = prompt('Enter link URL:');
                                                     if (url) execCommand('createLink', url);
                                                 }}
-                                                className="px-2 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm hover:bg-gray-50"
                                                 title="Insert Link"
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                                                    />
                                                 </svg>
                                             </button>
                                         </div>
@@ -289,7 +298,7 @@ export default function EmailTemplates({ templates }: Props) {
                                             ref={editorRef}
                                             contentEditable
                                             onInput={handleEditorInput}
-                                            className="block w-full min-h-[200px] p-3 rounded-b-md border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none prose prose-sm max-w-none"
+                                            className="prose prose-sm block min-h-[200px] w-full max-w-none rounded-b-md border border-gray-300 p-3 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                                             style={{ backgroundColor: 'white' }}
                                         />
                                     </div>
@@ -297,11 +306,9 @@ export default function EmailTemplates({ templates }: Props) {
                                     {/* Preview Panel */}
                                     {showPreview && (
                                         <div className="mb-6">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Preview
-                                            </label>
-                                            <div className="border border-gray-300 rounded-md p-4 bg-gray-50">
-                                                <div className="mb-2 pb-2 border-b border-gray-200">
+                                            <label className="mb-2 block text-sm font-medium text-gray-700">Preview</label>
+                                            <div className="rounded-md border border-gray-300 bg-gray-50 p-4">
+                                                <div className="mb-2 border-b border-gray-200 pb-2">
                                                     <strong>Subject:</strong> {subject}
                                                 </div>
                                                 <div
@@ -314,16 +321,14 @@ export default function EmailTemplates({ templates }: Props) {
 
                                     {/* Available Placeholders */}
                                     <div className="mb-6">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Available Placeholders
-                                        </label>
+                                        <label className="mb-2 block text-sm font-medium text-gray-700">Available Placeholders</label>
                                         <div className="flex flex-wrap gap-2">
                                             {selectedTemplate.placeholders.map((placeholder) => (
                                                 <button
                                                     key={placeholder}
                                                     type="button"
                                                     onClick={() => insertPlaceholder(placeholder)}
-                                                    className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-100 rounded hover:bg-indigo-200"
+                                                    className="inline-flex items-center rounded bg-indigo-100 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200"
                                                 >
                                                     {`{{${placeholder}}}`}
                                                 </button>
@@ -340,15 +345,26 @@ export default function EmailTemplates({ templates }: Props) {
                                             type="button"
                                             onClick={handleSave}
                                             disabled={saving}
-                                            className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                                                saving ? 'opacity-50 cursor-not-allowed' : ''
+                                            className={`inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none ${
+                                                saving ? 'cursor-not-allowed opacity-50' : ''
                                             }`}
                                         >
                                             {saving ? (
                                                 <>
-                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    <svg className="mr-2 -ml-1 h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                                        <circle
+                                                            className="opacity-25"
+                                                            cx="12"
+                                                            cy="12"
+                                                            r="10"
+                                                            stroke="currentColor"
+                                                            strokeWidth="4"
+                                                        ></circle>
+                                                        <path
+                                                            className="opacity-75"
+                                                            fill="currentColor"
+                                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                        ></path>
                                                     </svg>
                                                     Saving...
                                                 </>

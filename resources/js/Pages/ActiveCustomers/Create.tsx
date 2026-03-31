@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEventHandler, useState, useEffect } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 
 interface PriceList {
     id: number;
@@ -68,21 +68,27 @@ function isValidUrl(url: string): boolean {
 }
 
 export default function Create({ priceLists = [], paymentTerms = [], shippingTerms = [] }: Props) {
-    const { data, setData, post, processing, errors: serverErrors } = useForm({
+    const {
+        data,
+        setData,
+        post,
+        processing,
+        errors: serverErrors,
+    } = useForm({
         name: '',
         sale_price_list: '',
         customer_payment_term: '',
         shipping_terms_category_id: '',
         shelf_life_requirement: '',
         vendor_guide: '',
-        broker: '',  // "true", "false", or "" for unselected
+        broker: '', // "true", "false", or "" for unselected
         broker_company_name: '',
         broker_commission: '',
         broker_contacts: [] as BrokerContact[],
         buyers: [{ name: '', email: '' }] as Contact[],
-        ap_method: 'inbox' as 'inbox' | 'portal',  // How AP is managed (required)
-        ap_portal_url: '',  // URL when ap_method is 'portal'
-        accounts_payable: [{ name: '', value: '' }] as APContact[],  // AP contacts (required - at least 1)
+        ap_method: 'inbox' as 'inbox' | 'portal', // How AP is managed (required)
+        ap_portal_url: '', // URL when ap_method is 'portal'
+        accounts_payable: [{ name: '', value: '' }] as APContact[], // AP contacts (required - at least 1)
         other: [] as OtherContact[],
         // AR Settings
         ar_edi: false,
@@ -97,7 +103,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
 
     // Mark field as touched
     const markTouched = (field: string) => {
-        setTouched(prev => ({ ...prev, [field]: true }));
+        setTouched((prev) => ({ ...prev, [field]: true }));
     };
 
     // Real-time validation
@@ -279,7 +285,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         }
 
         const hasError = validationErrors[field] || serverErrors[field as keyof typeof serverErrors];
-        const fieldIsValid = isValid !== undefined ? isValid : (value && !hasError);
+        const fieldIsValid = isValid !== undefined ? isValid : value && !hasError;
 
         if (hasError) {
             return `${baseClass} border-red-300 focus:border-red-500 focus:ring-red-500`;
@@ -315,9 +321,12 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
 
     const removeBuyer = (index: number) => {
         if (data.buyers.length > 1) {
-            setData('buyers', data.buyers.filter((_, i) => i !== index));
+            setData(
+                'buyers',
+                data.buyers.filter((_, i) => i !== index),
+            );
             // Clean up touched state for removed buyer
-            setTouched(prev => {
+            setTouched((prev) => {
                 const newTouched = { ...prev };
                 delete newTouched[`buyers.${index}.name`];
                 delete newTouched[`buyers.${index}.email`];
@@ -341,8 +350,11 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         // Prevent removing the last AP contact (at least 1 required)
         if (data.accounts_payable.length <= 1) return;
 
-        setData('accounts_payable', data.accounts_payable.filter((_, i) => i !== index));
-        setTouched(prev => {
+        setData(
+            'accounts_payable',
+            data.accounts_payable.filter((_, i) => i !== index),
+        );
+        setTouched((prev) => {
             const newTouched = { ...prev };
             delete newTouched[`accounts_payable.${index}.name`];
             delete newTouched[`accounts_payable.${index}.value`];
@@ -362,8 +374,11 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
     };
 
     const removeOther = (index: number) => {
-        setData('other', data.other.filter((_, i) => i !== index));
-        setTouched(prev => {
+        setData(
+            'other',
+            data.other.filter((_, i) => i !== index),
+        );
+        setTouched((prev) => {
             const newTouched = { ...prev };
             delete newTouched[`other.${index}.name`];
             delete newTouched[`other.${index}.email`];
@@ -384,8 +399,11 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
     };
 
     const removeBrokerContact = (index: number) => {
-        setData('broker_contacts', data.broker_contacts.filter((_, i) => i !== index));
-        setTouched(prev => {
+        setData(
+            'broker_contacts',
+            data.broker_contacts.filter((_, i) => i !== index),
+        );
+        setTouched((prev) => {
             const newTouched = { ...prev };
             delete newTouched[`broker_contacts.${index}.name`];
             delete newTouched[`broker_contacts.${index}.email`];
@@ -425,22 +443,18 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
             if (!data.broker_commission || isNaN(commission) || commission < 0 || commission > 100) return false;
             // At least one valid broker contact
             if (data.broker_contacts.length === 0) return false;
-            const hasInvalidBrokerContact = data.broker_contacts.some(c =>
-                !c.name || c.name.length < 2 || !isValidEmail(c.email)
-            );
+            const hasInvalidBrokerContact = data.broker_contacts.some((c) => !c.name || c.name.length < 2 || !isValidEmail(c.email));
             if (hasInvalidBrokerContact) return false;
         }
 
         // At least one valid buyer
         if (data.buyers.length === 0) return false;
-        const hasInvalidBuyer = data.buyers.some(b => !b.name || b.name.length < 2 || !isValidEmail(b.email));
+        const hasInvalidBuyer = data.buyers.some((b) => !b.name || b.name.length < 2 || !isValidEmail(b.email));
         if (hasInvalidBuyer) return false;
 
         // AP validation - at least 1 valid AP contact is always required
         if (data.accounts_payable.length === 0) return false;
-        const hasInvalidAP = data.accounts_payable.some(ap =>
-            !ap.name || ap.name.length < 2 || !isValidEmail(ap.value)
-        );
+        const hasInvalidAP = data.accounts_payable.some((ap) => !ap.name || ap.name.length < 2 || !isValidEmail(ap.value));
         if (hasInvalidAP) return false;
 
         // If portal method, also require valid portal URL
@@ -449,9 +463,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         }
 
         // Other: if any exist, they must be valid
-        const hasInvalidOther = data.other.some(o =>
-            !o.name || o.name.length < 2 || !isValidEmail(o.email)
-        );
+        const hasInvalidOther = data.other.some((o) => !o.name || o.name.length < 2 || !isValidEmail(o.email));
         if (hasInvalidOther) return false;
 
         // AR invoice discount: if provided, must be valid
@@ -521,17 +533,12 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
         <AuthenticatedLayout
             header={
                 <div className="flex items-center gap-4">
-                    <Link
-                        href={route('customers.index')}
-                        className="text-gray-500 hover:text-gray-700"
-                    >
+                    <Link href={route('customers.index')} className="text-gray-500 hover:text-gray-700">
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </Link>
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Add New Customer
-                    </h2>
+                    <h2 className="text-xl leading-tight font-semibold text-gray-800">Add New Customer</h2>
                 </div>
             }
         >
@@ -619,7 +626,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 </option>
                                             ))}
                                         </select>
-                                        {getError('customer_payment_term') && <p className="mt-1 text-sm text-red-600">{getError('customer_payment_term')}</p>}
+                                        {getError('customer_payment_term') && (
+                                            <p className="mt-1 text-sm text-red-600">{getError('customer_payment_term')}</p>
+                                        )}
                                     </div>
 
                                     <div>
@@ -643,7 +652,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 </option>
                                             ))}
                                         </select>
-                                        {getError('shipping_terms_category_id') && <p className="mt-1 text-sm text-red-600">{getError('shipping_terms_category_id')}</p>}
+                                        {getError('shipping_terms_category_id') && (
+                                            <p className="mt-1 text-sm text-red-600">{getError('shipping_terms_category_id')}</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -674,7 +685,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                             max="365"
                                         />
                                         <p className="mt-1 text-xs text-gray-500">Must be between 30 and 365 days</p>
-                                        {getError('shelf_life_requirement') && <p className="mt-1 text-sm text-red-600">{getError('shelf_life_requirement')}</p>}
+                                        {getError('shelf_life_requirement') && (
+                                            <p className="mt-1 text-sm text-red-600">{getError('shelf_life_requirement')}</p>
+                                        )}
                                     </div>
 
                                     <div>
@@ -690,7 +703,11 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 markTouched('vendor_guide');
                                             }}
                                             onBlur={() => markTouched('vendor_guide')}
-                                            className={getInputClass('vendor_guide', data.vendor_guide, data.vendor_guide === '' || isValidUrl(data.vendor_guide))}
+                                            className={getInputClass(
+                                                'vendor_guide',
+                                                data.vendor_guide,
+                                                data.vendor_guide === '' || isValidUrl(data.vendor_guide),
+                                            )}
                                             placeholder="https://..."
                                         />
                                         {getError('vendor_guide') && <p className="mt-1 text-sm text-red-600">{getError('vendor_guide')}</p>}
@@ -757,7 +774,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                             className={getInputClass('broker_company_name', data.broker_company_name)}
                                                             placeholder="e.g., HRG Brokers"
                                                         />
-                                                        {getError('broker_company_name') && <p className="mt-1 text-sm text-red-600">{getError('broker_company_name')}</p>}
+                                                        {getError('broker_company_name') && (
+                                                            <p className="mt-1 text-sm text-red-600">{getError('broker_company_name')}</p>
+                                                        )}
                                                     </div>
 
                                                     <div>
@@ -779,7 +798,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                             max="100"
                                                             step="0.1"
                                                         />
-                                                        {getError('broker_commission') && <p className="mt-1 text-sm text-red-600">{getError('broker_commission')}</p>}
+                                                        {getError('broker_commission') && (
+                                                            <p className="mt-1 text-sm text-red-600">{getError('broker_commission')}</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -797,7 +818,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                         + Add Another
                                                     </button>
                                                 </div>
-                                                {getError('broker_contacts') && <p className="mb-2 text-sm text-red-600">{getError('broker_contacts')}</p>}
+                                                {getError('broker_contacts') && (
+                                                    <p className="mb-2 text-sm text-red-600">{getError('broker_contacts')}</p>
+                                                )}
                                                 <div className="space-y-4">
                                                     {data.broker_contacts.map((contact, index) => (
                                                         <div key={index} className="flex gap-4">
@@ -811,7 +834,9 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                                     placeholder="Contact name"
                                                                 />
                                                                 {getError(`broker_contacts.${index}.name`) && (
-                                                                    <p className="mt-1 text-sm text-red-600">{getError(`broker_contacts.${index}.name`)}</p>
+                                                                    <p className="mt-1 text-sm text-red-600">
+                                                                        {getError(`broker_contacts.${index}.name`)}
+                                                                    </p>
                                                                 )}
                                                             </div>
                                                             <div className="flex-1">
@@ -820,11 +845,17 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                                     value={contact.email}
                                                                     onChange={(e) => updateBrokerContact(index, 'email', e.target.value)}
                                                                     onBlur={() => markTouched(`broker_contacts.${index}.email`)}
-                                                                    className={getInputClass(`broker_contacts.${index}.email`, contact.email, isValidEmail(contact.email))}
+                                                                    className={getInputClass(
+                                                                        `broker_contacts.${index}.email`,
+                                                                        contact.email,
+                                                                        isValidEmail(contact.email),
+                                                                    )}
                                                                     placeholder="Email address"
                                                                 />
                                                                 {getError(`broker_contacts.${index}.email`) && (
-                                                                    <p className="mt-1 text-sm text-red-600">{getError(`broker_contacts.${index}.email`)}</p>
+                                                                    <p className="mt-1 text-sm text-red-600">
+                                                                        {getError(`broker_contacts.${index}.email`)}
+                                                                    </p>
                                                                 )}
                                                             </div>
                                                             {data.broker_contacts.length > 1 && (
@@ -834,7 +865,12 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                                     className="text-red-500 hover:text-red-700"
                                                                 >
                                                                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                        <path
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                            strokeWidth={2}
+                                                                            d="M6 18L18 6M6 6l12 12"
+                                                                        />
                                                                     </svg>
                                                                 </button>
                                                             )}
@@ -855,11 +891,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                     <h3 className="text-lg font-medium text-gray-900">
                                         Buyer Contacts <span className="text-red-500">*</span>
                                     </h3>
-                                    <button
-                                        type="button"
-                                        onClick={addBuyer}
-                                        className="text-sm text-indigo-600 hover:text-indigo-800"
-                                    >
+                                    <button type="button" onClick={addBuyer} className="text-sm text-indigo-600 hover:text-indigo-800">
                                         + Add Another
                                     </button>
                                 </div>
@@ -894,11 +926,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 )}
                                             </div>
                                             {data.buyers.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeBuyer(index)}
-                                                    className="text-red-500 hover:text-red-700"
-                                                >
+                                                <button type="button" onClick={() => removeBuyer(index)} className="text-red-500 hover:text-red-700">
                                                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
@@ -914,13 +942,13 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         {/* Accounts Payable */}
                         <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                <h3 className="mb-4 text-lg font-medium text-gray-900">
                                     Accounts Payable <span className="text-red-500">*</span>
                                 </h3>
 
                                 {/* AP Method Selection */}
                                 <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Does customer use an AP portal?</label>
+                                    <label className="mb-2 block text-sm font-medium text-gray-700">Does customer use an AP portal?</label>
                                     <div className="flex gap-4">
                                         <label className="flex items-center">
                                             <input
@@ -929,7 +957,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 value="inbox"
                                                 checked={data.ap_method === 'inbox'}
                                                 onChange={() => setData('ap_method', 'inbox')}
-                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                             />
                                             <span className="ml-2 text-sm text-gray-700">No - Email only</span>
                                         </label>
@@ -940,7 +968,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                 value="portal"
                                                 checked={data.ap_method === 'portal'}
                                                 onChange={() => setData('ap_method', 'portal')}
-                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                             />
                                             <span className="ml-2 text-sm text-gray-700">Yes - Uses web portal</span>
                                         </label>
@@ -949,8 +977,8 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
 
                                 {/* Portal URL input (when portal is selected) */}
                                 {data.ap_method === 'portal' && (
-                                    <div className="mb-4 p-4 bg-gray-50 rounded-md">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <div className="mb-4 rounded-md bg-gray-50 p-4">
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">
                                             Portal URL <span className="text-red-500">*</span>
                                         </label>
                                         <input
@@ -961,32 +989,24 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                             className={getInputClass('ap_portal_url', data.ap_portal_url, isValidUrl(data.ap_portal_url))}
                                             placeholder="https://vendor-portal.example.com"
                                         />
-                                        {getError('ap_portal_url') && (
-                                            <p className="mt-1 text-sm text-red-600">{getError('ap_portal_url')}</p>
-                                        )}
+                                        {getError('ap_portal_url') && <p className="mt-1 text-sm text-red-600">{getError('ap_portal_url')}</p>}
                                     </div>
                                 )}
 
                                 {/* AP Contacts (always required) */}
                                 <div className="mt-4">
-                                    <div className="flex items-center justify-between mb-2">
+                                    <div className="mb-2 flex items-center justify-between">
                                         <label className="block text-sm font-medium text-gray-700">
                                             AP Contacts <span className="text-red-500">*</span>
                                         </label>
-                                        <button
-                                            type="button"
-                                            onClick={addAP}
-                                            className="text-sm text-indigo-600 hover:text-indigo-800"
-                                        >
+                                        <button type="button" onClick={addAP} className="text-sm text-indigo-600 hover:text-indigo-800">
                                             + Add Contact
                                         </button>
                                     </div>
-                                    <p className="text-xs text-gray-500 mb-3">
+                                    <p className="mb-3 text-xs text-gray-500">
                                         At least one AP contact is required{data.ap_method === 'portal' ? ' (in addition to the portal URL)' : ''}.
                                     </p>
-                                    {getError('accounts_payable') && (
-                                        <p className="mb-2 text-sm text-red-600">{getError('accounts_payable')}</p>
-                                    )}
+                                    {getError('accounts_payable') && <p className="mb-2 text-sm text-red-600">{getError('accounts_payable')}</p>}
 
                                     <div className="space-y-4">
                                         {data.accounts_payable.map((ap, index) => (
@@ -1018,13 +1038,14 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                     )}
                                                 </div>
                                                 {data.accounts_payable.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeAP(index)}
-                                                        className="text-red-500 hover:text-red-700"
-                                                    >
+                                                    <button type="button" onClick={() => removeAP(index)} className="text-red-500 hover:text-red-700">
                                                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d="M6 18L18 6M6 6l12 12"
+                                                            />
                                                         </svg>
                                                     </button>
                                                 )}
@@ -1040,11 +1061,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                             <div className="p-6">
                                 <div className="mb-4 flex items-center justify-between">
                                     <h3 className="text-lg font-medium text-gray-900">Other Contacts</h3>
-                                    <button
-                                        type="button"
-                                        onClick={addOther}
-                                        className="text-sm text-indigo-600 hover:text-indigo-800"
-                                    >
+                                    <button type="button" onClick={addOther} className="text-sm text-indigo-600 hover:text-indigo-800">
                                         + Add Contact
                                     </button>
                                 </div>
@@ -1073,7 +1090,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                         type="text"
                                                         value={other.function || ''}
                                                         onChange={(e) => updateOther(index, 'function', e.target.value)}
-                                                        className="mt-1 block w-full rounded-md shadow-xs focus:ring-2 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
                                                         placeholder="Function (e.g. Logistics)"
                                                     />
                                                 </div>
@@ -1090,11 +1107,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                                         <p className="mt-1 text-sm text-red-600">{getError(`other.${index}.email`)}</p>
                                                     )}
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeOther(index)}
-                                                    className="text-red-500 hover:text-red-700"
-                                                >
+                                                <button type="button" onClick={() => removeOther(index)} className="text-red-500 hover:text-red-700">
                                                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
@@ -1109,8 +1122,8 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                         {/* Invoicing Preferences (AR Settings) */}
                         <div className="mt-6 overflow-hidden bg-white shadow-xs sm:rounded-lg">
                             <div className="p-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Invoicing Preferences</h3>
-                                <p className="text-sm text-gray-500 mb-4">Configure AR automation settings for this customer (optional)</p>
+                                <h3 className="mb-4 text-lg font-medium text-gray-900">Invoicing Preferences</h3>
+                                <p className="mb-4 text-sm text-gray-500">Configure AR automation settings for this customer (optional)</p>
 
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                     <div>
@@ -1153,7 +1166,7 @@ export default function Create({ priceLists = [], paymentTerms = [], shippingTer
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Addl Discount on Invoice Total (%)</label>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">Addl Discount on Invoice Total (%)</label>
                                         <input
                                             type="number"
                                             value={data.ar_invoice_discount}

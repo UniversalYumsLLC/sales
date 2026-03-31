@@ -23,30 +23,18 @@ export default function Login({ status, error }: LoginProps) {
 
             <div className="flex flex-col gap-6">
                 <div className="text-center">
-                    <h2 className="text-xl font-semibold text-gray-900">
-                        Welcome to Sales Dashboard
-                    </h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                        Sign in with your Google account to continue
-                    </p>
+                    <h2 className="text-xl font-semibold text-gray-900">Welcome to Sales Dashboard</h2>
+                    <p className="mt-2 text-sm text-gray-600">Sign in with your Google account to continue</p>
                 </div>
 
-                {status && (
-                    <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-800">
-                        {status}
-                    </div>
-                )}
+                {status && <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-800">{status}</div>}
 
-                {error && (
-                    <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
-                        {error}
-                    </div>
-                )}
+                {error && <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">{error}</div>}
 
                 <button
                     type="button"
                     onClick={handleGoogleLogin}
-                    className="flex w-full items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-xs hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    className="flex w-full items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-xs hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
                 >
                     <svg className="h-5 w-5" viewBox="0 0 24 24">
                         <path

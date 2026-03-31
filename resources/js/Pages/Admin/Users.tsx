@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, usePage, useForm } from '@inertiajs/react';
-import { useState, FormEventHandler } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { FormEventHandler, useState } from 'react';
 
 interface User {
     id: number;
@@ -36,9 +36,13 @@ export default function Users({ users, invites }: Props) {
     });
 
     const handleRoleChange = (userId: number, newRole: string) => {
-        router.patch(route('admin.users.role', userId), { role: newRole }, {
-            preserveScroll: true,
-        });
+        router.patch(
+            route('admin.users.role', userId),
+            { role: newRole },
+            {
+                preserveScroll: true,
+            },
+        );
     };
 
     const handleDelete = (userId: number) => {
@@ -73,9 +77,7 @@ export default function Users({ users, invites }: Props) {
         <AuthenticatedLayout
             header={
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        User Management
-                    </h2>
+                    <h2 className="text-xl leading-tight font-semibold text-gray-800">User Management</h2>
                     <button
                         onClick={() => setShowInviteForm(!showInviteForm)}
                         className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
@@ -107,9 +109,7 @@ export default function Users({ users, invites }: Props) {
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                             placeholder="user@example.com"
                                         />
-                                        {errors.email && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                                        )}
+                                        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
                                     </div>
                                     <div>
                                         <label htmlFor="role" className="block text-sm font-medium text-gray-700">
@@ -150,19 +150,19 @@ export default function Users({ users, invites }: Props) {
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                                                     Email
                                                 </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                                                     Role
                                                 </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                                                     Invited By
                                                 </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                                                     Date
                                                 </th>
-                                                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
                                                     Actions
                                                 </th>
                                             </tr>
@@ -170,21 +170,17 @@ export default function Users({ users, invites }: Props) {
                                         <tbody className="divide-y divide-gray-200 bg-white">
                                             {invites.map((invite) => (
                                                 <tr key={invite.id}>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                                                        {invite.email}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-6 py-4">
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{invite.email}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="inline-flex rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800">
                                                             {invite.role}
                                                         </span>
                                                     </td>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                        {invite.invited_by}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">{invite.invited_by}</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
                                                         {formatDate(invite.created_at)}
                                                     </td>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                                    <td className="px-6 py-4 text-right text-sm whitespace-nowrap">
                                                         <button
                                                             onClick={() => handleCancelInvite(invite.id)}
                                                             className="text-red-600 hover:text-red-900"
@@ -209,16 +205,10 @@ export default function Users({ users, invites }: Props) {
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                User
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                Role
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                Joined
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">User</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Role</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Joined</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
                                                 Actions
                                             </th>
                                         </tr>
@@ -226,14 +216,10 @@ export default function Users({ users, invites }: Props) {
                                     <tbody className="divide-y divide-gray-200 bg-white">
                                         {users.map((user) => (
                                             <tr key={user.id}>
-                                                <td className="whitespace-nowrap px-6 py-4">
+                                                <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">
                                                         {user.avatar ? (
-                                                            <img
-                                                                src={user.avatar}
-                                                                alt=""
-                                                                className="h-8 w-8 rounded-full"
-                                                            />
+                                                            <img src={user.avatar} alt="" className="h-8 w-8 rounded-full" />
                                                         ) : (
                                                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-300">
                                                                 <svg
@@ -261,7 +247,7 @@ export default function Users({ users, invites }: Props) {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4">
+                                                <td className="px-6 py-4 whitespace-nowrap">
                                                     {user.id === auth.user.id ? (
                                                         <span className="inline-flex rounded-full bg-indigo-100 px-2 py-1 text-xs font-semibold text-indigo-800">
                                                             {user.role}
@@ -278,10 +264,8 @@ export default function Users({ users, invites }: Props) {
                                                         </select>
                                                     )}
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                    {formatDate(user.created_at)}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                                <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">{formatDate(user.created_at)}</td>
+                                                <td className="px-6 py-4 text-right text-sm whitespace-nowrap">
                                                     {user.id !== auth.user.id && (
                                                         <>
                                                             {confirmingDelete === user.id ? (
@@ -317,11 +301,7 @@ export default function Users({ users, invites }: Props) {
                                 </table>
                             </div>
 
-                            {users.length === 0 && (
-                                <div className="py-8 text-center text-gray-500">
-                                    No users found
-                                </div>
-                            )}
+                            {users.length === 0 && <div className="py-8 text-center text-gray-500">No users found</div>}
                         </div>
                     </div>
                 </div>

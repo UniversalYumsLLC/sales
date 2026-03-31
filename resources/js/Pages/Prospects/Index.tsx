@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useEffect, useState } from 'react';
 
 interface Prospect {
     id: number;
@@ -44,11 +44,7 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
             });
 
             // Update local state
-            setProspects(prev =>
-                prev.map(p =>
-                    p.id === prospectId ? { ...p, status: newStatus } : p
-                )
-            );
+            setProspects((prev) => prev.map((p) => (p.id === prospectId ? { ...p, status: newStatus } : p)));
         } catch (error) {
             console.error('Failed to update status:', error);
         } finally {
@@ -60,13 +56,8 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
         <AuthenticatedLayout
             header={
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Prospects
-                    </h2>
-                    <Link
-                        href={route('prospects.create')}
-                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
-                    >
+                    <h2 className="text-xl leading-tight font-semibold text-gray-800">Prospects</h2>
+                    <Link href={route('prospects.create')} className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">
                         New Prospect
                     </Link>
                 </div>
@@ -82,7 +73,11 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
                             <div className="flex">
                                 <div className="shrink-0">
                                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                            clipRule="evenodd"
+                                        />
                                     </svg>
                                 </div>
                                 <div className="ml-3">
@@ -109,39 +104,28 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                                                 Company Name
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                Status
-                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 bg-white">
                                         {prospects.map((prospect) => (
-                                            <tr
-                                                key={prospect.id}
-                                                className="hover:bg-gray-50"
-                                            >
+                                            <tr key={prospect.id} className="hover:bg-gray-50">
                                                 <td
-                                                    className="whitespace-nowrap px-6 py-4 cursor-pointer"
+                                                    className="cursor-pointer px-6 py-4 whitespace-nowrap"
                                                     onClick={() => router.get(route('prospects.show', prospect.id))}
                                                 >
-                                                    <div className="font-medium text-gray-900 hover:text-indigo-600">
-                                                        {prospect.company_name}
-                                                    </div>
+                                                    <div className="font-medium text-gray-900 hover:text-indigo-600">{prospect.company_name}</div>
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4">
-                                                    <div className="relative group">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="group relative">
                                                         <select
                                                             value={prospect.status}
                                                             onChange={(e) => handleStatusChange(prospect.id, e.target.value)}
                                                             disabled={updatingId === prospect.id}
-                                                            className={`
-                                                                rounded-md border-gray-300 text-sm shadow-xs
-                                                                focus:border-indigo-500 focus:ring-indigo-500
-                                                                ${updatingId === prospect.id ? 'opacity-50 cursor-wait' : ''}
-                                                            `}
+                                                            className={`rounded-md border-gray-300 text-sm shadow-xs focus:border-indigo-500 focus:ring-indigo-500 ${updatingId === prospect.id ? 'cursor-wait opacity-50' : ''} `}
                                                         >
                                                             {Object.entries(statuses).map(([value, info]) => (
                                                                 <option key={value} value={value}>
@@ -151,11 +135,11 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
                                                         </select>
                                                         {/* Tooltip */}
                                                         {statuses[prospect.status] && (
-                                                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10">
-                                                                <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                                            <div className="absolute bottom-full left-0 z-10 mb-2 hidden group-hover:block">
+                                                                <div className="rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white">
                                                                     {statuses[prospect.status].description}
                                                                 </div>
-                                                                <div className="w-2 h-2 bg-gray-900 transform rotate-45 absolute left-4 -bottom-1"></div>
+                                                                <div className="absolute -bottom-1 left-4 h-2 w-2 rotate-45 transform bg-gray-900"></div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -167,9 +151,7 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
                             </div>
 
                             {prospects.length === 0 && (
-                                <div className="py-8 text-center text-gray-500">
-                                    No prospects found. Click "New Prospect" to add one.
-                                </div>
+                                <div className="py-8 text-center text-gray-500">No prospects found. Click "New Prospect" to add one.</div>
                             )}
                         </div>
                     </div>

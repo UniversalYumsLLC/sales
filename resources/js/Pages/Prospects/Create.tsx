@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Product {
     id: number;
@@ -75,7 +75,13 @@ function isValidUrl(url: string): boolean {
 }
 
 export default function Create({ products = [], priceLists = [], paymentTerms = [], shippingTerms = [] }: Props) {
-    const { data, setData, post, processing, errors: serverErrors } = useForm({
+    const {
+        data,
+        setData,
+        post,
+        processing,
+        errors: serverErrors,
+    } = useForm({
         company_name: '',
         company_urls: [] as string[],
         // Commercial terms (stored as display values for prospects)
@@ -115,7 +121,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
     const [showProductDropdown, setShowProductDropdown] = useState(false);
 
     const markTouched = (field: string) => {
-        setTouched(prev => ({ ...prev, [field]: true }));
+        setTouched((prev) => ({ ...prev, [field]: true }));
     };
 
     // Real-time validation
@@ -223,7 +229,11 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
 
     // Contact management
     const addBuyer = () => setData('buyers', [...data.buyers, { name: '', email: '' }]);
-    const removeBuyer = (idx: number) => setData('buyers', data.buyers.filter((_, i) => i !== idx));
+    const removeBuyer = (idx: number) =>
+        setData(
+            'buyers',
+            data.buyers.filter((_, i) => i !== idx),
+        );
     const updateBuyer = (idx: number, field: keyof Contact, value: string) => {
         const updated = [...data.buyers];
         updated[idx] = { ...updated[idx], [field]: value };
@@ -231,7 +241,11 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
     };
 
     const addAP = () => setData('accounts_payable', [...data.accounts_payable, { name: '', value: '' }]);
-    const removeAP = (idx: number) => setData('accounts_payable', data.accounts_payable.filter((_, i) => i !== idx));
+    const removeAP = (idx: number) =>
+        setData(
+            'accounts_payable',
+            data.accounts_payable.filter((_, i) => i !== idx),
+        );
     const updateAP = (idx: number, field: keyof APContact, value: string) => {
         const updated = [...data.accounts_payable];
         updated[idx] = { ...updated[idx], [field]: value };
@@ -239,7 +253,11 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
     };
 
     const addOther = () => setData('other', [...data.other, { name: '', email: '', function: '' }]);
-    const removeOther = (idx: number) => setData('other', data.other.filter((_, i) => i !== idx));
+    const removeOther = (idx: number) =>
+        setData(
+            'other',
+            data.other.filter((_, i) => i !== idx),
+        );
     const updateOther = (idx: number, field: keyof OtherContact, value: string) => {
         const updated = [...data.other];
         updated[idx] = { ...updated[idx], [field]: value };
@@ -247,7 +265,11 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
     };
 
     const addBrokerContact = () => setData('broker_contacts', [...data.broker_contacts, { name: '', email: '' }]);
-    const removeBrokerContact = (idx: number) => setData('broker_contacts', data.broker_contacts.filter((_, i) => i !== idx));
+    const removeBrokerContact = (idx: number) =>
+        setData(
+            'broker_contacts',
+            data.broker_contacts.filter((_, i) => i !== idx),
+        );
     const updateBrokerContact = (idx: number, field: keyof BrokerContact, value: string) => {
         const updated = [...data.broker_contacts];
         updated[idx] = { ...updated[idx], [field]: value };
@@ -263,18 +285,23 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
         setShowProductDropdown(false);
     };
     const removeProduct = (productId: number) => {
-        setData('product_ids', data.product_ids.filter(id => id !== productId));
+        setData(
+            'product_ids',
+            data.product_ids.filter((id) => id !== productId),
+        );
     };
-    const filteredProducts = products.filter(p =>
-        !data.product_ids.includes(p.id) &&
-        (p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
-         p.sku?.toLowerCase().includes(productSearch.toLowerCase()))
-    ).slice(0, 10);
-    const selectedProducts = products.filter(p => data.product_ids.includes(p.id));
+    const filteredProducts = products
+        .filter(
+            (p) =>
+                !data.product_ids.includes(p.id) &&
+                (p.name?.toLowerCase().includes(productSearch.toLowerCase()) || p.sku?.toLowerCase().includes(productSearch.toLowerCase())),
+        )
+        .slice(0, 10);
+    const selectedProducts = products.filter((p) => data.product_ids.includes(p.id));
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setTouched(prev => ({ ...prev, company_name: true }));
+        setTouched((prev) => ({ ...prev, company_name: true }));
 
         if (!data.company_name.trim() || data.company_name.trim().length < 2) {
             return;
@@ -282,16 +309,16 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
 
         // Transform data before submission:
         // Convert dropdown IDs back to stored values for prospect
-        const selectedPriceList = priceLists.find(pl => pl.id.toString() === data.discount_percent);
-        const selectedPaymentTerm = paymentTerms.find(pt => pt.id.toString() === data.payment_terms);
-        const selectedShippingTerm = shippingTerms.find(st => st.id.toString() === data.shipping_terms);
+        const selectedPriceList = priceLists.find((pl) => pl.id.toString() === data.discount_percent);
+        const selectedPaymentTerm = paymentTerms.find((pt) => pt.id.toString() === data.payment_terms);
+        const selectedShippingTerm = shippingTerms.find((st) => st.id.toString() === data.shipping_terms);
 
         // Build accounts_payable from ap_method
         let accountsPayable: APContact[] = [];
         if (data.ap_method === 'portal' && data.ap_portal_url) {
             accountsPayable = [{ name: 'AP Portal', value: data.ap_portal_url }];
         } else if (data.ap_method === 'inbox') {
-            accountsPayable = data.accounts_payable.filter(ap => ap.name.trim());
+            accountsPayable = data.accounts_payable.filter((ap) => ap.name.trim());
         }
 
         // Use setData to update the form before posting - but since Inertia's post
@@ -309,10 +336,10 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                 broker: formData.broker === 'true',
                 broker_company_name: formData.broker_company_name || null,
                 broker_commission: formData.broker_commission ? parseFloat(formData.broker_commission) : null,
-                broker_contacts: formData.broker_contacts.filter(c => c.name.trim()),
-                buyers: formData.buyers.filter(b => b.name.trim()),
+                broker_contacts: formData.broker_contacts.filter((c) => c.name.trim()),
+                buyers: formData.buyers.filter((b) => b.name.trim()),
                 accounts_payable: accountsPayable,
-                other: formData.other.filter(o => o.name.trim()),
+                other: formData.other.filter((o) => o.name.trim()),
                 ar_edi: formData.ar_edi,
                 ar_consolidated_invoicing: formData.ar_consolidated_invoicing,
                 ar_requires_customer_skus: formData.ar_requires_customer_skus,
@@ -339,13 +366,8 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
         <AuthenticatedLayout
             header={
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        New Prospect
-                    </h2>
-                    <Link
-                        href={route('prospects.index')}
-                        className="text-sm text-gray-500 hover:text-gray-700"
-                    >
+                    <h2 className="text-xl leading-tight font-semibold text-gray-800">New Prospect</h2>
+                    <Link href={route('prospects.index')} className="text-sm text-gray-500 hover:text-gray-700">
                         Cancel
                     </Link>
                 </div>
@@ -364,8 +386,8 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                         )}
 
                         {/* Company Information */}
-                        <div className="bg-white shadow-xs sm:rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Company Information</h3>
+                        <div className="bg-white p-6 shadow-xs sm:rounded-lg">
+                            <h3 className="mb-4 text-lg font-medium text-gray-900">Company Information</h3>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 {/* Company Name */}
@@ -409,7 +431,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     >
                                         <option value="">Select...</option>
                                         {priceLists.map((pl) => (
-                                            <option key={pl.id} value={pl.id}>{pl.discount_percent}% Discount</option>
+                                            <option key={pl.id} value={pl.id}>
+                                                {pl.discount_percent}% Discount
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
@@ -424,7 +448,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     >
                                         <option value="">Select...</option>
                                         {paymentTerms.map((pt) => (
-                                            <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                            <option key={pt.id} value={pt.id}>
+                                                {pt.name}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
@@ -439,7 +465,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     >
                                         <option value="">Select...</option>
                                         {shippingTerms.map((st) => (
-                                            <option key={st.id} value={st.id}>{st.name}</option>
+                                            <option key={st.id} value={st.id}>
+                                                {st.name}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
@@ -457,7 +485,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         placeholder="e.g., 90"
                                         className={getClass('shelf_life_requirement')}
                                     />
-                                    {validationErrors.shelf_life_requirement && <p className="mt-1 text-sm text-red-600">{validationErrors.shelf_life_requirement}</p>}
+                                    {validationErrors.shelf_life_requirement && (
+                                        <p className="mt-1 text-sm text-red-600">{validationErrors.shelf_life_requirement}</p>
+                                    )}
                                 </div>
 
                                 {/* Vendor Guide */}
@@ -477,20 +507,35 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                 {/* Company URLs */}
                                 <div className="sm:col-span-2 lg:col-span-3">
                                     <label className="block text-sm font-medium text-gray-700">Company URLs / Email Domains</label>
-                                    <p className="text-xs text-gray-500 mb-2">
+                                    <p className="mb-2 text-xs text-gray-500">
                                         Domains used for matching emails from Gmail. Email domains are auto-added from contacts.
                                     </p>
                                     {data.company_urls.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-2">
+                                        <div className="mb-2 flex flex-wrap gap-2">
                                             {data.company_urls.map((url, index) => (
-                                                <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded text-sm">
+                                                <span
+                                                    key={index}
+                                                    className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-sm text-gray-800"
+                                                >
                                                     {url}
                                                     <button
                                                         type="button"
-                                                        onClick={() => setData('company_urls', data.company_urls.filter((_, i) => i !== index))}
+                                                        onClick={() =>
+                                                            setData(
+                                                                'company_urls',
+                                                                data.company_urls.filter((_, i) => i !== index),
+                                                            )
+                                                        }
                                                         className="text-gray-500 hover:text-gray-700"
                                                     >
-                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d="M6 18L18 6M6 6l12 12"
+                                                            />
+                                                        </svg>
                                                     </button>
                                                 </span>
                                             ))}
@@ -511,7 +556,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 }
                                             }}
                                             placeholder="Enter domain (e.g., company.com)"
-                                            className="flex-1 rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                            className="flex-1 rounded-md border-gray-300 text-sm shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                         />
                                         <button
                                             type="button"
@@ -521,7 +566,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                     setNewUrl('');
                                                 }
                                             }}
-                                            className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200"
+                                            className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200"
                                         >
                                             Add
                                         </button>
@@ -604,15 +649,17 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         placeholder="0"
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                     />
-                                    {validationErrors.ar_invoice_discount && <p className="mt-1 text-xs text-red-600">{validationErrors.ar_invoice_discount}</p>}
+                                    {validationErrors.ar_invoice_discount && (
+                                        <p className="mt-1 text-xs text-red-600">{validationErrors.ar_invoice_discount}</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
                         {/* Broker Section */}
                         {data.broker === 'true' && (
-                            <div className="bg-white shadow-xs sm:rounded-lg p-6 border-l-4 border-purple-400">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Broker Information</h3>
+                            <div className="border-l-4 border-purple-400 bg-white p-6 shadow-xs sm:rounded-lg">
+                                <h3 className="mb-4 text-lg font-medium text-gray-900">Broker Information</h3>
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Broker Company Name</label>
@@ -624,7 +671,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             className={getClass('broker_company_name')}
                                             placeholder="e.g., HRG Brokers"
                                         />
-                                        {validationErrors.broker_company_name && <p className="mt-1 text-sm text-red-600">{validationErrors.broker_company_name}</p>}
+                                        {validationErrors.broker_company_name && (
+                                            <p className="mt-1 text-sm text-red-600">{validationErrors.broker_company_name}</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Commission (%)</label>
@@ -637,17 +686,24 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             max="100"
                                             step="0.1"
                                             placeholder="0.0"
-                                            className={getClass('broker_commission', 'mt-1 block w-32 rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500')}
+                                            className={getClass(
+                                                'broker_commission',
+                                                'mt-1 block w-32 rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500',
+                                            )}
                                         />
-                                        {validationErrors.broker_commission && <p className="mt-1 text-sm text-red-600">{validationErrors.broker_commission}</p>}
+                                        {validationErrors.broker_commission && (
+                                            <p className="mt-1 text-sm text-red-600">{validationErrors.broker_commission}</p>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Broker Contacts */}
                                 <div className="mt-4">
-                                    <div className="flex items-center justify-between mb-2">
+                                    <div className="mb-2 flex items-center justify-between">
                                         <h4 className="text-sm font-medium text-gray-700">Broker Contacts</h4>
-                                        <button type="button" onClick={addBrokerContact} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
+                                        <button type="button" onClick={addBrokerContact} className="text-sm text-indigo-600 hover:text-indigo-800">
+                                            + Add
+                                        </button>
                                     </div>
                                     {data.broker_contacts.length === 0 && <p className="text-sm text-gray-400 italic">No broker contacts added</p>}
                                     <div className="space-y-2">
@@ -669,8 +725,14 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                     placeholder="Email"
                                                     className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`broker_contacts.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                                 />
-                                                <button type="button" onClick={() => removeBrokerContact(idx)} className="text-red-400 hover:text-red-600">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeBrokerContact(idx)}
+                                                    className="text-red-400 hover:text-red-600"
+                                                >
+                                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
                                                 </button>
                                             </div>
                                         ))}
@@ -680,14 +742,16 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                         )}
 
                         {/* Contacts */}
-                        <div className="bg-white shadow-xs sm:rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Contacts</h3>
+                        <div className="bg-white p-6 shadow-xs sm:rounded-lg">
+                            <h3 className="mb-4 text-lg font-medium text-gray-900">Contacts</h3>
 
                             {/* Buyers */}
                             <div className="mb-6">
-                                <div className="flex items-center justify-between mb-2">
+                                <div className="mb-2 flex items-center justify-between">
                                     <h4 className="text-sm font-medium text-gray-700">Buyers</h4>
-                                    <button type="button" onClick={addBuyer} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
+                                    <button type="button" onClick={addBuyer} className="text-sm text-indigo-600 hover:text-indigo-800">
+                                        + Add
+                                    </button>
                                 </div>
                                 {data.buyers.length === 0 && <p className="text-sm text-gray-400 italic">No buyer contacts</p>}
                                 <div className="space-y-2">
@@ -710,7 +774,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`buyers.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                             />
                                             <button type="button" onClick={() => removeBuyer(idx)} className="text-red-400 hover:text-red-600">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
                                             </button>
                                         </div>
                                     ))}
@@ -719,18 +785,36 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
 
                             {/* Accounts Payable */}
                             <div className="mb-6">
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">Accounts Payable</h4>
-                                <div className="flex gap-4 mb-3">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="ap_method" checked={data.ap_method === ''} onChange={() => setData('ap_method', '')} className="text-indigo-600 focus:ring-indigo-500" />
+                                <h4 className="mb-2 text-sm font-medium text-gray-700">Accounts Payable</h4>
+                                <div className="mb-3 flex gap-4">
+                                    <label className="flex cursor-pointer items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="ap_method"
+                                            checked={data.ap_method === ''}
+                                            onChange={() => setData('ap_method', '')}
+                                            className="text-indigo-600 focus:ring-indigo-500"
+                                        />
                                         <span className="text-sm text-gray-700">Not set</span>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="ap_method" checked={data.ap_method === 'inbox'} onChange={() => setData('ap_method', 'inbox')} className="text-indigo-600 focus:ring-indigo-500" />
+                                    <label className="flex cursor-pointer items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="ap_method"
+                                            checked={data.ap_method === 'inbox'}
+                                            onChange={() => setData('ap_method', 'inbox')}
+                                            className="text-indigo-600 focus:ring-indigo-500"
+                                        />
                                         <span className="text-sm text-gray-700">Email inbox</span>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="ap_method" checked={data.ap_method === 'portal'} onChange={() => setData('ap_method', 'portal')} className="text-indigo-600 focus:ring-indigo-500" />
+                                    <label className="flex cursor-pointer items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="ap_method"
+                                            checked={data.ap_method === 'portal'}
+                                            onChange={() => setData('ap_method', 'portal')}
+                                            className="text-indigo-600 focus:ring-indigo-500"
+                                        />
                                         <span className="text-sm text-gray-700">Web portal</span>
                                     </label>
                                 </div>
@@ -744,16 +828,22 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             placeholder="https://portal.example.com/invoices"
                                             className={getClass('ap_portal_url')}
                                         />
-                                        {validationErrors.ap_portal_url && <p className="mt-1 text-sm text-red-600">{validationErrors.ap_portal_url}</p>}
+                                        {validationErrors.ap_portal_url && (
+                                            <p className="mt-1 text-sm text-red-600">{validationErrors.ap_portal_url}</p>
+                                        )}
                                     </div>
                                 )}
                                 {data.ap_method === 'inbox' && (
                                     <div className="ml-6">
-                                        <div className="flex items-center justify-between mb-2">
+                                        <div className="mb-2 flex items-center justify-between">
                                             <span className="text-xs text-gray-500">AP contacts</span>
-                                            <button type="button" onClick={addAP} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
+                                            <button type="button" onClick={addAP} className="text-sm text-indigo-600 hover:text-indigo-800">
+                                                + Add
+                                            </button>
                                         </div>
-                                        {data.accounts_payable.length === 0 && <p className="text-sm text-gray-400 italic">Click Add to create an AP contact</p>}
+                                        {data.accounts_payable.length === 0 && (
+                                            <p className="text-sm text-gray-400 italic">Click Add to create an AP contact</p>
+                                        )}
                                         <div className="space-y-2">
                                             {data.accounts_payable.map((ap, idx) => (
                                                 <div key={idx} className="flex gap-2">
@@ -774,7 +864,14 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                         className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`ap.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                     />
                                                     <button type="button" onClick={() => removeAP(idx)} className="text-red-400 hover:text-red-600">
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d="M6 18L18 6M6 6l12 12"
+                                                            />
+                                                        </svg>
                                                     </button>
                                                 </div>
                                             ))}
@@ -785,9 +882,11 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
 
                             {/* Other Contacts */}
                             <div>
-                                <div className="flex items-center justify-between mb-2">
+                                <div className="mb-2 flex items-center justify-between">
                                     <h4 className="text-sm font-medium text-gray-700">Other Contacts</h4>
-                                    <button type="button" onClick={addOther} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
+                                    <button type="button" onClick={addOther} className="text-sm text-indigo-600 hover:text-indigo-800">
+                                        + Add
+                                    </button>
                                 </div>
                                 {data.other.length === 0 && <p className="text-sm text-gray-400 italic">No other contacts</p>}
                                 <div className="space-y-2">
@@ -806,7 +905,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 value={contact.function || ''}
                                                 onChange={(e) => updateOther(idx, 'function', e.target.value)}
                                                 placeholder="Function"
-                                                className="w-28 rounded-md text-sm shadow-xs focus:ring-indigo-500 border-gray-300"
+                                                className="w-28 rounded-md border-gray-300 text-sm shadow-xs focus:ring-indigo-500"
                                             />
                                             <input
                                                 type="email"
@@ -817,7 +916,9 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                                 className={`flex-1 rounded-md text-sm shadow-xs focus:ring-indigo-500 ${validationErrors[`other.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                             />
                                             <button type="button" onClick={() => removeOther(idx)} className="text-red-400 hover:text-red-600">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
                                             </button>
                                         </div>
                                     ))}
@@ -826,17 +927,26 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                         </div>
 
                         {/* Products of Interest */}
-                        <div className="bg-white shadow-xs sm:rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Products of Interest</h3>
+                        <div className="bg-white p-6 shadow-xs sm:rounded-lg">
+                            <h3 className="mb-4 text-lg font-medium text-gray-900">Products of Interest</h3>
 
                             {selectedProducts.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mb-3">
+                                <div className="mb-3 flex flex-wrap gap-2">
                                     {selectedProducts.map((product) => (
-                                        <span key={product.id} className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                                        <span
+                                            key={product.id}
+                                            className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-sm text-indigo-800"
+                                        >
                                             {product.sku && <span className="text-indigo-600">[{product.sku}]</span>}
                                             {product.name}
-                                            <button type="button" onClick={() => removeProduct(product.id)} className="ml-1 text-indigo-600 hover:text-indigo-800">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeProduct(product.id)}
+                                                className="ml-1 text-indigo-600 hover:text-indigo-800"
+                                            >
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
                                             </button>
                                         </span>
                                     ))}
@@ -847,43 +957,46 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                 <input
                                     type="text"
                                     value={productSearch}
-                                    onChange={(e) => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
+                                    onChange={(e) => {
+                                        setProductSearch(e.target.value);
+                                        setShowProductDropdown(true);
+                                    }}
                                     onFocus={() => setShowProductDropdown(true)}
                                     placeholder="Search products by name or SKU..."
                                     className="block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
                                 />
                                 {showProductDropdown && productSearch && filteredProducts.length > 0 && (
-                                    <div className="absolute z-50 bottom-full mb-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                    <div className="absolute bottom-full z-50 mb-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
                                         {filteredProducts.map((product) => (
-                                            <button key={product.id} type="button" onClick={() => addProduct(product.id)} className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm">
+                                            <button
+                                                key={product.id}
+                                                type="button"
+                                                onClick={() => addProduct(product.id)}
+                                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                                            >
                                                 {product.sku && <span className="text-gray-500">[{product.sku}]</span>} {product.name}
                                             </button>
                                         ))}
                                     </div>
                                 )}
                                 {showProductDropdown && productSearch && filteredProducts.length === 0 && (
-                                    <div className="absolute z-50 bottom-full mb-1 w-full bg-white border border-gray-200 rounded-md shadow-lg p-4 text-sm text-gray-500">
+                                    <div className="absolute bottom-full z-50 mb-1 w-full rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-500 shadow-lg">
                                         No products found
                                     </div>
                                 )}
                             </div>
-                            {showProductDropdown && (
-                                <div className="fixed inset-0 z-0" onClick={() => setShowProductDropdown(false)} />
-                            )}
+                            {showProductDropdown && <div className="fixed inset-0 z-0" onClick={() => setShowProductDropdown(false)} />}
                         </div>
 
                         {/* Submit */}
                         <div className="flex justify-end gap-3 pt-2">
-                            <Link
-                                href={route('prospects.index')}
-                                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
-                            >
+                            <Link href={route('prospects.index')} className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">
                                 Cancel
                             </Link>
                             <button
                                 type="submit"
                                 disabled={processing || !isFormValid}
-                                className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="rounded-md bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {processing ? 'Creating...' : 'Create Prospect'}
                             </button>
