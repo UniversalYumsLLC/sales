@@ -10,7 +10,7 @@ B2B sales tool suite integrating with Fulfil ERP for customer data and Gmail for
 ## Tech Stack
 
 - **Backend**: PHP 8.2+, Laravel 12.x, Inertia.js 2.0
-- **Frontend**: React 19, TypeScript 5.7+, Tailwind CSS 3.x, Radix UI
+- **Frontend**: React 19, TypeScript 5.7+, Tailwind CSS 4.x, Radix UI
 - **Database**: SQLite (dev), MySQL 8.0 (production), Redis for caching
 - **Queue**: Database driver
 - **Testing**: PHPUnit with in-memory SQLite
