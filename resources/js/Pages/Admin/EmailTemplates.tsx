@@ -36,7 +36,7 @@ export default function EmailTemplates({ templates }: Props) {
             setSubject(selectedTemplate.subject);
             setBody(selectedTemplate.body);
         }
-    }, [selectedKey]);
+    }, [selectedKey, selectedTemplate]);
 
     // Update contenteditable when body changes programmatically
     useEffect(() => {
@@ -69,7 +69,10 @@ export default function EmailTemplates({ templates }: Props) {
                 const firstError = Object.values(error.response.data.errors).flat()[0] as string;
                 setNotification({ type: 'error', message: firstError || 'Validation failed' });
             } else {
-                setNotification({ type: 'error', message: 'An error occurred while saving' });
+                const message = axios.isAxiosError(error)
+                    ? error.response?.data?.message
+                    : undefined;
+                setNotification({ type: 'error', message: message || 'An error occurred while saving' });
             }
         } finally {
             setSaving(false);
