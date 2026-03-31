@@ -75,7 +75,7 @@ function isValidUrl(url: string): boolean {
 }
 
 export default function Create({ products = [], priceLists = [], paymentTerms = [], shippingTerms = [] }: Props) {
-    const { data, setData, post, processing, errors: serverErrors } = useForm({
+    const { data, setData, post, processing, errors: serverErrors, transform } = useForm({
         company_name: '',
         company_urls: [] as string[],
         // Commercial terms (stored as display values for prospects)
@@ -294,33 +294,29 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
             accountsPayable = data.accounts_payable.filter(ap => ap.name.trim());
         }
 
-        // Use setData to update the form before posting - but since Inertia's post
-        // uses the current data state, we need to use the transform option
-        post(route('prospects.store'), {
-            // @ts-expect-error - Inertia transform types
-            transform: (formData: typeof data) => ({
-                company_name: formData.company_name,
-                company_urls: formData.company_urls,
-                discount_percent: selectedPriceList?.discount_percent ?? null,
-                payment_terms: selectedPaymentTerm?.name || null,
-                shipping_terms: selectedShippingTerm?.name || null,
-                shelf_life_requirement: formData.shelf_life_requirement ? parseInt(formData.shelf_life_requirement) : null,
-                vendor_guide: formData.vendor_guide || null,
-                broker: formData.broker === 'true',
-                broker_company_name: formData.broker_company_name || null,
-                broker_commission: formData.broker_commission ? parseFloat(formData.broker_commission) : null,
-                broker_contacts: formData.broker_contacts.filter(c => c.name.trim()),
-                buyers: formData.buyers.filter(b => b.name.trim()),
-                accounts_payable: accountsPayable,
-                other: formData.other.filter(o => o.name.trim()),
-                ar_edi: formData.ar_edi,
-                ar_consolidated_invoicing: formData.ar_consolidated_invoicing,
-                ar_requires_customer_skus: formData.ar_requires_customer_skus,
-                ar_invoice_discount: formData.ar_invoice_discount ? parseFloat(formData.ar_invoice_discount) : null,
-                customer_type: formData.customer_type || null,
-                product_ids: formData.product_ids,
-            }),
-        });
+        transform((formData) => ({
+            company_name: formData.company_name,
+            company_urls: formData.company_urls,
+            discount_percent: selectedPriceList?.discount_percent ?? null,
+            payment_terms: selectedPaymentTerm?.name || null,
+            shipping_terms: selectedShippingTerm?.name || null,
+            shelf_life_requirement: formData.shelf_life_requirement ? parseInt(formData.shelf_life_requirement) : null,
+            vendor_guide: formData.vendor_guide || null,
+            broker: formData.broker === 'true',
+            broker_company_name: formData.broker_company_name || null,
+            broker_commission: formData.broker_commission ? parseFloat(formData.broker_commission) : null,
+            broker_contacts: formData.broker_contacts.filter(c => c.name.trim()),
+            buyers: formData.buyers.filter(b => b.name.trim()),
+            accounts_payable: accountsPayable,
+            other: formData.other.filter(o => o.name.trim()),
+            ar_edi: formData.ar_edi,
+            ar_consolidated_invoicing: formData.ar_consolidated_invoicing,
+            ar_requires_customer_skus: formData.ar_requires_customer_skus,
+            ar_invoice_discount: formData.ar_invoice_discount ? parseFloat(formData.ar_invoice_discount) : null,
+            customer_type: formData.customer_type || null,
+            product_ids: formData.product_ids,
+        }));
+        post(route('prospects.store'));
     };
 
     const isFormValid = data.company_name.trim().length >= 2 && Object.keys(validationErrors).length === 0;
@@ -458,6 +454,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         className={getClass('shelf_life_requirement')}
                                     />
                                     {validationErrors.shelf_life_requirement && <p className="mt-1 text-sm text-red-600">{validationErrors.shelf_life_requirement}</p>}
+                                    {errors.shelf_life_requirement && <p className="mt-1 text-sm text-red-600">{errors.shelf_life_requirement}</p>}
                                 </div>
 
                                 {/* Vendor Guide */}
@@ -472,6 +469,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         className={getClass('vendor_guide')}
                                     />
                                     {validationErrors.vendor_guide && <p className="mt-1 text-sm text-red-600">{validationErrors.vendor_guide}</p>}
+                                    {errors.vendor_guide && <p className="mt-1 text-sm text-red-600">{errors.vendor_guide}</p>}
                                 </div>
 
                                 {/* Company URLs */}
@@ -540,6 +538,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         <option value="false">No</option>
                                         <option value="true">Yes</option>
                                     </select>
+                                    {errors.broker && <p className="mt-1 text-sm text-red-600">{errors.broker}</p>}
                                 </div>
 
                                 {/* EDI */}
@@ -605,6 +604,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                     />
                                     {validationErrors.ar_invoice_discount && <p className="mt-1 text-xs text-red-600">{validationErrors.ar_invoice_discount}</p>}
+                                    {errors.ar_invoice_discount && <p className="mt-1 text-xs text-red-600">{errors.ar_invoice_discount}</p>}
                                 </div>
                             </div>
                         </div>
@@ -625,6 +625,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             placeholder="e.g., HRG Brokers"
                                         />
                                         {validationErrors.broker_company_name && <p className="mt-1 text-sm text-red-600">{validationErrors.broker_company_name}</p>}
+                                        {errors.broker_company_name && <p className="mt-1 text-sm text-red-600">{errors.broker_company_name}</p>}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Commission (%)</label>
@@ -640,6 +641,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             className={getClass('broker_commission', 'mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500')}
                                         />
                                         {validationErrors.broker_commission && <p className="mt-1 text-sm text-red-600">{validationErrors.broker_commission}</p>}
+                                        {errors.broker_commission && <p className="mt-1 text-sm text-red-600">{errors.broker_commission}</p>}
                                     </div>
                                 </div>
 
@@ -649,6 +651,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         <h4 className="text-sm font-medium text-gray-700">Broker Contacts</h4>
                                         <button type="button" onClick={addBrokerContact} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
                                     </div>
+                                    {errors.broker_contacts && <p className="text-sm text-red-600 mb-1">{errors.broker_contacts}</p>}
                                     {data.broker_contacts.length === 0 && <p className="text-sm text-gray-400 italic">No broker contacts added</p>}
                                     <div className="space-y-2">
                                         {data.broker_contacts.map((contact, idx) => (
@@ -689,6 +692,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     <h4 className="text-sm font-medium text-gray-700">Buyers</h4>
                                     <button type="button" onClick={addBuyer} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
                                 </div>
+                                {errors.buyers && <p className="text-sm text-red-600 mb-1">{errors.buyers}</p>}
                                 {data.buyers.length === 0 && <p className="text-sm text-gray-400 italic">No buyer contacts</p>}
                                 <div className="space-y-2">
                                     {data.buyers.map((buyer, idx) => (
@@ -720,6 +724,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                             {/* Accounts Payable */}
                             <div className="mb-6">
                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Accounts Payable</h4>
+                                {errors.accounts_payable && <p className="text-sm text-red-600 mb-1">{errors.accounts_payable}</p>}
                                 <div className="flex gap-4 mb-3">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input type="radio" name="ap_method" checked={data.ap_method === ''} onChange={() => setData('ap_method', '')} className="text-indigo-600 focus:ring-indigo-500" />
@@ -789,6 +794,7 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     <h4 className="text-sm font-medium text-gray-700">Other Contacts</h4>
                                     <button type="button" onClick={addOther} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
                                 </div>
+                                {errors.other && <p className="text-sm text-red-600 mb-1">{errors.other}</p>}
                                 {data.other.length === 0 && <p className="text-sm text-gray-400 italic">No other contacts</p>}
                                 <div className="space-y-2">
                                     {data.other.map((contact, idx) => (
