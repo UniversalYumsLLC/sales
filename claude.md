@@ -35,7 +35,7 @@ Admin (full access + user management), Salesperson (prospects + customers + Gmai
 
 ```bash
 composer run dev              # Full dev environment (server + queue + logs + Vite)
-php artisan test --compact    # Run tests (use --filter to target specific tests)
+php artisan test --parallel    # Run tests (use --filter to target specific tests)
 vendor/bin/pint --dirty       # Format PHP before finalizing changes
 npm run build                 # Production frontend build
 npm run lint                  # ESLint
