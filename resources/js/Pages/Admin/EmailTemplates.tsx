@@ -30,13 +30,22 @@ export default function EmailTemplates({ templates }: Props) {
 
     const selectedTemplate = localTemplates.find(t => t.key === selectedKey);
 
-    // Load template content when selection changes
+    // Set initial template content on mount
     useEffect(() => {
         if (selectedTemplate) {
             setSubject(selectedTemplate.subject);
             setBody(selectedTemplate.body);
         }
-    }, [selectedKey]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleTemplateChange = (key: string) => {
+        const template = localTemplates.find(t => t.key === key);
+        setSelectedKey(key);
+        if (template) {
+            setSubject(template.subject);
+            setBody(template.body);
+        }
+    };
 
     // Update contenteditable when body changes programmatically
     useEffect(() => {
@@ -176,7 +185,7 @@ export default function EmailTemplates({ templates }: Props) {
                                 <select
                                     id="template-select"
                                     value={selectedKey}
-                                    onChange={(e) => setSelectedKey(e.target.value)}
+                                    onChange={(e) => handleTemplateChange(e.target.value)}
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 >
                                     {localTemplates.map((template) => (
