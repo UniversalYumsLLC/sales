@@ -59,7 +59,7 @@ class CustomerController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validator = $this->validateCustomerData(CompanyFields::sanitizeContacts($request->all()), isCreate: true);
+        $validator = $this->validateCustomerData(CompanyFields::sanitizeInput($request->all()), isCreate: true);
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
@@ -180,7 +180,7 @@ class CustomerController extends Controller
      */
     public function update(Request $request, int $id): JsonResponse
     {
-        $validator = $this->validateCustomerData(CompanyFields::sanitizeContacts($request->all()), isCreate: false);
+        $validator = $this->validateCustomerData(CompanyFields::sanitizeInput($request->all()), isCreate: false);
 
         if ($validator->fails()) {
             return response()->json([

@@ -75,7 +75,7 @@ function isValidUrl(url: string): boolean {
 }
 
 export default function Create({ products = [], priceLists = [], paymentTerms = [], shippingTerms = [] }: Props) {
-    const { data, setData, post, processing, errors: serverErrors, transform } = useForm({
+    const { data, setData, post, processing, errors, transform } = useForm({
         company_name: '',
         company_urls: [] as string[],
         // Commercial terms (stored as display values for prospects)
@@ -105,8 +105,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
         product_ids: [] as number[],
     });
 
-    // Cast errors to include potential general error from server
-    const errors = serverErrors as typeof serverErrors & { general?: string };
 
     const [newUrl, setNewUrl] = useState('');
     const [touched, setTouched] = useState<TouchedFields>({});

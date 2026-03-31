@@ -206,7 +206,7 @@ class CompanyFields
      *   'boolean' validation rule accepts them (HTTP form data may arrive
      *   as strings like 'true'/'false').
      */
-    public static function sanitizeContacts(array $data): array
+    public static function sanitizeInput(array $data): array
     {
         $contactFields = [
             'buyers' => 'name',
