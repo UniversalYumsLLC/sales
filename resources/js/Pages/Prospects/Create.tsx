@@ -352,10 +352,14 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* General Error */}
-                        {errors.general && (
+                        {/* Server Validation Errors */}
+                        {Object.keys(errors).length > 0 && (
                             <div className="rounded-md bg-red-50 p-4">
-                                <p className="text-sm text-red-700">{errors.general}</p>
+                                <ul className="text-sm text-red-700 list-disc list-inside">
+                                    {Object.entries(errors).map(([key, msg]) => (
+                                        <li key={key}>{msg}</li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
 
@@ -378,7 +382,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         placeholder="Enter company name"
                                     />
                                     {validationErrors.company_name && <p className="mt-1 text-sm text-red-600">{validationErrors.company_name}</p>}
-                                    {errors.company_name && <p className="mt-1 text-sm text-red-600">{errors.company_name}</p>}
                                 </div>
 
                                 {/* Customer Type */}
@@ -454,7 +457,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         className={getClass('shelf_life_requirement')}
                                     />
                                     {validationErrors.shelf_life_requirement && <p className="mt-1 text-sm text-red-600">{validationErrors.shelf_life_requirement}</p>}
-                                    {errors.shelf_life_requirement && <p className="mt-1 text-sm text-red-600">{errors.shelf_life_requirement}</p>}
                                 </div>
 
                                 {/* Vendor Guide */}
@@ -469,7 +471,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         className={getClass('vendor_guide')}
                                     />
                                     {validationErrors.vendor_guide && <p className="mt-1 text-sm text-red-600">{validationErrors.vendor_guide}</p>}
-                                    {errors.vendor_guide && <p className="mt-1 text-sm text-red-600">{errors.vendor_guide}</p>}
                                 </div>
 
                                 {/* Company URLs */}
@@ -538,7 +539,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         <option value="false">No</option>
                                         <option value="true">Yes</option>
                                     </select>
-                                    {errors.broker && <p className="mt-1 text-sm text-red-600">{errors.broker}</p>}
                                 </div>
 
                                 {/* EDI */}
@@ -604,7 +604,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                     />
                                     {validationErrors.ar_invoice_discount && <p className="mt-1 text-xs text-red-600">{validationErrors.ar_invoice_discount}</p>}
-                                    {errors.ar_invoice_discount && <p className="mt-1 text-xs text-red-600">{errors.ar_invoice_discount}</p>}
                                 </div>
                             </div>
                         </div>
@@ -625,7 +624,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             placeholder="e.g., HRG Brokers"
                                         />
                                         {validationErrors.broker_company_name && <p className="mt-1 text-sm text-red-600">{validationErrors.broker_company_name}</p>}
-                                        {errors.broker_company_name && <p className="mt-1 text-sm text-red-600">{errors.broker_company_name}</p>}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Commission (%)</label>
@@ -641,7 +639,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                             className={getClass('broker_commission', 'mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500')}
                                         />
                                         {validationErrors.broker_commission && <p className="mt-1 text-sm text-red-600">{validationErrors.broker_commission}</p>}
-                                        {errors.broker_commission && <p className="mt-1 text-sm text-red-600">{errors.broker_commission}</p>}
                                     </div>
                                 </div>
 
@@ -651,7 +648,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                         <h4 className="text-sm font-medium text-gray-700">Broker Contacts</h4>
                                         <button type="button" onClick={addBrokerContact} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
                                     </div>
-                                    {errors.broker_contacts && <p className="text-sm text-red-600 mb-1">{errors.broker_contacts}</p>}
                                     {data.broker_contacts.length === 0 && <p className="text-sm text-gray-400 italic">No broker contacts added</p>}
                                     <div className="space-y-2">
                                         {data.broker_contacts.map((contact, idx) => (
@@ -692,7 +688,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     <h4 className="text-sm font-medium text-gray-700">Buyers</h4>
                                     <button type="button" onClick={addBuyer} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
                                 </div>
-                                {errors.buyers && <p className="text-sm text-red-600 mb-1">{errors.buyers}</p>}
                                 {data.buyers.length === 0 && <p className="text-sm text-gray-400 italic">No buyer contacts</p>}
                                 <div className="space-y-2">
                                     {data.buyers.map((buyer, idx) => (
@@ -724,7 +719,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                             {/* Accounts Payable */}
                             <div className="mb-6">
                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Accounts Payable</h4>
-                                {errors.accounts_payable && <p className="text-sm text-red-600 mb-1">{errors.accounts_payable}</p>}
                                 <div className="flex gap-4 mb-3">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input type="radio" name="ap_method" checked={data.ap_method === ''} onChange={() => setData('ap_method', '')} className="text-indigo-600 focus:ring-indigo-500" />
@@ -794,7 +788,6 @@ export default function Create({ products = [], priceLists = [], paymentTerms = 
                                     <h4 className="text-sm font-medium text-gray-700">Other Contacts</h4>
                                     <button type="button" onClick={addOther} className="text-sm text-indigo-600 hover:text-indigo-800">+ Add</button>
                                 </div>
-                                {errors.other && <p className="text-sm text-red-600 mb-1">{errors.other}</p>}
                                 {data.other.length === 0 && <p className="text-sm text-gray-400 italic">No other contacts</p>}
                                 <div className="space-y-2">
                                     {data.other.map((contact, idx) => (
