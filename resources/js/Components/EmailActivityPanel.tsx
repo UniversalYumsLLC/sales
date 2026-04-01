@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import EmailDetailModal from './EmailDetailModal';
 
 interface Email {
@@ -125,7 +125,7 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
     const [expanded, setExpanded] = useState(true);
     const [selectedEmailId, setSelectedEmailId] = useState<number | null>(null);
 
-    const fetchEmails = async (page = 1) => {
+    const fetchEmails = useCallback(async (page = 1) => {
         setLoading(true);
         setError(null);
 
@@ -160,11 +160,11 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [entityType, entityId]);
 
     useEffect(() => {
         fetchEmails();
-    }, [entityType, entityId]);
+    }, [fetchEmails]);
 
     const handleLoadMore = () => {
         if (pagination && pagination.current_page < pagination.last_page) {
