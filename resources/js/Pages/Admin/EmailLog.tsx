@@ -76,7 +76,6 @@ function getCustomerUrl(subdomain: string, partyId: number): string {
     return `https://${subdomain}.fulfil.io/v2/erp/model/party.party/${partyId}`;
 }
 
-
 export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubdomain }: Props) {
     const [typeFilter, setTypeFilter] = useState(filters.type);
 
@@ -86,31 +85,27 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
     };
 
     const handlePageChange = (page: number) => {
-        router.get(route('admin.email-log'), {
-            type: typeFilter || undefined,
-            page,
-        }, { preserveState: true });
+        router.get(
+            route('admin.email-log'),
+            {
+                type: typeFilter || undefined,
+                page,
+            },
+            { preserveState: true },
+        );
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Email Activity Log
-                </h2>
-            }
-        >
+        <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Email Activity Log</h2>}>
             <Head title="Email Activity Log" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                <div className="max-w-7xl sm:px-6 lg:px-8 mx-auto">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             {/* Filters */}
-                            <div className="mb-6 flex items-center gap-4">
-                                <label className="text-sm font-medium text-gray-700">
-                                    Filter by type:
-                                </label>
+                            <div className="mb-6 gap-4 flex items-center">
+                                <label className="text-sm font-medium text-gray-700">Filter by type:</label>
                                 <select
                                     value={typeFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
@@ -130,30 +125,30 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
                             {/* Table */}
                             {emailRecords.data.length > 0 ? (
                                 <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
+                                    <table className="divide-gray-200 min-w-full divide-y">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-4 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Sent At
                                                 </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-4 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Customer
                                                 </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-4 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Invoice
                                                 </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-4 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Email Type
                                                 </th>
-                                                <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-4 py-3 text-xs font-medium tracking-wider text-gray-500 text-center uppercase">
                                                     PDF
                                                 </th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-200 bg-white">
+                                        <tbody className="divide-gray-200 bg-white divide-y">
                                             {emailRecords.data.map((record) => (
                                                 <tr key={record.id} className="hover:bg-gray-50">
-                                                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                                                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                                                         {formatDateTime(record.sent_at)}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm">
@@ -168,7 +163,7 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
                                                     </td>
                                                     <td className="px-4 py-3 text-sm">
                                                         {record.invoice_number && record.invoice_fulfil_id ? (
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="gap-2 flex items-center">
                                                                 <span className="text-gray-900">{record.invoice_number}</span>
                                                                 {record.has_pdf && (
                                                                     <a
@@ -176,8 +171,18 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
                                                                         className="text-indigo-600 hover:text-indigo-800"
                                                                         title="Download PDF"
                                                                     >
-                                                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                        <svg
+                                                                            className="h-4 w-4"
+                                                                            fill="none"
+                                                                            viewBox="0 0 24 24"
+                                                                            stroke="currentColor"
+                                                                        >
+                                                                            <path
+                                                                                strokeLinecap="round"
+                                                                                strokeLinejoin="round"
+                                                                                strokeWidth={2}
+                                                                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                                                            />
                                                                         </svg>
                                                                     </a>
                                                                 )}
@@ -187,17 +192,34 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm">
-                                                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getEmailTypeBadgeColor(record.email_type)}`}>
+                                                        <span
+                                                            className={`px-2 py-1 text-xs font-medium inline-flex rounded-full ${getEmailTypeBadgeColor(record.email_type)}`}
+                                                        >
                                                             {record.email_type_label}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-center text-sm">
+                                                    <td className="px-4 py-3 text-sm text-center">
                                                         {record.has_pdf ? (
-                                                            <svg className="mx-auto h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            <svg
+                                                                className="h-5 w-5 text-green-500 mx-auto"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                            >
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    strokeWidth={2}
+                                                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                                />
                                                             </svg>
                                                         ) : (
-                                                            <svg className="mx-auto h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <svg
+                                                                className="h-5 w-5 text-gray-300 mx-auto"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                            >
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                                                             </svg>
                                                         )}
@@ -208,22 +230,20 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
                                     </table>
                                 </div>
                             ) : (
-                                <div className="py-12 text-center text-gray-500">
-                                    No email records found
-                                </div>
+                                <div className="py-12 text-gray-500 text-center">No email records found</div>
                             )}
 
                             {/* Pagination */}
                             {emailRecords.last_page > 1 && (
-                                <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                                <div className="mt-6 border-gray-200 pt-4 flex items-center justify-between border-t">
                                     <div className="text-sm text-gray-500">
                                         Showing {emailRecords.from} to {emailRecords.to} of {emailRecords.total} results
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="gap-2 flex">
                                         <button
                                             onClick={() => handlePageChange(emailRecords.current_page - 1)}
                                             disabled={emailRecords.current_page === 1}
-                                            className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="rounded-md border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 border disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             Previous
                                         </button>
@@ -233,7 +253,7 @@ export default function EmailLog({ emailRecords, filters, emailTypes, fulfilSubd
                                         <button
                                             onClick={() => handlePageChange(emailRecords.current_page + 1)}
                                             disabled={emailRecords.current_page === emailRecords.last_page}
-                                            className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="rounded-md border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 border disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             Next
                                         </button>
