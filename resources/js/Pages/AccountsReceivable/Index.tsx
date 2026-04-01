@@ -128,7 +128,7 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
             } else {
                 setMessage({ type: 'error', text: data.message || 'Failed to regenerate PDF' });
             }
-        } catch (error) {
+        } catch {
             setMessage({ type: 'error', text: 'Failed to regenerate PDF' });
         } finally {
             setRegeneratingPdf(null);
@@ -159,7 +159,7 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
             } else {
                 setMessage({ type: 'error', text: data.message || 'Failed to send email' });
             }
-        } catch (error) {
+        } catch {
             setMessage({ type: 'error', text: 'Failed to send email' });
         } finally {
             setSendingEmail(null);

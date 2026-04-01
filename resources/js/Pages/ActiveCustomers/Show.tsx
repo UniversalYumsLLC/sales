@@ -633,7 +633,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
@@ -677,7 +677,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
@@ -716,7 +716,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to add SKU mapping' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to add SKU mapping. Please try again.' });
         } finally {
             setAddingSku(false);
@@ -741,7 +741,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete SKU mapping' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete SKU mapping. Please try again.' });
         }
     };
@@ -792,7 +792,7 @@ export default function Show({
             document.body.removeChild(a);
 
             setNotification({ type: 'success', message: `PDF regenerated for invoice ${invoiceNumber || invoiceId}` });
-        } catch (error) {
+        } catch {
             console.error('Error regenerating PDF:', error);
             setNotification({ type: 'error', message: 'Failed to regenerate PDF. Please try again.' });
         }
@@ -889,7 +889,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to categorize contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to categorize contact. Please try again.' });
         }
     };
@@ -913,7 +913,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete contact. Please try again.' });
         }
     };
@@ -998,7 +998,7 @@ export default function Show({
                 const data = await brokerResponse.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save broker settings' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save broker settings. Please try again.' });
         } finally {
             setSaving(false);
@@ -1028,7 +1028,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to update customer type' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to update customer type' });
         } finally {
             setChangingCustomerType(false);
@@ -1071,7 +1071,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to add distributor customer' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to add distributor customer' });
         } finally {
             setAddingDistributorCustomer(false);
@@ -1101,7 +1101,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete distributor customer' });
         } finally {
             setDeletingDC(false);
@@ -1129,7 +1129,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to update domains' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to update domains' });
         }
     };
@@ -1182,7 +1182,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to update' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to update distributor customer' });
         } finally {
             setSavingDC(false);
@@ -1227,7 +1227,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to add contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to add contact' });
         } finally {
             setAddingDCContact(false);
@@ -1284,7 +1284,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to update contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to update contact' });
         } finally {
             setSavingDCContact(false);
@@ -1310,7 +1310,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete contact' });
         } finally {
             setDeletingDCContactId(null);
@@ -1361,7 +1361,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);

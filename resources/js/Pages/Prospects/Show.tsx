@@ -494,7 +494,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 const data = await response.json();
                 alert(data.message || 'Failed to save changes');
             }
-        } catch (error) {
+        } catch {
             alert('Failed to save changes');
         } finally {
             setSaving(false);
@@ -546,7 +546,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 const data = await response.json();
                 alert(data.message || 'Failed to save changes');
             }
-        } catch (error) {
+        } catch {
             alert('Failed to save changes');
         } finally {
             setSaving(false);
@@ -576,7 +576,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 const data = await response.json();
                 alert(data.message || 'Failed to save changes');
             }
-        } catch (error) {
+        } catch {
             alert('Failed to save changes');
         } finally {
             setSaving(false);
@@ -692,7 +692,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 const data = await response.json();
                 alert(data.message || 'Failed to categorize contact');
             }
-        } catch (error) {
+        } catch {
             alert('Failed to categorize contact');
         }
     };
@@ -755,7 +755,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
                 const data = await response.json();
                 alert(data.message || 'Failed to save broker settings');
             }
-        } catch (error) {
+        } catch {
             alert('Failed to save broker settings');
         } finally {
             setSaving(false);
