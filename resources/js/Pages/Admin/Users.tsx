@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, usePage, useForm } from '@inertiajs/react';
-import { useState, FormEventHandler } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { FormEventHandler, useState } from 'react';
 
 interface User {
     id: number;
@@ -36,9 +36,13 @@ export default function Users({ users, invites }: Props) {
     });
 
     const handleRoleChange = (userId: number, newRole: string) => {
-        router.patch(route('admin.users.role', userId), { role: newRole }, {
-            preserveScroll: true,
-        });
+        router.patch(
+            route('admin.users.role', userId),
+            { role: newRole },
+            {
+                preserveScroll: true,
+            },
+        );
     };
 
     const handleDelete = (userId: number) => {
@@ -73,9 +77,7 @@ export default function Users({ users, invites }: Props) {
         <AuthenticatedLayout
             header={
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        User Management
-                    </h2>
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">User Management</h2>
                     <button
                         onClick={() => setShowInviteForm(!showInviteForm)}
                         className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
@@ -88,15 +90,15 @@ export default function Users({ users, invites }: Props) {
             <Head title="User Management" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+                <div className="max-w-7xl space-y-6 sm:px-6 lg:px-8 mx-auto">
                     {/* Invite Form */}
                     {showInviteForm && (
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Invite New User</h3>
-                                <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-4">
+                                <form onSubmit={handleInvite} className="gap-4 flex flex-wrap items-end">
                                     <div className="flex-1">
-                                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="email" className="text-sm font-medium text-gray-700 block">
                                             Email Address
                                         </label>
                                         <input
@@ -104,22 +106,20 @@ export default function Users({ users, invites }: Props) {
                                             id="email"
                                             value={data.email}
                                             onChange={(e) => setData('email', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block w-full"
                                             placeholder="user@example.com"
                                         />
-                                        {errors.email && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                                        )}
+                                        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
                                     </div>
                                     <div>
-                                        <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="role" className="text-sm font-medium text-gray-700 block">
                                             Role
                                         </label>
                                         <select
                                             id="role"
                                             value={data.role}
                                             onChange={(e) => setData('role', e.target.value as 'admin' | 'user' | 'salesperson')}
-                                            className="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block"
                                         >
                                             <option value="user">Accounts Receivable</option>
                                             <option value="salesperson">Salesperson</option>
@@ -143,48 +143,44 @@ export default function Users({ users, invites }: Props) {
 
                     {/* Pending Invites */}
                     {invites.length > 0 && (
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Pending Invites</h3>
                                 <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
+                                    <table className="divide-gray-200 min-w-full divide-y">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Email
                                                 </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Role
                                                 </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Invited By
                                                 </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">
                                                     Date
                                                 </th>
-                                                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-right uppercase">
                                                     Actions
                                                 </th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-200 bg-white">
+                                        <tbody className="divide-gray-200 bg-white divide-y">
                                             {invites.map((invite) => (
                                                 <tr key={invite.id}>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                                                        {invite.email}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-6 py-4">
-                                                        <span className="inline-flex rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800">
+                                                    <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{invite.email}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800 inline-flex rounded-full">
                                                             {invite.role}
                                                         </span>
                                                     </td>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                        {invite.invited_by}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{invite.invited_by}</td>
+                                                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                                                         {formatDate(invite.created_at)}
                                                     </td>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                                    <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
                                                         <button
                                                             onClick={() => handleCancelInvite(invite.id)}
                                                             className="text-red-600 hover:text-red-900"
@@ -202,40 +198,30 @@ export default function Users({ users, invites }: Props) {
                     )}
 
                     {/* Active Users */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             <h3 className="mb-4 text-lg font-medium text-gray-900">Active Users</h3>
                             <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
+                                <table className="divide-gray-200 min-w-full divide-y">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                User
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                Role
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                Joined
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">User</th>
+                                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">Role</th>
+                                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-left uppercase">Joined</th>
+                                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-gray-500 text-right uppercase">
                                                 Actions
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200 bg-white">
+                                    <tbody className="divide-gray-200 bg-white divide-y">
                                         {users.map((user) => (
                                             <tr key={user.id}>
-                                                <td className="whitespace-nowrap px-6 py-4">
+                                                <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">
                                                         {user.avatar ? (
-                                                            <img
-                                                                src={user.avatar}
-                                                                alt=""
-                                                                className="h-8 w-8 rounded-full"
-                                                            />
+                                                            <img src={user.avatar} alt="" className="h-8 w-8 rounded-full" />
                                                         ) : (
-                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-300">
+                                                            <div className="h-8 w-8 bg-gray-300 flex items-center justify-center rounded-full">
                                                                 <svg
                                                                     className="h-4 w-4 text-gray-600"
                                                                     xmlns="http://www.w3.org/2000/svg"
@@ -261,9 +247,9 @@ export default function Users({ users, invites }: Props) {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4">
+                                                <td className="px-6 py-4 whitespace-nowrap">
                                                     {user.id === auth.user.id ? (
-                                                        <span className="inline-flex rounded-full bg-indigo-100 px-2 py-1 text-xs font-semibold text-indigo-800">
+                                                        <span className="bg-indigo-100 px-2 py-1 text-xs font-semibold text-indigo-800 inline-flex rounded-full">
                                                             {user.role}
                                                         </span>
                                                     ) : (
@@ -278,14 +264,12 @@ export default function Users({ users, invites }: Props) {
                                                         </select>
                                                     )}
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                    {formatDate(user.created_at)}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                                <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(user.created_at)}</td>
+                                                <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
                                                     {user.id !== auth.user.id && (
                                                         <>
                                                             {confirmingDelete === user.id ? (
-                                                                <div className="flex items-center justify-end gap-2">
+                                                                <div className="gap-2 flex items-center justify-end">
                                                                     <span className="text-xs text-gray-500">Confirm?</span>
                                                                     <button
                                                                         onClick={() => handleDelete(user.id)}
@@ -317,11 +301,7 @@ export default function Users({ users, invites }: Props) {
                                 </table>
                             </div>
 
-                            {users.length === 0 && (
-                                <div className="py-8 text-center text-gray-500">
-                                    No users found
-                                </div>
-                            )}
+                            {users.length === 0 && <div className="py-8 text-gray-500 text-center">No users found</div>}
                         </div>
                     </div>
                 </div>
