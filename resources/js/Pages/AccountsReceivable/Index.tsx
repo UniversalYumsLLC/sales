@@ -167,6 +167,45 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
         }
     };
 
+    const renderApContacts = (apContacts: Customer['ap_contacts']) => {
+        const portalContact = apContacts.find((c) => c.type === 'portal');
+        const inboxContacts = apContacts.filter((c) => c.type === 'inbox');
+
+        return (
+            <div className="space-y-2">
+                {portalContact && (
+                    <div className="gap-4 text-sm flex items-center">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 inline-flex items-center">Portal</span>
+                        <a
+                            href={portalContact.value}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {portalContact.value}
+                        </a>
+                    </div>
+                )}
+                {inboxContacts.map((contact, idx) => (
+                    <div key={idx} className="gap-4 text-sm flex items-center">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 inline-flex items-center">Inbox</span>
+                        <span className="text-gray-900">{contact.name}</span>
+                        {contact.value && (
+                            <a
+                                href={`mailto:${contact.value}`}
+                                className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {contact.value}
+                            </a>
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -486,48 +525,7 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
                                                 {customer.ap_contacts.length > 0 && (
                                                     <div className="mt-6 pt-4 border-gray-200 border-t">
                                                         <h4 className="text-xs font-medium text-gray-500 mb-3 uppercase">AP Contacts</h4>
-                                                        {(() => {
-                                                            const portalContact = customer.ap_contacts.find((c) => c.type === 'portal');
-                                                            const inboxContacts = customer.ap_contacts.filter((c) => c.type === 'inbox');
-
-                                                            return (
-                                                                <div className="space-y-2">
-                                                                    {portalContact && (
-                                                                        <div className="gap-4 text-sm flex items-center">
-                                                                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 inline-flex items-center">
-                                                                                Portal
-                                                                            </span>
-                                                                            <a
-                                                                                href={portalContact.value}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className="text-indigo-600 hover:text-indigo-800 hover:underline"
-                                                                                onClick={(e) => e.stopPropagation()}
-                                                                            >
-                                                                                {portalContact.value}
-                                                                            </a>
-                                                                        </div>
-                                                                    )}
-                                                                    {inboxContacts.map((contact, idx) => (
-                                                                        <div key={idx} className="gap-4 text-sm flex items-center">
-                                                                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 inline-flex items-center">
-                                                                                Inbox
-                                                                            </span>
-                                                                            <span className="text-gray-900">{contact.name}</span>
-                                                                            {contact.value && (
-                                                                                <a
-                                                                                    href={`mailto:${contact.value}`}
-                                                                                    className="text-indigo-600 hover:text-indigo-800 hover:underline"
-                                                                                    onClick={(e) => e.stopPropagation()}
-                                                                                >
-                                                                                    {contact.value}
-                                                                                </a>
-                                                                            )}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            );
-                                                        })()}
+                                                        {renderApContacts(customer.ap_contacts)}
                                                     </div>
                                                 )}
                                             </div>

@@ -1361,6 +1361,9 @@ export default function Show({
     const t12mTotal = monthlyRevenue.reduce((sum, m) => sum + m.revenue, 0);
     const priorYearTotal = monthlyRevenue.reduce((sum, m) => sum + m.prior_year_revenue, 0);
     const revenueChange = t12mTotal - priorYearTotal;
+    const maxRevenue = Math.max(...monthlyRevenue.map((m) => Math.max(m.revenue, m.prior_year_revenue)), 10000);
+    const yAxisSteps = 4;
+    const yAxisValues = Array.from({ length: yAxisSteps + 1 }, (_, i) => Math.round((maxRevenue / yAxisSteps) * (yAxisSteps - i)));
 
     const detailsValid = Object.keys(detailsErrors).length === 0;
     const contactsValid = Object.keys(contactsErrors).length === 0;
@@ -2979,93 +2982,78 @@ export default function Show({
                                     </div>
                                 </div>
                             </div>
-                            {(() => {
-                                const maxRevenue = Math.max(...monthlyRevenue.map((m) => Math.max(m.revenue, m.prior_year_revenue)), 10000);
-                                const yAxisSteps = 4;
-                                const yAxisValues = Array.from({ length: yAxisSteps + 1 }, (_, i) =>
-                                    Math.round((maxRevenue / yAxisSteps) * (yAxisSteps - i)),
-                                );
+                            {/* Legend */}
+                            <div className="mb-2 gap-4 flex justify-end">
+                                <div className="gap-1 flex items-center">
+                                    <div className="h-3 w-3 rounded bg-indigo-500"></div>
+                                    <span className="text-xs text-gray-500">Current Year</span>
+                                </div>
+                                <div className="gap-1 flex items-center">
+                                    <div className="h-3 w-3 rounded bg-gray-300"></div>
+                                    <span className="text-xs text-gray-500">Prior Year</span>
+                                </div>
+                            </div>
+                            <div className="flex" style={{ height: '220px' }}>
+                                {/* Y-Axis */}
+                                <div className="pr-2 flex flex-col justify-between text-right" style={{ width: '60px' }}>
+                                    {yAxisValues.map((value, idx) => (
+                                        <span key={idx} className="text-xs text-gray-500">
+                                            {formatCompactCurrency(value)}
+                                        </span>
+                                    ))}
+                                </div>
 
-                                return (
-                                    <>
-                                        {/* Legend */}
-                                        <div className="mb-2 gap-4 flex justify-end">
-                                            <div className="gap-1 flex items-center">
-                                                <div className="h-3 w-3 rounded bg-indigo-500"></div>
-                                                <span className="text-xs text-gray-500">Current Year</span>
-                                            </div>
-                                            <div className="gap-1 flex items-center">
-                                                <div className="h-3 w-3 rounded bg-gray-300"></div>
-                                                <span className="text-xs text-gray-500">Prior Year</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex" style={{ height: '220px' }}>
-                                            {/* Y-Axis */}
-                                            <div className="pr-2 flex flex-col justify-between text-right" style={{ width: '60px' }}>
-                                                {yAxisValues.map((value, idx) => (
-                                                    <span key={idx} className="text-xs text-gray-500">
-                                                        {formatCompactCurrency(value)}
-                                                    </span>
-                                                ))}
-                                            </div>
+                                {/* Chart Area */}
+                                <div className="flex flex-1 flex-col">
+                                    <div className="gap-2 border-gray-200 relative flex flex-1 items-end border-b border-l">
+                                        {/* Horizontal grid lines */}
+                                        {yAxisValues.slice(1, -1).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="left-0 right-0 border-gray-100 absolute border-t"
+                                                style={{ bottom: `${((idx + 1) / yAxisSteps) * 100}%` }}
+                                            />
+                                        ))}
 
-                                            {/* Chart Area */}
-                                            <div className="flex flex-1 flex-col">
-                                                <div className="gap-2 border-gray-200 relative flex flex-1 items-end border-b border-l">
-                                                    {/* Horizontal grid lines */}
-                                                    {yAxisValues.slice(1, -1).map((_, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            className="left-0 right-0 border-gray-100 absolute border-t"
-                                                            style={{ bottom: `${((idx + 1) / yAxisSteps) * 100}%` }}
-                                                        />
-                                                    ))}
-
-                                                    {/* Bars - grouped by month */}
-                                                    {monthlyRevenue.map((month, idx) => {
-                                                        const currentHeightPercent = (month.revenue / maxRevenue) * 100;
-                                                        const priorHeightPercent = (month.prior_year_revenue / maxRevenue) * 100;
-                                                        return (
-                                                            <div
-                                                                key={idx}
-                                                                className="gap-0.5 relative z-10 flex h-full flex-1 items-end justify-center"
-                                                            >
-                                                                {/* Prior Year Bar */}
-                                                                <div
-                                                                    className="bg-gray-300 rounded-t w-2/5"
-                                                                    style={{
-                                                                        height: `${priorHeightPercent}%`,
-                                                                        minHeight: month.prior_year_revenue > 0 ? '4px' : '0',
-                                                                    }}
-                                                                    title={`${month.prior_year_month}: ${formatCurrency(month.prior_year_revenue)}`}
-                                                                />
-                                                                {/* Current Year Bar */}
-                                                                <div
-                                                                    className="bg-indigo-500 rounded-t w-2/5"
-                                                                    style={{
-                                                                        height: `${currentHeightPercent}%`,
-                                                                        minHeight: month.revenue > 0 ? '4px' : '0',
-                                                                    }}
-                                                                    title={`${month.month}: ${formatCurrency(month.revenue)}`}
-                                                                />
-                                                            </div>
-                                                        );
-                                                    })}
+                                        {/* Bars - grouped by month */}
+                                        {monthlyRevenue.map((month, idx) => {
+                                            const currentHeightPercent = (month.revenue / maxRevenue) * 100;
+                                            const priorHeightPercent = (month.prior_year_revenue / maxRevenue) * 100;
+                                            return (
+                                                <div key={idx} className="gap-0.5 relative z-10 flex h-full flex-1 items-end justify-center">
+                                                    {/* Prior Year Bar */}
+                                                    <div
+                                                        className="bg-gray-300 rounded-t w-2/5"
+                                                        style={{
+                                                            height: `${priorHeightPercent}%`,
+                                                            minHeight: month.prior_year_revenue > 0 ? '4px' : '0',
+                                                        }}
+                                                        title={`${month.prior_year_month}: ${formatCurrency(month.prior_year_revenue)}`}
+                                                    />
+                                                    {/* Current Year Bar */}
+                                                    <div
+                                                        className="bg-indigo-500 rounded-t w-2/5"
+                                                        style={{
+                                                            height: `${currentHeightPercent}%`,
+                                                            minHeight: month.revenue > 0 ? '4px' : '0',
+                                                        }}
+                                                        title={`${month.month}: ${formatCurrency(month.revenue)}`}
+                                                    />
                                                 </div>
+                                            );
+                                        })}
+                                    </div>
 
-                                                {/* X-Axis Labels */}
-                                                <div className="gap-2 pt-1 flex">
-                                                    {monthlyRevenue.map((month, idx) => (
-                                                        <div key={idx} className="flex-1 text-center">
-                                                            <span className="text-xs text-gray-500">{month.month_name}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                    {/* X-Axis Labels */}
+                                    <div className="gap-2 pt-1 flex">
+                                        {monthlyRevenue.map((month, idx) => (
+                                            <div key={idx} className="flex-1 text-center">
+                                                <span className="text-xs text-gray-500">{month.month_name}</span>
                                             </div>
-                                        </div>
-                                    </>
-                                );
-                            })()}
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
