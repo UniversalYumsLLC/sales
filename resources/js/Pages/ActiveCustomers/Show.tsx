@@ -793,7 +793,6 @@ export default function Show({
 
             setNotification({ type: 'success', message: `PDF regenerated for invoice ${invoiceNumber || invoiceId}` });
         } catch {
-            console.error('Error regenerating PDF:', error);
             setNotification({ type: 'error', message: 'Failed to regenerate PDF. Please try again.' });
         }
     };
