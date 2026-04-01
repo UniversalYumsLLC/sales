@@ -371,7 +371,6 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
 
     const cancelCompanyUrlsEdit = () => {
         setCompanyUrlsForm(prospect.company_urls || []);
-        setNewCompanyUrl('');
         setEditingCompanyUrls(false);
     };
 
@@ -391,7 +390,6 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
 
             if (response.ok) {
                 setEditingCompanyUrls(false);
-                setNewCompanyUrl('');
                 router.reload({ only: ['prospect'] });
             } else {
                 const data = await response.json();
