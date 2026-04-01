@@ -125,42 +125,45 @@ export default function EmailActivityPanel({ entityType, entityId }: Props) {
     const [expanded, setExpanded] = useState(true);
     const [selectedEmailId, setSelectedEmailId] = useState<number | null>(null);
 
-    const fetchEmails = useCallback(async (page = 1) => {
-        setLoading(true);
-        setError(null);
+    const fetchEmails = useCallback(
+        async (page = 1) => {
+            setLoading(true);
+            setError(null);
 
-        try {
-            const url =
-                entityType === 'prospect'
-                    ? route('prospects.emails', { id: entityId, per_page: 10, page })
-                    : route('customers.emails', { id: entityId, per_page: 10, page });
+            try {
+                const url =
+                    entityType === 'prospect'
+                        ? route('prospects.emails', { id: entityId, per_page: 10, page })
+                        : route('customers.emails', { id: entityId, per_page: 10, page });
 
-            const response = await fetch(url, {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
+                const response = await fetch(url, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch emails');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch emails');
+                }
+
+                const data = await response.json();
+
+                if (page === 1) {
+                    setEmails(data.emails);
+                } else {
+                    setEmails((prev) => [...prev, ...data.emails]);
+                }
+                setPagination(data.pagination);
+            } catch (err) {
+                setError('Failed to load emails');
+                console.error('Error fetching emails:', err);
+            } finally {
+                setLoading(false);
             }
-
-            const data = await response.json();
-
-            if (page === 1) {
-                setEmails(data.emails);
-            } else {
-                setEmails((prev) => [...prev, ...data.emails]);
-            }
-            setPagination(data.pagination);
-        } catch (err) {
-            setError('Failed to load emails');
-            console.error('Error fetching emails:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [entityType, entityId]);
+        },
+        [entityType, entityId],
+    );
 
     useEffect(() => {
         fetchEmails();

@@ -407,7 +407,7 @@ export default function Show({
     const [localDistributorCustomers, setLocalDistributorCustomers] = useState<DistributorCustomer[]>(distributorCustomers || []);
     const [newDistributorCustomerName, setNewDistributorCustomerName] = useState('');
     const [addingDistributorCustomer, setAddingDistributorCustomer] = useState(false);
-    const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(new Set());
+    const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(() => new Set());
     const [deleteConfirmDC, setDeleteConfirmDC] = useState<DistributorCustomer | null>(null);
     const [deletingDC, setDeletingDC] = useState(false);
     // Distributor customer editing state
