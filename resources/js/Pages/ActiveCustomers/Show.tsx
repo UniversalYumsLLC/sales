@@ -750,7 +750,7 @@ export default function Show({
     const availableProducts = products.filter((p) => !customerSkus.some((s) => s.yums_sku === p.sku));
 
     // Invoice PDF handlers
-    const handleDownloadPdf = (invoiceId: number, invoiceNumber: string | null) => {
+    const handleDownloadPdf = (invoiceId: number) => {
         // Open the download URL in a new window/tab to trigger the download
         window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
     };
@@ -1105,32 +1105,6 @@ export default function Show({
             setNotification({ type: 'error', message: 'Failed to delete distributor customer' });
         } finally {
             setDeletingDC(false);
-        }
-    };
-
-    const updateDistributorCustomerUrls = async (dcId: number, urls: string[]) => {
-        try {
-            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ company_urls: urls.filter((u) => u.trim()) }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers((prev) =>
-                    prev.map((dc) => (dc.id === dcId ? { ...dc, company_urls: data.distributor_customer.company_urls } : dc)),
-                );
-                setNotification({ type: 'success', message: 'Domains updated' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update domains' });
-            }
-        } catch {
-            setNotification({ type: 'error', message: 'Failed to update domains' });
         }
     };
 
@@ -3229,7 +3203,7 @@ export default function Show({
                                                     <td className="py-2 text-right">
                                                         <div className="gap-2 flex justify-end">
                                                             <button
-                                                                onClick={() => handleDownloadPdf(invoice.id, invoice.number)}
+                                                                onClick={() => handleDownloadPdf(invoice.id)}
                                                                 className="text-indigo-600 hover:text-indigo-900 text-sm"
                                                                 title="Download PDF"
                                                             >

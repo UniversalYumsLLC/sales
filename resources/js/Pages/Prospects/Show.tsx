@@ -220,8 +220,6 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     // Company Domains (own section, separate from details)
     const [editingCompanyUrls, setEditingCompanyUrls] = useState(false);
     const [companyUrlsForm, setCompanyUrlsForm] = useState<string[]>(prospect.company_urls || []);
-    const [newCompanyUrl, setNewCompanyUrl] = useState('');
-
     // Broker contacts state
     const [editingBroker, setEditingBroker] = useState(false);
     const [brokerContactsForm, setBrokerContactsForm] = useState<BrokerContactsForm>({
@@ -886,11 +884,6 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
             Object.entries(promotionErrors).filter(([k]) => k.startsWith('buyers') || k.startsWith('accounts_payable') || k.startsWith('other')),
         ),
     };
-    const allBrokerErrors = {
-        ...brokerContactsErrors,
-        ...Object.fromEntries(Object.entries(promotionErrors).filter(([k]) => k.startsWith('broker_contacts'))),
-    };
-
     return (
         <AuthenticatedLayout
             header={
