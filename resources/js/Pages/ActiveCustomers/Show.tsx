@@ -1,7 +1,7 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import EmailActivityPanel from '@/Components/EmailActivityPanel';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useHttp, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Contact {
     name: string;
@@ -191,7 +191,7 @@ interface CustomerDetailsForm {
     shipping_terms_category_id: string;
     shelf_life_requirement: string;
     vendor_guide: string;
-    broker: string;  // "true", "false", or "" for unselected
+    broker: string; // "true", "false", or "" for unselected
     broker_commission: string;
     broker_company_name: string;
 }
@@ -210,9 +210,9 @@ interface BrokerContactForm {
 
 interface ContactsForm {
     buyers: Contact[];
-    ap_method: 'inbox' | 'portal';  // Required - no empty option
+    ap_method: 'inbox' | 'portal'; // Required - no empty option
     ap_portal_url: string;
-    accounts_payable: APContact[];  // At least 1 required
+    accounts_payable: APContact[]; // At least 1 required
     other: OtherContact[];
 }
 
@@ -280,16 +280,21 @@ function formatCompactCurrency(amount: number): string {
 }
 
 // Pencil icon component
-function PencilIcon({ className = "h-4 w-4" }: { className?: string }) {
+function PencilIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+            />
         </svg>
     );
 }
 
 // X icon component
-function XIcon({ className = "h-4 w-4" }: { className?: string }) {
+function XIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -298,7 +303,7 @@ function XIcon({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 // Plus icon component
-function PlusIcon({ className = "h-4 w-4" }: { className?: string }) {
+function PlusIcon({ className = 'h-4 w-4' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -372,16 +377,14 @@ export default function Show({
     const [categorizingContacts, setCategorizingContacts] = useState<Record<number, string>>({});
 
     // Company URLs form state
-    const [companyUrlsForm, setCompanyUrlsForm] = useState<string[]>(
-        customer.company_urls?.length > 0 ? [...customer.company_urls] : ['']
-    );
+    const [companyUrlsForm, setCompanyUrlsForm] = useState<string[]>(customer.company_urls?.length > 0 ? [...customer.company_urls] : ['']);
 
     // Form states
     const [detailsForm, setDetailsForm] = useState<CustomerDetailsForm>({
         name: customer.name,
-        sale_price_list: priceLists.find(pl => pl.discount_percent === customer.discount_percent)?.id.toString() || '',
-        customer_payment_term: paymentTerms.find(pt => pt.name === customer.payment_terms)?.id.toString() || '',
-        shipping_terms_category_id: shippingTerms.find(st => st.name === customer.shipping_terms)?.id.toString() || '',
+        sale_price_list: priceLists.find((pl) => pl.discount_percent === customer.discount_percent)?.id.toString() || '',
+        customer_payment_term: paymentTerms.find((pt) => pt.name === customer.payment_terms)?.id.toString() || '',
+        shipping_terms_category_id: shippingTerms.find((st) => st.name === customer.shipping_terms)?.id.toString() || '',
         shelf_life_requirement: customer.shelf_life_requirement || '',
         vendor_guide: customer.vendor_guide || '',
         broker: customer.broker === true ? 'true' : customer.broker === false ? 'false' : '',
@@ -392,7 +395,7 @@ export default function Show({
     // Broker section states
     const [editingBroker, setEditingBroker] = useState(false);
     const [brokerContactsForm, setBrokerContactsForm] = useState<BrokerContactForm[]>(
-        brokerContacts?.map(c => ({ name: c.name, email: c.email })) || []
+        brokerContacts?.map((c) => ({ name: c.name, email: c.email })) || [],
     );
 
     // Customer type state
@@ -414,7 +417,7 @@ export default function Show({
     const [localDistributorCustomers, setLocalDistributorCustomers] = useState<DistributorCustomer[]>(distributorCustomers || []);
     const [newDistributorCustomerName, setNewDistributorCustomerName] = useState('');
     const [addingDistributorCustomer, setAddingDistributorCustomer] = useState(false);
-    const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(new Set());
+    const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(() => new Set());
     const [deleteConfirmDC, setDeleteConfirmDC] = useState<DistributorCustomer | null>(null);
     const [deletingDC, setDeletingDC] = useState(false);
     // Distributor customer editing state
@@ -435,9 +438,9 @@ export default function Show({
     const deriveApMethod = (): { method: 'inbox' | 'portal'; portalUrl: string; contacts: APContact[] } => {
         const apContacts = customer.accounts_payable || [];
         // Check if there's an "AP Portal" entry with a URL
-        const portalEntry = apContacts.find(ap => ap.name === 'AP Portal' && ap.value?.startsWith('http'));
+        const portalEntry = apContacts.find((ap) => ap.name === 'AP Portal' && ap.value?.startsWith('http'));
         // Get non-portal contacts (regular AP contacts with emails)
-        const regularContacts = apContacts.filter(ap => ap.name !== 'AP Portal' || !ap.value?.startsWith('http'));
+        const regularContacts = apContacts.filter((ap) => ap.name !== 'AP Portal' || !ap.value?.startsWith('http'));
 
         if (portalEntry) {
             // Has portal - return portal URL and non-portal contacts
@@ -577,9 +580,9 @@ export default function Show({
     const cancelDetailsEdit = () => {
         setDetailsForm({
             name: customer.name,
-            sale_price_list: priceLists.find(pl => pl.discount_percent === customer.discount_percent)?.id.toString() || '',
-            customer_payment_term: paymentTerms.find(pt => pt.name === customer.payment_terms)?.id.toString() || '',
-            shipping_terms_category_id: shippingTerms.find(st => st.name === customer.shipping_terms)?.id.toString() || '',
+            sale_price_list: priceLists.find((pl) => pl.discount_percent === customer.discount_percent)?.id.toString() || '',
+            customer_payment_term: paymentTerms.find((pt) => pt.name === customer.payment_terms)?.id.toString() || '',
+            shipping_terms_category_id: shippingTerms.find((st) => st.name === customer.shipping_terms)?.id.toString() || '',
             shelf_life_requirement: customer.shelf_life_requirement || '',
             vendor_guide: customer.vendor_guide || '',
             broker: customer.broker === true ? 'true' : customer.broker === false ? 'false' : '',
@@ -654,7 +657,7 @@ export default function Show({
         contactsHttp.setData({
             buyers: contactsForm.buyers,
             accounts_payable: accountsPayable,
-            other: contactsForm.other.map(o => ({
+            other: contactsForm.other.map((o) => ({
                 name: o.name,
                 email: o.email,
                 function: o.function || '',
@@ -691,7 +694,7 @@ export default function Show({
         });
         skuHttp.post(route('customers.skus.store', customer.id), {
             onSuccess: (response) => {
-                setCustomerSkus(prev => [...prev, response.sku]);
+                setCustomerSkus((prev) => [...prev, response.sku]);
                 setNewSkuYums('');
                 setNewSkuCustomer('');
                 setNotification({ type: 'success', message: 'SKU mapping added successfully' });
@@ -712,7 +715,7 @@ export default function Show({
         skuHttp.setData({});
         skuHttp.delete(route('customers.skus.destroy', { customerId: customer.id, skuId }), {
             onSuccess: () => {
-                setCustomerSkus(prev => prev.filter(s => s.id !== skuId));
+                setCustomerSkus((prev) => prev.filter((s) => s.id !== skuId));
                 setNotification({ type: 'success', message: 'SKU mapping deleted successfully' });
             },
             onError: (errors) => {
@@ -722,12 +725,10 @@ export default function Show({
     };
 
     // Get available products (not yet mapped)
-    const availableProducts = products.filter(
-        p => !customerSkus.some(s => s.yums_sku === p.sku)
-    );
+    const availableProducts = products.filter((p) => !customerSkus.some((s) => s.yums_sku === p.sku));
 
     // Invoice PDF handlers
-    const handleDownloadPdf = (invoiceId: number, invoiceNumber: string | null) => {
+    const handleDownloadPdf = (invoiceId: number) => {
         // Open the download URL in a new window/tab to trigger the download
         window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
     };
@@ -744,7 +745,7 @@ export default function Show({
                 if (errors.error === 'sku_mapping_required' && errors.unmapped_skus) {
                     setNotification({
                         type: 'error',
-                        message: `Cannot generate PDF: unmapped SKUs: ${errors.unmapped_skus}. Please add the missing SKU mappings.`
+                        message: `Cannot generate PDF: unmapped SKUs: ${errors.unmapped_skus}. Please add the missing SKU mappings.`,
                     });
                 } else {
                     setNotification({ type: 'error', message: errors.message || 'Failed to regenerate PDF' });
@@ -755,7 +756,7 @@ export default function Show({
 
     // Contact management functions
     const addBuyer = () => {
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
             buyers: [...prev.buyers, { name: '', email: '' }],
         }));
@@ -763,7 +764,7 @@ export default function Show({
 
     const removeBuyer = (index: number) => {
         if (contactsForm.buyers.length > 1) {
-            setContactsForm(prev => ({
+            setContactsForm((prev) => ({
                 ...prev,
                 buyers: prev.buyers.filter((_, i) => i !== index),
             }));
@@ -771,14 +772,14 @@ export default function Show({
     };
 
     const updateBuyer = (index: number, field: 'name' | 'email', value: string) => {
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
-            buyers: prev.buyers.map((b, i) => i === index ? { ...b, [field]: value } : b),
+            buyers: prev.buyers.map((b, i) => (i === index ? { ...b, [field]: value } : b)),
         }));
     };
 
     const addAP = () => {
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
             accounts_payable: [...prev.accounts_payable, { name: '', value: '' }],
         }));
@@ -788,37 +789,37 @@ export default function Show({
         // Prevent removing the last AP contact (at least 1 required)
         if (contactsForm.accounts_payable.length <= 1) return;
 
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
             accounts_payable: prev.accounts_payable.filter((_, i) => i !== index),
         }));
     };
 
     const updateAP = (index: number, field: 'name' | 'value', value: string) => {
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
-            accounts_payable: prev.accounts_payable.map((ap, i) => i === index ? { ...ap, [field]: value } : ap),
+            accounts_payable: prev.accounts_payable.map((ap, i) => (i === index ? { ...ap, [field]: value } : ap)),
         }));
     };
 
     const addOther = () => {
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
             other: [...prev.other, { name: '', email: '', function: '' }],
         }));
     };
 
     const removeOther = (index: number) => {
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
             other: prev.other.filter((_, i) => i !== index),
         }));
     };
 
     const updateOther = (index: number, field: 'name' | 'email' | 'function', value: string) => {
-        setContactsForm(prev => ({
+        setContactsForm((prev) => ({
             ...prev,
-            other: prev.other.map((o, i) => i === index ? { ...o, [field]: value } : o),
+            other: prev.other.map((o, i) => (i === index ? { ...o, [field]: value } : o)),
         }));
     };
 
@@ -859,8 +860,8 @@ export default function Show({
 
     // Broker contact management
     const cancelBrokerEdit = () => {
-        setBrokerContactsForm(brokerContacts?.map(c => ({ name: c.name, email: c.email })) || []);
-        setDetailsForm(prev => ({
+        setBrokerContactsForm(brokerContacts?.map((c) => ({ name: c.name, email: c.email })) || []);
+        setDetailsForm((prev) => ({
             ...prev,
             broker: customer.broker === true ? 'true' : customer.broker === false ? 'false' : '',
             broker_commission: customer.broker_commission?.toString() || '',
@@ -891,10 +892,7 @@ export default function Show({
         }
 
         // At least one broker contact with both name and valid email
-        const validContacts = brokerContactsForm.filter(c =>
-            c.name && c.name.trim().length >= 2 &&
-            c.email && isValidEmail(c.email)
-        );
+        const validContacts = brokerContactsForm.filter((c) => c.name && c.name.trim().length >= 2 && c.email && isValidEmail(c.email));
         if (validContacts.length === 0) {
             return false;
         }
@@ -903,15 +901,15 @@ export default function Show({
     };
 
     const addBrokerContactForm = () => {
-        setBrokerContactsForm(prev => [...prev, { name: '', email: '' }]);
+        setBrokerContactsForm((prev) => [...prev, { name: '', email: '' }]);
     };
 
     const removeBrokerContactForm = (index: number) => {
-        setBrokerContactsForm(prev => prev.filter((_, i) => i !== index));
+        setBrokerContactsForm((prev) => prev.filter((_, i) => i !== index));
     };
 
     const updateBrokerContactForm = (index: number, field: 'name' | 'email', value: string) => {
-        setBrokerContactsForm(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
+        setBrokerContactsForm((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
     };
 
     const saveBroker = () => {
@@ -921,7 +919,7 @@ export default function Show({
             broker: detailsForm.broker === 'true',
             broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
             broker_company_name: detailsForm.broker_company_name || null,
-            broker_contacts: brokerContactsForm.filter(c => c.name.trim()),
+            broker_contacts: brokerContactsForm.filter((c) => c.name.trim()),
         });
         actionHttp.put(route('customers.broker.update', customer.id), {
             onSuccess: () => {
@@ -962,7 +960,7 @@ export default function Show({
 
     // Distributor customer management
     const toggleDistributorCustomerExpanded = (id: number) => {
-        setExpandedDistributorCustomers(prev => {
+        setExpandedDistributorCustomers((prev) => {
             const next = new Set(prev);
             if (next.has(id)) {
                 next.delete(id);
@@ -981,7 +979,7 @@ export default function Show({
         actionHttp.setData({ name: newDistributorCustomerName.trim() });
         actionHttp.post(route('customers.distributor-customers.create', customer.id), {
             onSuccess: (response) => {
-                setLocalDistributorCustomers(prev => [...prev, response.distributor_customer]);
+                setLocalDistributorCustomers((prev) => [...prev, response.distributor_customer]);
                 setNewDistributorCustomerName('');
                 setNotification({ type: 'success', message: 'Distributor customer added' });
             },
@@ -1002,7 +1000,7 @@ export default function Show({
         actionHttp.setData({});
         actionHttp.delete(route('customers.distributor-customers.delete', { customerId: customer.id, distributorCustomerId: deleteConfirmDC.id }), {
             onSuccess: () => {
-                setLocalDistributorCustomers(prev => prev.filter(dc => dc.id !== deleteConfirmDC.id));
+                setLocalDistributorCustomers((prev) => prev.filter((dc) => dc.id !== deleteConfirmDC.id));
                 setDeleteConfirmDC(null);
                 setNotification({ type: 'success', message: 'Distributor customer deleted' });
             },
@@ -1015,27 +1013,11 @@ export default function Show({
         });
     };
 
-    const updateDistributorCustomerUrls = (dcId: number, urls: string[]) => {
-        setNotification(null);
-        actionHttp.setData({ company_urls: urls.filter(u => u.trim()) });
-        actionHttp.put(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
-            onSuccess: (response) => {
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, company_urls: response.distributor_customer.company_urls } : dc
-                ));
-                setNotification({ type: 'success', message: 'Domains updated' });
-            },
-            onError: (errors) => {
-                setNotification({ type: 'error', message: errors.message || 'Failed to update domains' });
-            },
-        });
-    };
-
     const startEditingDC = (dc: DistributorCustomer) => {
         setEditingDCId(dc.id);
         setEditingDCName(dc.name);
         setEditingDCUrls([...dc.company_urls, '']); // Add empty slot for new URL
-        setExpandedDistributorCustomers(prev => new Set(prev).add(dc.id));
+        setExpandedDistributorCustomers((prev) => new Set(prev).add(dc.id));
     };
 
     const cancelEditingDC = () => {
@@ -1051,13 +1033,17 @@ export default function Show({
         setNotification(null);
         actionHttp.setData({
             name: editingDCName.trim(),
-            company_urls: editingDCUrls.filter(u => u.trim()),
+            company_urls: editingDCUrls.filter((u) => u.trim()),
         });
         actionHttp.put(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: editingDCId }), {
             onSuccess: (response) => {
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === editingDCId ? { ...dc, name: response.distributor_customer.name, company_urls: response.distributor_customer.company_urls } : dc
-                ));
+                setLocalDistributorCustomers((prev) =>
+                    prev.map((dc) =>
+                        dc.id === editingDCId
+                            ? { ...dc, name: response.distributor_customer.name, company_urls: response.distributor_customer.company_urls }
+                            : dc,
+                    ),
+                );
                 setNotification({ type: 'success', message: 'Distributor customer updated' });
                 cancelEditingDC();
             },
@@ -1071,15 +1057,15 @@ export default function Show({
     };
 
     const addDCUrl = () => {
-        setEditingDCUrls(prev => [...prev, '']);
+        setEditingDCUrls((prev) => [...prev, '']);
     };
 
     const updateDCUrl = (index: number, value: string) => {
-        setEditingDCUrls(prev => prev.map((url, i) => i === index ? value : url));
+        setEditingDCUrls((prev) => prev.map((url, i) => (i === index ? value : url)));
     };
 
     const removeDCUrl = (index: number) => {
-        setEditingDCUrls(prev => prev.filter((_, i) => i !== index));
+        setEditingDCUrls((prev) => prev.filter((_, i) => i !== index));
     };
 
     // Distributor customer contact management
@@ -1091,9 +1077,9 @@ export default function Show({
         actionHttp.setData({ email: newDCContactEmail.trim() });
         actionHttp.post(route('distributor-customers.contacts.create', { distributorCustomerId: dcId }), {
             onSuccess: (response) => {
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, contacts: [...(dc.contacts || []), response.contact] } : dc
-                ));
+                setLocalDistributorCustomers((prev) =>
+                    prev.map((dc) => (dc.id === dcId ? { ...dc, contacts: [...(dc.contacts || []), response.contact] } : dc)),
+                );
                 setNewDCContactEmail('');
                 setNotification({ type: 'success', message: 'Contact added' });
             },
@@ -1129,12 +1115,16 @@ export default function Show({
         });
         actionHttp.put(route('distributor-customers.contacts.update', { distributorCustomerId: dcId, contactId: editingDCContactId }), {
             onSuccess: (response) => {
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? {
-                        ...dc,
-                        contacts: dc.contacts.map(c => c.id === editingDCContactId ? response.contact : c)
-                    } : dc
-                ));
+                setLocalDistributorCustomers((prev) =>
+                    prev.map((dc) =>
+                        dc.id === dcId
+                            ? {
+                                  ...dc,
+                                  contacts: dc.contacts.map((c) => (c.id === editingDCContactId ? response.contact : c)),
+                              }
+                            : dc,
+                    ),
+                );
                 setNotification({ type: 'success', message: 'Contact updated' });
                 cancelEditingDCContact();
             },
@@ -1153,9 +1143,9 @@ export default function Show({
         actionHttp.setData({});
         actionHttp.delete(route('distributor-customers.contacts.delete', { distributorCustomerId: dcId, contactId }), {
             onSuccess: () => {
-                setLocalDistributorCustomers(prev => prev.map(dc =>
-                    dc.id === dcId ? { ...dc, contacts: dc.contacts.filter(c => c.id !== contactId) } : dc
-                ));
+                setLocalDistributorCustomers((prev) =>
+                    prev.map((dc) => (dc.id === dcId ? { ...dc, contacts: dc.contacts.filter((c) => c.id !== contactId) } : dc)),
+                );
                 setNotification({ type: 'success', message: 'Contact deleted' });
             },
             onError: (errors) => {
@@ -1169,19 +1159,19 @@ export default function Show({
 
     // Company URL management
     const addCompanyUrl = () => {
-        setCompanyUrlsForm(prev => [...prev, '']);
+        setCompanyUrlsForm((prev) => [...prev, '']);
     };
 
     const removeCompanyUrl = (index: number) => {
         if (companyUrlsForm.length > 1) {
-            setCompanyUrlsForm(prev => prev.filter((_, i) => i !== index));
+            setCompanyUrlsForm((prev) => prev.filter((_, i) => i !== index));
         } else {
             setCompanyUrlsForm(['']);
         }
     };
 
     const updateCompanyUrl = (index: number, value: string) => {
-        setCompanyUrlsForm(prev => prev.map((url, i) => i === index ? value : url));
+        setCompanyUrlsForm((prev) => prev.map((url, i) => (i === index ? value : url)));
     };
 
     const cancelCompanyUrlsEdit = () => {
@@ -1193,7 +1183,7 @@ export default function Show({
         setSaving(true);
         setNotification(null);
         detailsHttp.setData({
-            company_urls: companyUrlsForm.filter(url => url.trim() !== ''),
+            company_urls: companyUrlsForm.filter((url) => url.trim() !== ''),
         });
         detailsHttp.put(route('customers.update-company-urls', customer.id), {
             onSuccess: () => {
@@ -1229,6 +1219,9 @@ export default function Show({
     const t12mTotal = monthlyRevenue.reduce((sum, m) => sum + m.revenue, 0);
     const priorYearTotal = monthlyRevenue.reduce((sum, m) => sum + m.prior_year_revenue, 0);
     const revenueChange = t12mTotal - priorYearTotal;
+    const maxRevenue = Math.max(...monthlyRevenue.map((m) => Math.max(m.revenue, m.prior_year_revenue)), 10000);
+    const yAxisSteps = 4;
+    const yAxisValues = Array.from({ length: yAxisSteps + 1 }, (_, i) => Math.round((maxRevenue / yAxisSteps) * (yAxisSteps - i)));
 
     const detailsValid = Object.keys(detailsErrors).length === 0;
     const contactsValid = Object.keys(contactsErrors).length === 0;
@@ -1237,24 +1230,16 @@ export default function Show({
         <AuthenticatedLayout
             header={
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link
-                            href={route('customers.index')}
-                            className="text-gray-500 hover:text-gray-700"
-                        >
+                    <div className="gap-4 flex items-center">
+                        <Link href={route('customers.index')} className="text-gray-500 hover:text-gray-700">
                             &larr; Back
                         </Link>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                            {customer.name}
-                        </h2>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800">{customer.name}</h2>
+                        <span className="px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800 inline-flex items-center rounded-full">
                             Active
                         </span>
                     </div>
-                    <button
-                        onClick={handleRefresh}
-                        className="text-sm text-gray-500 hover:text-gray-700"
-                    >
+                    <button onClick={handleRefresh} className="text-sm text-gray-500 hover:text-gray-700">
                         Refresh Data
                     </button>
                 </div>
@@ -1264,21 +1249,25 @@ export default function Show({
 
             {/* Success banner */}
             {showSuccessBanner && flash?.success && (
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+                <div className="max-w-7xl px-4 sm:px-6 lg:px-8 pt-4 mx-auto">
                     <div className="rounded-md bg-green-50 p-4">
                         <div className="flex">
                             <div className="flex-shrink-0">
                                 <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                        clipRule="evenodd"
+                                    />
                                 </svg>
                             </div>
                             <div className="ml-3">
                                 <p className="text-sm font-medium text-green-800">{flash.success}</p>
                             </div>
-                            <div className="ml-auto pl-3">
+                            <div className="pl-3 ml-auto">
                                 <button
                                     onClick={() => setShowSuccessBanner(false)}
-                                    className="inline-flex rounded-md bg-green-50 p-1.5 text-green-500 hover:bg-green-100"
+                                    className="rounded-md bg-green-50 p-1.5 text-green-500 hover:bg-green-100 inline-flex"
                                 >
                                     <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                         <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -1292,17 +1281,25 @@ export default function Show({
 
             {/* Local notification banner (for async operations) */}
             {notification && (
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+                <div className="max-w-7xl px-4 sm:px-6 lg:px-8 pt-4 mx-auto">
                     <div className={`rounded-md p-4 ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
                         <div className="flex">
                             <div className="flex-shrink-0">
                                 {notification.type === 'success' ? (
                                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                            clipRule="evenodd"
+                                        />
                                     </svg>
                                 ) : (
                                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                                            clipRule="evenodd"
+                                        />
                                     </svg>
                                 )}
                             </div>
@@ -1311,10 +1308,10 @@ export default function Show({
                                     {notification.message}
                                 </p>
                             </div>
-                            <div className="ml-auto pl-3">
+                            <div className="pl-3 ml-auto">
                                 <button
                                     onClick={() => setNotification(null)}
-                                    className={`inline-flex rounded-md p-1.5 ${notification.type === 'success' ? 'bg-green-50 text-green-500 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
+                                    className={`rounded-md p-1.5 inline-flex ${notification.type === 'success' ? 'bg-green-50 text-green-500 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
                                 >
                                     <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                         <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -1328,18 +1325,22 @@ export default function Show({
 
             {/* Fulfil API error banner */}
             {error && (
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+                <div className="max-w-7xl px-4 sm:px-6 lg:px-8 pt-4 mx-auto">
                     <div className="rounded-md bg-red-50 p-4">
                         <div className="flex">
                             <div className="flex-shrink-0">
                                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                                        clipRule="evenodd"
+                                    />
                                 </svg>
                             </div>
                             <div className="ml-3">
                                 <p className="text-sm font-medium text-red-800">{error}</p>
                             </div>
-                            <div className="ml-auto pl-3">
+                            <div className="pl-3 ml-auto">
                                 <button
                                     onClick={handleRefresh}
                                     className="rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100"
@@ -1353,25 +1354,21 @@ export default function Show({
             )}
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+                <div className="max-w-7xl space-y-6 sm:px-6 lg:px-8 mx-auto">
                     {/* Customer Details */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="text-lg font-medium text-gray-900">Customer Details</h3>
                                 {!editingDetails ? (
-                                    <button
-                                        onClick={() => setEditingDetails(true)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                        title="Edit"
-                                    >
+                                    <button onClick={() => setEditingDetails(true)} className="text-gray-400 hover:text-gray-600" title="Edit">
                                         <PencilIcon />
                                     </button>
                                 ) : (
-                                    <div className="flex gap-2">
+                                    <div className="gap-2 flex">
                                         <button
                                             onClick={cancelDetailsEdit}
-                                            className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                                            className="rounded border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 border"
                                             disabled={saving}
                                         >
                                             Cancel
@@ -1387,9 +1384,9 @@ export default function Show({
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="gap-4 sm:grid-cols-2 lg:grid-cols-3 grid grid-cols-1">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Company Name</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Company Name</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">{customer.name}</div>
                                     ) : (
@@ -1397,8 +1394,8 @@ export default function Show({
                                             <input
                                                 type="text"
                                                 value={detailsForm.name}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, name: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                onChange={(e) => setDetailsForm((prev) => ({ ...prev, name: e.target.value }))}
+                                                className={`mt-1 rounded-md shadow-sm focus:ring-indigo-500 block w-full ${detailsErrors.name ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             />
                                             {detailsErrors.name && <p className="mt-1 text-xs text-red-600">{detailsErrors.name}</p>}
                                         </>
@@ -1406,7 +1403,7 @@ export default function Show({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Discount on Price List</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Discount on Price List</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.discount_percent !== null ? `${customer.discount_percent}%` : '-'}
@@ -1415,63 +1412,75 @@ export default function Show({
                                         <>
                                             <select
                                                 value={detailsForm.sale_price_list}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, sale_price_list: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.sale_price_list ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                onChange={(e) => setDetailsForm((prev) => ({ ...prev, sale_price_list: e.target.value }))}
+                                                className={`mt-1 rounded-md shadow-sm focus:ring-indigo-500 block w-full ${detailsErrors.sale_price_list ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             >
                                                 <option value="">Select...</option>
                                                 {priceLists.map((pl) => (
-                                                    <option key={pl.id} value={pl.id}>{pl.discount_percent}% Discount</option>
+                                                    <option key={pl.id} value={pl.id}>
+                                                        {pl.discount_percent}% Discount
+                                                    </option>
                                                 ))}
                                             </select>
-                                            {detailsErrors.sale_price_list && <p className="mt-1 text-xs text-red-600">{detailsErrors.sale_price_list}</p>}
+                                            {detailsErrors.sale_price_list && (
+                                                <p className="mt-1 text-xs text-red-600">{detailsErrors.sale_price_list}</p>
+                                            )}
                                         </>
                                     )}
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Payment Terms</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Payment Terms</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">{customer.payment_terms || '-'}</div>
                                     ) : (
                                         <>
                                             <select
                                                 value={detailsForm.customer_payment_term}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, customer_payment_term: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.customer_payment_term ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                onChange={(e) => setDetailsForm((prev) => ({ ...prev, customer_payment_term: e.target.value }))}
+                                                className={`mt-1 rounded-md shadow-sm focus:ring-indigo-500 block w-full ${detailsErrors.customer_payment_term ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             >
                                                 <option value="">Select...</option>
                                                 {paymentTerms.map((pt) => (
-                                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                                    <option key={pt.id} value={pt.id}>
+                                                        {pt.name}
+                                                    </option>
                                                 ))}
                                             </select>
-                                            {detailsErrors.customer_payment_term && <p className="mt-1 text-xs text-red-600">{detailsErrors.customer_payment_term}</p>}
+                                            {detailsErrors.customer_payment_term && (
+                                                <p className="mt-1 text-xs text-red-600">{detailsErrors.customer_payment_term}</p>
+                                            )}
                                         </>
                                     )}
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Shipping Terms</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Shipping Terms</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">{customer.shipping_terms || '-'}</div>
                                     ) : (
                                         <>
                                             <select
                                                 value={detailsForm.shipping_terms_category_id}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, shipping_terms_category_id: e.target.value }))}
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.shipping_terms_category_id ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                onChange={(e) => setDetailsForm((prev) => ({ ...prev, shipping_terms_category_id: e.target.value }))}
+                                                className={`mt-1 rounded-md shadow-sm focus:ring-indigo-500 block w-full ${detailsErrors.shipping_terms_category_id ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             >
                                                 <option value="">Select...</option>
                                                 {shippingTerms.map((st) => (
-                                                    <option key={st.id} value={st.id}>{st.name}</option>
+                                                    <option key={st.id} value={st.id}>
+                                                        {st.name}
+                                                    </option>
                                                 ))}
                                             </select>
-                                            {detailsErrors.shipping_terms_category_id && <p className="mt-1 text-xs text-red-600">{detailsErrors.shipping_terms_category_id}</p>}
+                                            {detailsErrors.shipping_terms_category_id && (
+                                                <p className="mt-1 text-xs text-red-600">{detailsErrors.shipping_terms_category_id}</p>
+                                            )}
                                         </>
                                     )}
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Shelf Life Requirement</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Shelf Life Requirement</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.shelf_life_requirement ? `${customer.shelf_life_requirement} days` : '-'}
@@ -1481,35 +1490,44 @@ export default function Show({
                                             <input
                                                 type="number"
                                                 value={detailsForm.shelf_life_requirement}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, shelf_life_requirement: e.target.value }))}
+                                                onChange={(e) => setDetailsForm((prev) => ({ ...prev, shelf_life_requirement: e.target.value }))}
                                                 min="30"
                                                 max="365"
                                                 placeholder="days"
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 rounded-md shadow-sm focus:ring-indigo-500 block w-full ${detailsErrors.shelf_life_requirement ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             />
-                                            {detailsErrors.shelf_life_requirement && <p className="mt-1 text-xs text-red-600">{detailsErrors.shelf_life_requirement}</p>}
+                                            {detailsErrors.shelf_life_requirement && (
+                                                <p className="mt-1 text-xs text-red-600">{detailsErrors.shelf_life_requirement}</p>
+                                            )}
                                         </>
                                     )}
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Vendor Guide</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Vendor Guide</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.vendor_guide ? (
-                                                <a href={customer.vendor_guide} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 truncate block">
+                                                <a
+                                                    href={customer.vendor_guide}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-indigo-600 hover:text-indigo-800 block truncate"
+                                                >
                                                     {customer.vendor_guide}
                                                 </a>
-                                            ) : '-'}
+                                            ) : (
+                                                '-'
+                                            )}
                                         </div>
                                     ) : (
                                         <>
                                             <input
                                                 type="url"
                                                 value={detailsForm.vendor_guide}
-                                                onChange={(e) => setDetailsForm(prev => ({ ...prev, vendor_guide: e.target.value }))}
+                                                onChange={(e) => setDetailsForm((prev) => ({ ...prev, vendor_guide: e.target.value }))}
                                                 placeholder="https://..."
-                                                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${detailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
+                                                className={`mt-1 rounded-md shadow-sm focus:ring-indigo-500 block w-full ${detailsErrors.vendor_guide ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
                                             />
                                             {detailsErrors.vendor_guide && <p className="mt-1 text-xs text-red-600">{detailsErrors.vendor_guide}</p>}
                                         </>
@@ -1517,7 +1535,7 @@ export default function Show({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Customer Type</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Customer Type</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customerType === 'distributor' ? 'Distributor' : 'Retailer'}
@@ -1528,7 +1546,7 @@ export default function Show({
                                                 value={customerType}
                                                 onChange={(e) => handleCustomerTypeChange(e.target.value as 'retailer' | 'distributor')}
                                                 disabled={changingCustomerType}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
+                                                className="mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block w-full disabled:opacity-50"
                                             >
                                                 <option value="retailer">Retailer</option>
                                                 <option value="distributor">Distributor</option>
@@ -1538,42 +1556,50 @@ export default function Show({
                                 </div>
 
                                 {customerType === 'retailer' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500">Uses Broker</label>
-                                    {!editingDetails ? (
-                                        <div className="mt-1 text-sm text-gray-900 py-2">
-                                            {customer.broker ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">Yes</span>
-                                            ) : 'No'}
-                                        </div>
-                                    ) : (
-                                        <select
-                                            value={detailsForm.broker}
-                                            onChange={(e) => {
-                                                const newValue = e.target.value;
-                                                setDetailsForm(prev => ({ ...prev, broker: newValue }));
-                                                if (newValue === 'true' && brokerContactsForm.length === 0) {
-                                                    setBrokerContactsForm([{ name: '', email: '' }]);
-                                                }
-                                            }}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        >
-                                            <option value="">Select...</option>
-                                            <option value="false">No</option>
-                                            <option value="true">Yes</option>
-                                        </select>
-                                    )}
-                                </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-500 block">Uses Broker</label>
+                                        {!editingDetails ? (
+                                            <div className="mt-1 text-sm text-gray-900 py-2">
+                                                {customer.broker ? (
+                                                    <span className="px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800 inline-flex items-center">
+                                                        Yes
+                                                    </span>
+                                                ) : (
+                                                    'No'
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <select
+                                                value={detailsForm.broker}
+                                                onChange={(e) => {
+                                                    const newValue = e.target.value;
+                                                    setDetailsForm((prev) => ({ ...prev, broker: newValue }));
+                                                    if (newValue === 'true' && brokerContactsForm.length === 0) {
+                                                        setBrokerContactsForm([{ name: '', email: '' }]);
+                                                    }
+                                                }}
+                                                className="mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block w-full"
+                                            >
+                                                <option value="">Select...</option>
+                                                <option value="false">No</option>
+                                                <option value="true">Yes</option>
+                                            </select>
+                                        )}
+                                    </div>
                                 )}
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">EDI</label>
+                                    <label className="text-sm font-medium text-gray-500 block">EDI</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.ar_settings?.edi ? (
-                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
+                                                <span className="bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 inline-flex items-center rounded-full">
+                                                    Yes
+                                                </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                                <span className="bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 inline-flex items-center rounded-full">
+                                                    No
+                                                </span>
                                             )}
                                         </div>
                                     ) : (
@@ -1582,7 +1608,7 @@ export default function Show({
                                                 <input
                                                     type="checkbox"
                                                     checked={arSettingsForm.edi}
-                                                    onChange={(e) => setArSettingsForm(prev => ({ ...prev, edi: e.target.checked }))}
+                                                    onChange={(e) => setArSettingsForm((prev) => ({ ...prev, edi: e.target.checked }))}
                                                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <span className="ml-2 text-sm text-gray-700">Enabled</span>
@@ -1592,13 +1618,17 @@ export default function Show({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Consolidated Invoicing</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Consolidated Invoicing</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.ar_settings?.consolidated_invoicing ? (
-                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Yes</span>
+                                                <span className="bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 inline-flex items-center rounded-full">
+                                                    Yes
+                                                </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                                <span className="bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 inline-flex items-center rounded-full">
+                                                    No
+                                                </span>
                                             )}
                                         </div>
                                     ) : (
@@ -1607,7 +1637,9 @@ export default function Show({
                                                 <input
                                                     type="checkbox"
                                                     checked={arSettingsForm.consolidated_invoicing}
-                                                    onChange={(e) => setArSettingsForm(prev => ({ ...prev, consolidated_invoicing: e.target.checked }))}
+                                                    onChange={(e) =>
+                                                        setArSettingsForm((prev) => ({ ...prev, consolidated_invoicing: e.target.checked }))
+                                                    }
                                                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <span className="ml-2 text-sm text-gray-700">Enabled</span>
@@ -1617,13 +1649,17 @@ export default function Show({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Requires Customer SKUs</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Requires Customer SKUs</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
                                             {customer.ar_settings?.requires_customer_skus ? (
-                                                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Yes</span>
+                                                <span className="bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800 inline-flex items-center rounded-full">
+                                                    Yes
+                                                </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">No</span>
+                                                <span className="bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 inline-flex items-center rounded-full">
+                                                    No
+                                                </span>
                                             )}
                                         </div>
                                     ) : (
@@ -1632,7 +1668,9 @@ export default function Show({
                                                 <input
                                                     type="checkbox"
                                                     checked={arSettingsForm.requires_customer_skus}
-                                                    onChange={(e) => setArSettingsForm(prev => ({ ...prev, requires_customer_skus: e.target.checked }))}
+                                                    onChange={(e) =>
+                                                        setArSettingsForm((prev) => ({ ...prev, requires_customer_skus: e.target.checked }))
+                                                    }
                                                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <span className="ml-2 text-sm text-gray-700">Enabled</span>
@@ -1642,23 +1680,21 @@ export default function Show({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500">Addl Discount on Invoice Total</label>
+                                    <label className="text-sm font-medium text-gray-500 block">Addl Discount on Invoice Total</label>
                                     {!editingDetails ? (
                                         <div className="mt-1 text-sm text-gray-900 py-2">
-                                            {customer.ar_settings?.invoice_discount
-                                                ? `${customer.ar_settings.invoice_discount}%`
-                                                : '-'}
+                                            {customer.ar_settings?.invoice_discount ? `${customer.ar_settings.invoice_discount}%` : '-'}
                                         </div>
                                     ) : (
                                         <input
                                             type="number"
                                             value={arSettingsForm.invoice_discount}
-                                            onChange={(e) => setArSettingsForm(prev => ({ ...prev, invoice_discount: e.target.value }))}
+                                            onChange={(e) => setArSettingsForm((prev) => ({ ...prev, invoice_discount: e.target.value }))}
                                             placeholder="0"
                                             min="0"
                                             max="100"
                                             step="0.01"
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block w-full"
                                         />
                                     )}
                                 </div>
@@ -1668,28 +1704,24 @@ export default function Show({
 
                     {/* Broker Section - Only visible when customer is retailer and broker=true */}
                     {customerType === 'retailer' && (customer.broker || detailsForm.broker === 'true') && (
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-400">
-                        <div className="p-6">
-                            <div className="mb-4 flex items-center justify-between">
-                                <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                                    Broker
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">
-                                        Commission: {customer.broker_commission ?? detailsForm.broker_commission ?? 0}%
-                                    </span>
-                                </h3>
+                        <div className="bg-white shadow-sm sm:rounded-lg border-purple-400 overflow-hidden border-l-4">
+                            <div className="p-6">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h3 className="text-lg font-medium text-gray-900 gap-2 flex items-center">
+                                        Broker
+                                        <span className="px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800 inline-flex items-center">
+                                            Commission: {customer.broker_commission ?? detailsForm.broker_commission ?? 0}%
+                                        </span>
+                                    </h3>
                                     {!editingBroker ? (
-                                        <button
-                                            onClick={() => setEditingBroker(true)}
-                                            className="text-gray-400 hover:text-gray-600"
-                                            title="Edit"
-                                        >
+                                        <button onClick={() => setEditingBroker(true)} className="text-gray-400 hover:text-gray-600" title="Edit">
                                             <PencilIcon />
                                         </button>
                                     ) : (
-                                        <div className="flex gap-2">
+                                        <div className="gap-2 flex">
                                             <button
                                                 onClick={cancelBrokerEdit}
-                                                className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                                                className="rounded border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 border"
                                             >
                                                 Cancel
                                             </button>
@@ -1705,53 +1737,53 @@ export default function Show({
                                 </div>
 
                                 {!editingBroker ? (
-                                        <div>
-                                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Company</h4>
-                                                    <p className="text-sm text-gray-900">{customer.broker_company_name || '-'}</p>
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Commission</h4>
-                                                    <p className="text-sm text-gray-900">{customer.broker_commission ?? 0}%</p>
-                                                </div>
+                                    <div>
+                                        <div className="gap-4 mb-4 grid grid-cols-2">
+                                            <div>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Company</h4>
+                                                <p className="text-sm text-gray-900">{customer.broker_company_name || '-'}</p>
                                             </div>
                                             <div>
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Contacts</h4>
-                                                {brokerContacts && brokerContacts.length > 0 ? (
-                                                    <ul className="space-y-2">
-                                                        {brokerContacts.map((contact) => (
-                                                            <li key={contact.id} className="text-sm">
-                                                                <div className="text-gray-900">{contact.name}</div>
-                                                                {contact.email && (
-                                                                    <div className="text-gray-500">{contact.email}</div>
-                                                                )}
-                                                                <div className="mt-1 flex gap-3 text-xs text-gray-400">
-                                                                    <span>Sent: {formatRelativeDate(contact.last_emailed_at)}</span>
-                                                                    <span>Received: {formatRelativeDate(contact.last_received_at)}</span>
-                                                                </div>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : (
-                                                    <p className="text-sm text-gray-400">No broker contacts</p>
-                                                )}
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Commission</h4>
+                                                <p className="text-sm text-gray-900">{customer.broker_commission ?? 0}%</p>
                                             </div>
                                         </div>
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Broker Contacts</h4>
+                                            {brokerContacts && brokerContacts.length > 0 ? (
+                                                <ul className="space-y-2">
+                                                    {brokerContacts.map((contact) => (
+                                                        <li key={contact.id} className="text-sm">
+                                                            <div className="text-gray-900">{contact.name}</div>
+                                                            {contact.email && <div className="text-gray-500">{contact.email}</div>}
+                                                            <div className="mt-1 gap-3 text-xs text-gray-400 flex">
+                                                                <span>Sent: {formatRelativeDate(contact.last_emailed_at)}</span>
+                                                                <span>Received: {formatRelativeDate(contact.last_received_at)}</span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-gray-400">No broker contacts</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 ) : (
                                     <div className="space-y-4">
                                         {detailsForm.broker === 'true' && (
                                             <>
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="gap-4 grid grid-cols-2">
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">
+                                                        <label className="text-sm font-medium text-gray-700 block">
                                                             Broker Company Name <span className="text-red-500">*</span>
                                                         </label>
                                                         <input
                                                             type="text"
                                                             value={detailsForm.broker_company_name}
-                                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_company_name: e.target.value }))}
-                                                            className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 ${
+                                                            onChange={(e) =>
+                                                                setDetailsForm((prev) => ({ ...prev, broker_company_name: e.target.value }))
+                                                            }
+                                                            className={`mt-1 rounded-md shadow-sm focus:ring-indigo-500 block w-full ${
                                                                 !detailsForm.broker_company_name?.trim()
                                                                     ? 'border-red-300 focus:border-red-500'
                                                                     : 'border-gray-300 focus:border-indigo-500'
@@ -1763,7 +1795,7 @@ export default function Show({
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">
+                                                        <label className="text-sm font-medium text-gray-700 block">
                                                             Commission (%) <span className="text-red-500">*</span>
                                                         </label>
                                                         <input
@@ -1772,8 +1804,10 @@ export default function Show({
                                                             max="100"
                                                             step="0.1"
                                                             value={detailsForm.broker_commission}
-                                                            onChange={(e) => setDetailsForm(prev => ({ ...prev, broker_commission: e.target.value }))}
-                                                            className={`mt-1 block w-32 rounded-md shadow-sm focus:ring-indigo-500 ${
+                                                            onChange={(e) =>
+                                                                setDetailsForm((prev) => ({ ...prev, broker_commission: e.target.value }))
+                                                            }
+                                                            className={`mt-1 w-32 rounded-md shadow-sm focus:ring-indigo-500 block ${
                                                                 !detailsForm.broker_commission?.trim()
                                                                     ? 'border-red-300 focus:border-red-500'
                                                                     : 'border-gray-300 focus:border-indigo-500'
@@ -1793,55 +1827,57 @@ export default function Show({
                                                         <button
                                                             type="button"
                                                             onClick={addBrokerContactForm}
-                                                            className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                            className="gap-1 text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
                                                         >
                                                             <PlusIcon className="h-3 w-3" /> Add
                                                         </button>
                                                     </div>
                                                     {brokerContactsForm.length === 0 ? (
-                                                        <p className="text-sm text-red-500">At least one broker contact with name and email is required</p>
+                                                        <p className="text-sm text-red-500">
+                                                            At least one broker contact with name and email is required
+                                                        </p>
                                                     ) : (
-                                                <div className="space-y-2">
-                                                    {brokerContactsForm.map((contact, idx) => (
-                                                        <div key={idx} className="flex gap-2">
-                                                            <div className="flex-1">
-                                                                <input
-                                                                    type="text"
-                                                                    value={contact.name}
-                                                                    onChange={(e) => updateBrokerContactForm(idx, 'name', e.target.value)}
-                                                                    placeholder="Name *"
-                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${
-                                                                        !contact.name || contact.name.trim().length < 2
-                                                                            ? 'border-red-300 focus:border-red-500'
-                                                                            : 'border-gray-300 focus:border-indigo-500'
-                                                                    }`}
-                                                                />
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <input
-                                                                    type="email"
-                                                                    value={contact.email}
-                                                                    onChange={(e) => updateBrokerContactForm(idx, 'email', e.target.value)}
-                                                                    placeholder="Email *"
-                                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${
-                                                                        !contact.email || !isValidEmail(contact.email)
-                                                                            ? 'border-red-300 focus:border-red-500'
-                                                                            : 'border-gray-300 focus:border-indigo-500'
-                                                                    }`}
-                                                                />
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeBrokerContactForm(idx)}
-                                                                className="text-red-400 hover:text-red-600"
-                                                            >
-                                                                <XIcon />
-                                                            </button>
+                                                        <div className="space-y-2">
+                                                            {brokerContactsForm.map((contact, idx) => (
+                                                                <div key={idx} className="gap-2 flex">
+                                                                    <div className="flex-1">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={contact.name}
+                                                                            onChange={(e) => updateBrokerContactForm(idx, 'name', e.target.value)}
+                                                                            placeholder="Name *"
+                                                                            className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${
+                                                                                !contact.name || contact.name.trim().length < 2
+                                                                                    ? 'border-red-300 focus:border-red-500'
+                                                                                    : 'border-gray-300 focus:border-indigo-500'
+                                                                            }`}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <input
+                                                                            type="email"
+                                                                            value={contact.email}
+                                                                            onChange={(e) => updateBrokerContactForm(idx, 'email', e.target.value)}
+                                                                            placeholder="Email *"
+                                                                            className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${
+                                                                                !contact.email || !isValidEmail(contact.email)
+                                                                                    ? 'border-red-300 focus:border-red-500'
+                                                                                    : 'border-gray-300 focus:border-indigo-500'
+                                                                            }`}
+                                                                        />
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeBrokerContactForm(idx)}
+                                                                        className="text-red-400 hover:text-red-600"
+                                                                    >
+                                                                        <XIcon />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    ))}
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
                                             </>
                                         )}
                                     </div>
@@ -1852,300 +1888,394 @@ export default function Show({
 
                     {/* Distributor Customers Section - Only visible when customer is distributor */}
                     {customerType === 'distributor' && (
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-teal-400">
-                        <div className="p-6">
-                            <div className="mb-4 flex items-center justify-between">
-                                <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                                    Distributor Customers
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-teal-100 text-teal-800">
-                                        {localDistributorCustomers.length} customer{localDistributorCustomers.length !== 1 ? 's' : ''}
-                                    </span>
-                                </h3>
-                            </div>
+                        <div className="bg-white shadow-sm sm:rounded-lg border-teal-400 overflow-hidden border-l-4">
+                            <div className="p-6">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h3 className="text-lg font-medium text-gray-900 gap-2 flex items-center">
+                                        Distributor Customers
+                                        <span className="px-2 py-0.5 rounded text-xs bg-teal-100 text-teal-800 inline-flex items-center">
+                                            {localDistributorCustomers.length} customer{localDistributorCustomers.length !== 1 ? 's' : ''}
+                                        </span>
+                                    </h3>
+                                </div>
 
-                            {/* Add new distributor customer */}
-                            <div className="mb-4 flex gap-2">
-                                <input
-                                    type="text"
-                                    value={newDistributorCustomerName}
-                                    onChange={(e) => setNewDistributorCustomerName(e.target.value)}
-                                    placeholder="Enter new customer name..."
-                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                    onKeyDown={(e) => e.key === 'Enter' && addDistributorCustomer()}
-                                />
-                                <button
-                                    onClick={addDistributorCustomer}
-                                    disabled={!newDistributorCustomerName.trim() || addingDistributorCustomer}
-                                    className="rounded bg-teal-600 px-4 py-2 text-sm text-white hover:bg-teal-700 disabled:opacity-50"
-                                >
-                                    {addingDistributorCustomer ? 'Adding...' : 'Add'}
-                                </button>
-                            </div>
+                                {/* Add new distributor customer */}
+                                <div className="mb-4 gap-2 flex">
+                                    <input
+                                        type="text"
+                                        value={newDistributorCustomerName}
+                                        onChange={(e) => setNewDistributorCustomerName(e.target.value)}
+                                        placeholder="Enter new customer name..."
+                                        className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm flex-1"
+                                        onKeyDown={(e) => e.key === 'Enter' && addDistributorCustomer()}
+                                    />
+                                    <button
+                                        onClick={addDistributorCustomer}
+                                        disabled={!newDistributorCustomerName.trim() || addingDistributorCustomer}
+                                        className="rounded bg-teal-600 px-4 py-2 text-sm text-white hover:bg-teal-700 disabled:opacity-50"
+                                    >
+                                        {addingDistributorCustomer ? 'Adding...' : 'Add'}
+                                    </button>
+                                </div>
 
-                            {/* List of distributor customers */}
-                            {localDistributorCustomers.length === 0 ? (
-                                <p className="text-sm text-gray-400">No distributor customers yet. Add one above.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {localDistributorCustomers.map((dc) => (
-                                        <div key={dc.id} className="border border-gray-200 rounded-lg">
-                                            <div
-                                                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
-                                                onClick={() => toggleDistributorCustomerExpanded(dc.id)}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <svg
-                                                        className={`w-4 h-4 text-gray-400 transition-transform ${expandedDistributorCustomers.has(dc.id) ? 'rotate-90' : ''}`}
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                    <span className="font-medium text-gray-900">{dc.name}</span>
-                                                    <span className="text-xs text-gray-500">
-                                                        ({dc.contacts?.length || 0} contacts, {dc.company_urls?.length || 0} domains)
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); startEditingDC(dc); }}
-                                                        className="text-gray-400 hover:text-gray-600 p-1"
-                                                        title="Edit"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                {/* List of distributor customers */}
+                                {localDistributorCustomers.length === 0 ? (
+                                    <p className="text-sm text-gray-400">No distributor customers yet. Add one above.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {localDistributorCustomers.map((dc) => (
+                                            <div key={dc.id} className="border-gray-200 rounded-lg border">
+                                                <div
+                                                    className="p-3 hover:bg-gray-50 flex cursor-pointer items-center justify-between"
+                                                    onClick={() => toggleDistributorCustomerExpanded(dc.id)}
+                                                >
+                                                    <div className="gap-2 flex items-center">
+                                                        <svg
+                                                            className={`w-4 h-4 text-gray-400 transition-transform ${expandedDistributorCustomers.has(dc.id) ? 'rotate-90' : ''}`}
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                                         </svg>
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmDC(dc); }}
-                                                        className="text-red-400 hover:text-red-600 p-1"
-                                                        title="Delete"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {expandedDistributorCustomers.has(dc.id) && (
-                                                <div className="border-t border-gray-200 p-4 bg-gray-50">
-                                                    {editingDCId === dc.id ? (
-                                                        /* Edit Mode */
-                                                        <div className="space-y-4">
-                                                            {/* Name */}
-                                                            <div>
-                                                                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editingDCName}
-                                                                    onChange={(e) => setEditingDCName(e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm"
+                                                        <span className="font-medium text-gray-900">{dc.name}</span>
+                                                        <span className="text-xs text-gray-500">
+                                                            ({dc.contacts?.length || 0} contacts, {dc.company_urls?.length || 0} domains)
+                                                        </span>
+                                                    </div>
+                                                    <div className="gap-2 flex items-center">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                startEditingDC(dc);
+                                                            }}
+                                                            className="text-gray-400 hover:text-gray-600 p-1"
+                                                            title="Edit"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    strokeWidth={2}
+                                                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                                                                 />
-                                                            </div>
-                                                            {/* Email Domains */}
-                                                            <div>
-                                                                <label className="block text-sm font-medium text-gray-700 mb-1">Email Domains</label>
-                                                                <div className="space-y-2">
-                                                                    {editingDCUrls.map((url, idx) => (
-                                                                        <div key={idx} className="flex gap-2">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={url}
-                                                                                onChange={(e) => updateDCUrl(idx, e.target.value)}
-                                                                                placeholder="example.com"
-                                                                                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm"
-                                                                            />
-                                                                            <button
-                                                                                onClick={() => removeDCUrl(idx)}
-                                                                                className="text-red-400 hover:text-red-600 p-2"
-                                                                                title="Remove"
-                                                                            >
-                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                                                </svg>
-                                                                            </button>
-                                                                        </div>
-                                                                    ))}
-                                                                    <button
-                                                                        onClick={addDCUrl}
-                                                                        className="text-sm text-teal-600 hover:text-teal-800"
-                                                                    >
-                                                                        + Add domain
-                                                                    </button>
+                                                            </svg>
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setDeleteConfirmDC(dc);
+                                                            }}
+                                                            className="text-red-400 hover:text-red-600 p-1"
+                                                            title="Delete"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    strokeWidth={2}
+                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                                />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {expandedDistributorCustomers.has(dc.id) && (
+                                                    <div className="border-gray-200 p-4 bg-gray-50 border-t">
+                                                        {editingDCId === dc.id ? (
+                                                            /* Edit Mode */
+                                                            <div className="space-y-4">
+                                                                {/* Name */}
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-700 mb-1 block">Name</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={editingDCName}
+                                                                        onChange={(e) => setEditingDCName(e.target.value)}
+                                                                        className="rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm w-full"
+                                                                    />
                                                                 </div>
-                                                            </div>
-                                                            {/* Save/Cancel buttons */}
-                                                            <div className="flex justify-end gap-2 pt-2">
-                                                                <button
-                                                                    onClick={cancelEditingDC}
-                                                                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                                <button
-                                                                    onClick={saveDistributorCustomer}
-                                                                    disabled={savingDC || !editingDCName.trim()}
-                                                                    className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
-                                                                >
-                                                                    {savingDC ? 'Saving...' : 'Save'}
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        /* View Mode */
-                                                        <div className="text-sm text-gray-600">
-                                                            <p className="font-medium mb-2">Email Domains:</p>
-                                                            {dc.company_urls?.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1 mb-4">
-                                                                    {dc.company_urls.map((url, idx) => (
-                                                                        <span key={idx} className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
-                                                                            {url}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <p className="text-gray-400 text-xs mb-4">No domains configured</p>
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Contacts Section - Always visible */}
-                                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                                        <p className="font-medium text-sm text-gray-700 mb-3">Contacts ({dc.contacts?.length || 0})</p>
-
-                                                        {/* Add new contact */}
-                                                        <div className="flex gap-2 mb-3">
-                                                            <input
-                                                                type="email"
-                                                                value={newDCContactEmail}
-                                                                onChange={(e) => setNewDCContactEmail(e.target.value)}
-                                                                placeholder="Enter email address..."
-                                                                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm"
-                                                                onKeyDown={(e) => e.key === 'Enter' && addDistributorCustomerContact(dc.id)}
-                                                            />
-                                                            <button
-                                                                onClick={() => addDistributorCustomerContact(dc.id)}
-                                                                disabled={!newDCContactEmail.trim() || addingDCContact}
-                                                                className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
-                                                            >
-                                                                {addingDCContact ? 'Adding...' : 'Add'}
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Contact list */}
-                                                        {dc.contacts?.length > 0 ? (
-                                                            <div className="space-y-2">
-                                                                {dc.contacts.map((contact) => (
-                                                                    <div key={contact.id} className="flex items-center justify-between bg-white rounded border border-gray-200 p-2">
-                                                                        {editingDCContactId === contact.id ? (
-                                                                            /* Editing contact */
-                                                                            <div className="flex-1 flex items-center gap-2">
+                                                                {/* Email Domains */}
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                                                        Email Domains
+                                                                    </label>
+                                                                    <div className="space-y-2">
+                                                                        {editingDCUrls.map((url, idx) => (
+                                                                            <div key={idx} className="gap-2 flex">
                                                                                 <input
                                                                                     type="text"
-                                                                                    value={editingDCContactName}
-                                                                                    onChange={(e) => setEditingDCContactName(e.target.value)}
-                                                                                    placeholder="Name"
-                                                                                    className="flex-1 rounded border-gray-300 text-sm"
+                                                                                    value={url}
+                                                                                    onChange={(e) => updateDCUrl(idx, e.target.value)}
+                                                                                    placeholder="example.com"
+                                                                                    className="rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm flex-1"
                                                                                 />
-                                                                                <span className="text-xs text-gray-500">{contact.email}</span>
-                                                                                <select
-                                                                                    value={editingDCContactType}
-                                                                                    onChange={(e) => setEditingDCContactType(e.target.value)}
-                                                                                    className="rounded border-gray-300 text-xs"
-                                                                                >
-                                                                                    <option value="uncategorized">Uncategorized</option>
-                                                                                    <option value="buyer">Buyer</option>
-                                                                                    <option value="accounts_payable">Accounts Payable</option>
-                                                                                    <option value="other">Other</option>
-                                                                                </select>
                                                                                 <button
-                                                                                    onClick={() => saveDistributorCustomerContact(dc.id)}
-                                                                                    disabled={savingDCContact}
-                                                                                    className="text-teal-600 hover:text-teal-800 p-1"
+                                                                                    onClick={() => removeDCUrl(idx)}
+                                                                                    className="text-red-400 hover:text-red-600 p-2"
+                                                                                    title="Remove"
                                                                                 >
-                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                                                    </svg>
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={cancelEditingDCContact}
-                                                                                    className="text-gray-400 hover:text-gray-600 p-1"
-                                                                                >
-                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                                    <svg
+                                                                                        className="w-4 h-4"
+                                                                                        fill="none"
+                                                                                        stroke="currentColor"
+                                                                                        viewBox="0 0 24 24"
+                                                                                    >
+                                                                                        <path
+                                                                                            strokeLinecap="round"
+                                                                                            strokeLinejoin="round"
+                                                                                            strokeWidth={2}
+                                                                                            d="M6 18L18 6M6 6l12 12"
+                                                                                        />
                                                                                     </svg>
                                                                                 </button>
                                                                             </div>
-                                                                        ) : (
-                                                                            /* Viewing contact */
-                                                                            <>
-                                                                                <div className="flex-1">
-                                                                                    <span className="text-sm text-gray-900">{contact.name || <span className="italic text-gray-400">No name</span>}</span>
-                                                                                    <span className="text-sm text-gray-500 ml-2">{contact.email}</span>
-                                                                                    <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                                                                        contact.type === 'buyer' ? 'bg-blue-100 text-blue-800' :
-                                                                                        contact.type === 'accounts_payable' ? 'bg-purple-100 text-purple-800' :
-                                                                                        contact.type === 'other' ? 'bg-gray-100 text-gray-800' :
-                                                                                        'bg-yellow-100 text-yellow-800'
-                                                                                    }`}>
-                                                                                        {contact.type === 'accounts_payable' ? 'AP' : contact.type}
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-1">
-                                                                                    <button
-                                                                                        onClick={() => startEditingDCContact(contact)}
-                                                                                        className="text-gray-400 hover:text-gray-600 p-1"
-                                                                                        title="Edit"
-                                                                                    >
-                                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                                                        </svg>
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={() => deleteDistributorCustomerContact(dc.id, contact.id)}
-                                                                                        disabled={deletingDCContactId === contact.id}
-                                                                                        className="text-red-400 hover:text-red-600 p-1 disabled:opacity-50"
-                                                                                        title="Delete"
-                                                                                    >
-                                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                                        </svg>
-                                                                                    </button>
-                                                                                </div>
-                                                                            </>
-                                                                        )}
+                                                                        ))}
+                                                                        <button
+                                                                            onClick={addDCUrl}
+                                                                            className="text-sm text-teal-600 hover:text-teal-800"
+                                                                        >
+                                                                            + Add domain
+                                                                        </button>
                                                                     </div>
-                                                                ))}
+                                                                </div>
+                                                                {/* Save/Cancel buttons */}
+                                                                <div className="gap-2 pt-2 flex justify-end">
+                                                                    <button
+                                                                        onClick={cancelEditingDC}
+                                                                        className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={saveDistributorCustomer}
+                                                                        disabled={savingDC || !editingDCName.trim()}
+                                                                        className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
+                                                                    >
+                                                                        {savingDC ? 'Saving...' : 'Save'}
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         ) : (
-                                                            <p className="text-gray-400 text-xs">No contacts yet. Add one above or they will be discovered via Gmail sync.</p>
+                                                            /* View Mode */
+                                                            <div className="text-sm text-gray-600">
+                                                                <p className="font-medium mb-2">Email Domains:</p>
+                                                                {dc.company_urls?.length > 0 ? (
+                                                                    <div className="gap-1 mb-4 flex flex-wrap">
+                                                                        {dc.company_urls.map((url, idx) => (
+                                                                            <span
+                                                                                key={idx}
+                                                                                className="bg-teal-100 px-2 py-0.5 text-xs text-teal-700 inline-flex items-center rounded-full"
+                                                                            >
+                                                                                {url}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-gray-400 text-xs mb-4">No domains configured</p>
+                                                                )}
+                                                            </div>
                                                         )}
+
+                                                        {/* Contacts Section - Always visible */}
+                                                        <div className="mt-4 pt-4 border-gray-200 border-t">
+                                                            <p className="font-medium text-sm text-gray-700 mb-3">
+                                                                Contacts ({dc.contacts?.length || 0})
+                                                            </p>
+
+                                                            {/* Add new contact */}
+                                                            <div className="gap-2 mb-3 flex">
+                                                                <input
+                                                                    type="email"
+                                                                    value={newDCContactEmail}
+                                                                    onChange={(e) => setNewDCContactEmail(e.target.value)}
+                                                                    placeholder="Enter email address..."
+                                                                    className="rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm flex-1"
+                                                                    onKeyDown={(e) => e.key === 'Enter' && addDistributorCustomerContact(dc.id)}
+                                                                />
+                                                                <button
+                                                                    onClick={() => addDistributorCustomerContact(dc.id)}
+                                                                    disabled={!newDCContactEmail.trim() || addingDCContact}
+                                                                    className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
+                                                                >
+                                                                    {addingDCContact ? 'Adding...' : 'Add'}
+                                                                </button>
+                                                            </div>
+
+                                                            {/* Contact list */}
+                                                            {dc.contacts?.length > 0 ? (
+                                                                <div className="space-y-2">
+                                                                    {dc.contacts.map((contact) => (
+                                                                        <div
+                                                                            key={contact.id}
+                                                                            className="bg-white rounded border-gray-200 p-2 flex items-center justify-between border"
+                                                                        >
+                                                                            {editingDCContactId === contact.id ? (
+                                                                                /* Editing contact */
+                                                                                <div className="gap-2 flex flex-1 items-center">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={editingDCContactName}
+                                                                                        onChange={(e) => setEditingDCContactName(e.target.value)}
+                                                                                        placeholder="Name"
+                                                                                        className="rounded border-gray-300 text-sm flex-1"
+                                                                                    />
+                                                                                    <span className="text-xs text-gray-500">{contact.email}</span>
+                                                                                    <select
+                                                                                        value={editingDCContactType}
+                                                                                        onChange={(e) => setEditingDCContactType(e.target.value)}
+                                                                                        className="rounded border-gray-300 text-xs"
+                                                                                    >
+                                                                                        <option value="uncategorized">Uncategorized</option>
+                                                                                        <option value="buyer">Buyer</option>
+                                                                                        <option value="accounts_payable">Accounts Payable</option>
+                                                                                        <option value="other">Other</option>
+                                                                                    </select>
+                                                                                    <button
+                                                                                        onClick={() => saveDistributorCustomerContact(dc.id)}
+                                                                                        disabled={savingDCContact}
+                                                                                        className="text-teal-600 hover:text-teal-800 p-1"
+                                                                                    >
+                                                                                        <svg
+                                                                                            className="w-4 h-4"
+                                                                                            fill="none"
+                                                                                            stroke="currentColor"
+                                                                                            viewBox="0 0 24 24"
+                                                                                        >
+                                                                                            <path
+                                                                                                strokeLinecap="round"
+                                                                                                strokeLinejoin="round"
+                                                                                                strokeWidth={2}
+                                                                                                d="M5 13l4 4L19 7"
+                                                                                            />
+                                                                                        </svg>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={cancelEditingDCContact}
+                                                                                        className="text-gray-400 hover:text-gray-600 p-1"
+                                                                                    >
+                                                                                        <svg
+                                                                                            className="w-4 h-4"
+                                                                                            fill="none"
+                                                                                            stroke="currentColor"
+                                                                                            viewBox="0 0 24 24"
+                                                                                        >
+                                                                                            <path
+                                                                                                strokeLinecap="round"
+                                                                                                strokeLinejoin="round"
+                                                                                                strokeWidth={2}
+                                                                                                d="M6 18L18 6M6 6l12 12"
+                                                                                            />
+                                                                                        </svg>
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                /* Viewing contact */
+                                                                                <>
+                                                                                    <div className="flex-1">
+                                                                                        <span className="text-sm text-gray-900">
+                                                                                            {contact.name || (
+                                                                                                <span className="text-gray-400 italic">No name</span>
+                                                                                            )}
+                                                                                        </span>
+                                                                                        <span className="text-sm text-gray-500 ml-2">
+                                                                                            {contact.email}
+                                                                                        </span>
+                                                                                        <span
+                                                                                            className={`ml-2 px-2 py-0.5 text-xs font-medium inline-flex items-center rounded-full ${
+                                                                                                contact.type === 'buyer'
+                                                                                                    ? 'bg-blue-100 text-blue-800'
+                                                                                                    : contact.type === 'accounts_payable'
+                                                                                                      ? 'bg-purple-100 text-purple-800'
+                                                                                                      : contact.type === 'other'
+                                                                                                        ? 'bg-gray-100 text-gray-800'
+                                                                                                        : 'bg-yellow-100 text-yellow-800'
+                                                                                            }`}
+                                                                                        >
+                                                                                            {contact.type === 'accounts_payable'
+                                                                                                ? 'AP'
+                                                                                                : contact.type}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="gap-1 flex items-center">
+                                                                                        <button
+                                                                                            onClick={() => startEditingDCContact(contact)}
+                                                                                            className="text-gray-400 hover:text-gray-600 p-1"
+                                                                                            title="Edit"
+                                                                                        >
+                                                                                            <svg
+                                                                                                className="w-4 h-4"
+                                                                                                fill="none"
+                                                                                                stroke="currentColor"
+                                                                                                viewBox="0 0 24 24"
+                                                                                            >
+                                                                                                <path
+                                                                                                    strokeLinecap="round"
+                                                                                                    strokeLinejoin="round"
+                                                                                                    strokeWidth={2}
+                                                                                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                                                                                />
+                                                                                            </svg>
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() =>
+                                                                                                deleteDistributorCustomerContact(dc.id, contact.id)
+                                                                                            }
+                                                                                            disabled={deletingDCContactId === contact.id}
+                                                                                            className="text-red-400 hover:text-red-600 p-1 disabled:opacity-50"
+                                                                                            title="Delete"
+                                                                                        >
+                                                                                            <svg
+                                                                                                className="w-4 h-4"
+                                                                                                fill="none"
+                                                                                                stroke="currentColor"
+                                                                                                viewBox="0 0 24 24"
+                                                                                            >
+                                                                                                <path
+                                                                                                    strokeLinecap="round"
+                                                                                                    strokeLinejoin="round"
+                                                                                                    strokeWidth={2}
+                                                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                                                                />
+                                                                                            </svg>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-gray-400 text-xs">
+                                                                    No contacts yet. Add one above or they will be discovered via Gmail sync.
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
                     )}
 
                     {/* Delete Distributor Customer Confirmation Modal */}
                     {deleteConfirmDC && (
-                        <div className="fixed inset-0 z-50 overflow-y-auto">
-                            <div className="flex min-h-full items-center justify-center p-4">
-                                <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setDeleteConfirmDC(null)} />
-                                <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <div className="inset-0 fixed z-50 overflow-y-auto">
+                            <div className="p-4 flex min-h-full items-center justify-center">
+                                <div className="inset-0 bg-gray-500 bg-opacity-75 fixed" onClick={() => setDeleteConfirmDC(null)} />
+                                <div className="bg-white rounded-lg shadow-xl max-w-md p-6 relative w-full">
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Distributor Customer?</h3>
                                     <p className="text-sm text-gray-600 mb-6">
-                                        Are you sure you want to delete <strong>{deleteConfirmDC.name}</strong>? This will permanently remove all their contacts and email history.
+                                        Are you sure you want to delete <strong>{deleteConfirmDC.name}</strong>? This will permanently remove all
+                                        their contacts and email history.
                                     </p>
-                                    <div className="flex justify-end gap-3">
+                                    <div className="gap-3 flex justify-end">
                                         <button
                                             onClick={() => setDeleteConfirmDC(null)}
-                                            className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            className="rounded border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 border"
                                             disabled={deletingDC}
                                         >
                                             Cancel
@@ -2164,23 +2294,19 @@ export default function Show({
                     )}
 
                     {/* Contacts */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="text-lg font-medium text-gray-900">Contacts</h3>
                                 {!editingContacts ? (
-                                    <button
-                                        onClick={() => setEditingContacts(true)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                        title="Edit"
-                                    >
+                                    <button onClick={() => setEditingContacts(true)} className="text-gray-400 hover:text-gray-600" title="Edit">
                                         <PencilIcon />
                                     </button>
                                 ) : (
-                                    <div className="flex gap-2">
+                                    <div className="gap-2 flex">
                                         <button
                                             onClick={cancelContactsEdit}
-                                            className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                                            className="rounded border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 border"
                                             disabled={saving}
                                         >
                                             Cancel
@@ -2198,178 +2324,200 @@ export default function Show({
 
                             {!editingContacts ? (
                                 <>
-                                <div className="grid gap-6 sm:grid-cols-3">
-                                    {/* Buyers */}
-                                    <div>
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Buyers</h4>
-                                        {(buyerContacts && buyerContacts.length > 0) || (localBuyers && localBuyers.length > 0) ? (
-                                            <ul className="space-y-3">
-                                                {buyerContacts?.map((contact, idx) => (
-                                                    <li key={`fulfil-${idx}`} className="text-sm">
-                                                        <div className="text-gray-900">{contact.name}</div>
-                                                        {contact.email && (
-                                                            <div className="text-gray-500">{contact.email}</div>
-                                                        )}
-                                                        <div className="mt-1 flex gap-3 text-xs text-gray-400">
-                                                            <span title={contact.last_emailed_at ? new Date(contact.last_emailed_at).toLocaleString() : undefined}>
-                                                                Sent: {formatRelativeDate(contact.last_emailed_at)}
-                                                            </span>
-                                                            <span title={contact.last_received_at ? new Date(contact.last_received_at).toLocaleString() : undefined}>
-                                                                Received: {formatRelativeDate(contact.last_received_at)}
-                                                            </span>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                                {localBuyers?.map((contact) => (
-                                                    <li key={`local-${contact.id}`} className="text-sm bg-blue-50 rounded p-2 -mx-2">
-                                                        <div className="flex justify-between items-start">
-                                                            <div>
-                                                                <div className="text-gray-900">{contact.name || <span className="text-gray-400 italic">No name</span>}</div>
-                                                                <div className="text-gray-500">{contact.email}</div>
-                                                                <div className="mt-1 flex gap-3 text-xs text-gray-400">
-                                                                    <span>Sent: {formatRelativeDate(contact.last_emailed_at ?? null)}</span>
-                                                                    <span>Received: {formatRelativeDate(contact.last_received_at ?? null)}</span>
-                                                                </div>
-                                                            </div>
-                                                            <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Local</span>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p className="text-sm text-gray-400">-</p>
-                                        )}
-                                    </div>
-
-                                    {/* Accounts Payable */}
-                                    <div>
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Accounts Payable</h4>
-                                        {(customer.accounts_payable && customer.accounts_payable.length > 0) || (localAP && localAP.length > 0) ? (
-                                            <ul className="space-y-2">
-                                                {customer.accounts_payable?.map((contact, idx) => (
-                                                    <li key={`fulfil-${idx}`} className="text-sm">
-                                                        <div className="text-gray-900">{contact.name}</div>
-                                                        {contact.value && (
-                                                            <div className="text-gray-500 break-all">
-                                                                {contact.value.startsWith('http') ? (
-                                                                    <a href={contact.value} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800">
-                                                                        {contact.value}
-                                                                    </a>
-                                                                ) : contact.value}
-                                                            </div>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                                {localAP?.map((contact) => (
-                                                    <li key={`local-${contact.id}`} className="text-sm bg-blue-50 rounded p-2 -mx-2">
-                                                        <div className="flex justify-between items-start">
-                                                            <div>
-                                                                <div className="text-gray-900">{contact.name || <span className="text-gray-400 italic">No name</span>}</div>
-                                                                <div className="text-gray-500">{contact.email}</div>
-                                                            </div>
-                                                            <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Local</span>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p className="text-sm text-gray-400">-</p>
-                                        )}
-                                    </div>
-
-                                    {/* Other */}
-                                    <div>
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">Other</h4>
-                                        {(customer.other && customer.other.length > 0) || (localOther && localOther.length > 0) ? (
-                                            <ul className="space-y-2">
-                                                {customer.other?.map((contact, idx) => (
-                                                    <li key={`fulfil-${idx}`} className="text-sm">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-gray-900">{contact.name}</span>
-                                                            {contact.function && (
-                                                                <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                                                                    {contact.function}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        {contact.email && (
-                                                            <div className="text-gray-500">{contact.email}</div>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                                {localOther?.map((contact) => (
-                                                    <li key={`local-${contact.id}`} className="text-sm bg-blue-50 rounded p-2 -mx-2">
-                                                        <div className="flex justify-between items-start">
-                                                            <div>
-                                                                <div className="text-gray-900">{contact.name || <span className="text-gray-400 italic">No name</span>}</div>
-                                                                <div className="text-gray-500">{contact.email}</div>
-                                                            </div>
-                                                            <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Local</span>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p className="text-sm text-gray-400">-</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Uncategorized Contacts Section */}
-                                {uncategorizedContacts && uncategorizedContacts.length > 0 && (
-                                    <div className="mt-6 pt-6 border-t border-gray-200">
-                                        <h4 className="mb-3 text-sm font-medium text-gray-700 flex items-center gap-2">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-800">
-                                                Uncategorized
-                                            </span>
-                                            <span className="text-gray-500 font-normal">
-                                                ({uncategorizedContacts.length} discovered from emails)
-                                            </span>
-                                        </h4>
-                                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                            {uncategorizedContacts.map((contact) => (
-                                                <div key={contact.id} className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="text-sm text-gray-900 font-medium truncate">
-                                                                {contact.name || <span className="text-gray-400 italic">No name</span>}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500 truncate">{contact.email}</div>
-                                                            <div className="mt-1 flex gap-3 text-xs text-gray-400">
-                                                                <span>Sent: {formatRelativeDate(contact.last_emailed_at)}</span>
-                                                                <span>Received: {formatRelativeDate(contact.last_received_at)}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="ml-2 flex flex-col gap-1">
-                                                            <select
-                                                                value={categorizingContacts[contact.id] || ''}
-                                                                onChange={(e) => {
-                                                                    const type = e.target.value;
-                                                                    if (type) {
-                                                                        setCategorizingContacts(prev => ({ ...prev, [contact.id]: type }));
-                                                                        categorizeContact(contact.id, type);
+                                    <div className="gap-6 sm:grid-cols-3 grid">
+                                        {/* Buyers */}
+                                        <div>
+                                            <h4 className="mb-2 text-sm font-medium text-gray-700">Buyers</h4>
+                                            {(buyerContacts && buyerContacts.length > 0) || (localBuyers && localBuyers.length > 0) ? (
+                                                <ul className="space-y-3">
+                                                    {buyerContacts?.map((contact, idx) => (
+                                                        <li key={`fulfil-${idx}`} className="text-sm">
+                                                            <div className="text-gray-900">{contact.name}</div>
+                                                            {contact.email && <div className="text-gray-500">{contact.email}</div>}
+                                                            <div className="mt-1 gap-3 text-xs text-gray-400 flex">
+                                                                <span
+                                                                    title={
+                                                                        contact.last_emailed_at
+                                                                            ? new Date(contact.last_emailed_at).toLocaleString()
+                                                                            : undefined
                                                                     }
-                                                                }}
-                                                                className="text-xs rounded border-gray-300 py-1 pl-2 pr-6 focus:border-indigo-500 focus:ring-indigo-500"
-                                                            >
-                                                                <option value="">Categorize...</option>
-                                                                <option value="buyer">Buyer</option>
-                                                                <option value="accounts_payable">Accounts Payable</option>
-                                                                <option value="other">Other</option>
-                                                            </select>
-                                                            <button
-                                                                onClick={() => deleteLocalContact(contact.id)}
-                                                                className="text-xs text-red-500 hover:text-red-700"
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                                >
+                                                                    Sent: {formatRelativeDate(contact.last_emailed_at)}
+                                                                </span>
+                                                                <span
+                                                                    title={
+                                                                        contact.last_received_at
+                                                                            ? new Date(contact.last_received_at).toLocaleString()
+                                                                            : undefined
+                                                                    }
+                                                                >
+                                                                    Received: {formatRelativeDate(contact.last_received_at)}
+                                                                </span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                    {localBuyers?.map((contact) => (
+                                                        <li key={`local-${contact.id}`} className="text-sm bg-blue-50 rounded p-2 -mx-2">
+                                                            <div className="flex items-start justify-between">
+                                                                <div>
+                                                                    <div className="text-gray-900">
+                                                                        {contact.name || <span className="text-gray-400 italic">No name</span>}
+                                                                    </div>
+                                                                    <div className="text-gray-500">{contact.email}</div>
+                                                                    <div className="mt-1 gap-3 text-xs text-gray-400 flex">
+                                                                        <span>Sent: {formatRelativeDate(contact.last_emailed_at ?? null)}</span>
+                                                                        <span>Received: {formatRelativeDate(contact.last_received_at ?? null)}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Local</span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-gray-400">-</p>
+                                            )}
+                                        </div>
+
+                                        {/* Accounts Payable */}
+                                        <div>
+                                            <h4 className="mb-2 text-sm font-medium text-gray-700">Accounts Payable</h4>
+                                            {(customer.accounts_payable && customer.accounts_payable.length > 0) ||
+                                            (localAP && localAP.length > 0) ? (
+                                                <ul className="space-y-2">
+                                                    {customer.accounts_payable?.map((contact, idx) => (
+                                                        <li key={`fulfil-${idx}`} className="text-sm">
+                                                            <div className="text-gray-900">{contact.name}</div>
+                                                            {contact.value && (
+                                                                <div className="text-gray-500 break-all">
+                                                                    {contact.value.startsWith('http') ? (
+                                                                        <a
+                                                                            href={contact.value}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-indigo-600 hover:text-indigo-800"
+                                                                        >
+                                                                            {contact.value}
+                                                                        </a>
+                                                                    ) : (
+                                                                        contact.value
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </li>
+                                                    ))}
+                                                    {localAP?.map((contact) => (
+                                                        <li key={`local-${contact.id}`} className="text-sm bg-blue-50 rounded p-2 -mx-2">
+                                                            <div className="flex items-start justify-between">
+                                                                <div>
+                                                                    <div className="text-gray-900">
+                                                                        {contact.name || <span className="text-gray-400 italic">No name</span>}
+                                                                    </div>
+                                                                    <div className="text-gray-500">{contact.email}</div>
+                                                                </div>
+                                                                <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Local</span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-gray-400">-</p>
+                                            )}
+                                        </div>
+
+                                        {/* Other */}
+                                        <div>
+                                            <h4 className="mb-2 text-sm font-medium text-gray-700">Other</h4>
+                                            {(customer.other && customer.other.length > 0) || (localOther && localOther.length > 0) ? (
+                                                <ul className="space-y-2">
+                                                    {customer.other?.map((contact, idx) => (
+                                                        <li key={`fulfil-${idx}`} className="text-sm">
+                                                            <div className="gap-2 flex items-center">
+                                                                <span className="text-gray-900">{contact.name}</span>
+                                                                {contact.function && (
+                                                                    <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                                                                        {contact.function}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {contact.email && <div className="text-gray-500">{contact.email}</div>}
+                                                        </li>
+                                                    ))}
+                                                    {localOther?.map((contact) => (
+                                                        <li key={`local-${contact.id}`} className="text-sm bg-blue-50 rounded p-2 -mx-2">
+                                                            <div className="flex items-start justify-between">
+                                                                <div>
+                                                                    <div className="text-gray-900">
+                                                                        {contact.name || <span className="text-gray-400 italic">No name</span>}
+                                                                    </div>
+                                                                    <div className="text-gray-500">{contact.email}</div>
+                                                                </div>
+                                                                <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Local</span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-gray-400">-</p>
+                                            )}
                                         </div>
                                     </div>
-                                )}
+
+                                    {/* Uncategorized Contacts Section */}
+                                    {uncategorizedContacts && uncategorizedContacts.length > 0 && (
+                                        <div className="mt-6 pt-6 border-gray-200 border-t">
+                                            <h4 className="mb-3 text-sm font-medium text-gray-700 gap-2 flex items-center">
+                                                <span className="px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-800 inline-flex items-center">
+                                                    Uncategorized
+                                                </span>
+                                                <span className="text-gray-500 font-normal">
+                                                    ({uncategorizedContacts.length} discovered from emails)
+                                                </span>
+                                            </h4>
+                                            <div className="gap-3 sm:grid-cols-2 lg:grid-cols-3 grid">
+                                                {uncategorizedContacts.map((contact) => (
+                                                    <div key={contact.id} className="p-3 bg-yellow-50 rounded-lg border-yellow-100 border">
+                                                        <div className="flex items-start justify-between">
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="text-sm text-gray-900 font-medium truncate">
+                                                                    {contact.name || <span className="text-gray-400 italic">No name</span>}
+                                                                </div>
+                                                                <div className="text-sm text-gray-500 truncate">{contact.email}</div>
+                                                                <div className="mt-1 gap-3 text-xs text-gray-400 flex">
+                                                                    <span>Sent: {formatRelativeDate(contact.last_emailed_at)}</span>
+                                                                    <span>Received: {formatRelativeDate(contact.last_received_at)}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="ml-2 gap-1 flex flex-col">
+                                                                <select
+                                                                    value={categorizingContacts[contact.id] || ''}
+                                                                    onChange={(e) => {
+                                                                        const type = e.target.value;
+                                                                        if (type) {
+                                                                            setCategorizingContacts((prev) => ({ ...prev, [contact.id]: type }));
+                                                                            categorizeContact(contact.id, type);
+                                                                        }
+                                                                    }}
+                                                                    className="text-xs rounded border-gray-300 py-1 pl-2 pr-6 focus:border-indigo-500 focus:ring-indigo-500"
+                                                                >
+                                                                    <option value="">Categorize...</option>
+                                                                    <option value="buyer">Buyer</option>
+                                                                    <option value="accounts_payable">Accounts Payable</option>
+                                                                    <option value="other">Other</option>
+                                                                </select>
+                                                                <button
+                                                                    onClick={() => deleteLocalContact(contact.id)}
+                                                                    className="text-xs text-red-500 hover:text-red-700"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <div className="space-y-6">
@@ -2380,7 +2528,7 @@ export default function Show({
                                             <button
                                                 type="button"
                                                 onClick={addBuyer}
-                                                className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                className="gap-1 text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
                                             >
                                                 <PlusIcon className="h-3 w-3" /> Add
                                             </button>
@@ -2388,14 +2536,14 @@ export default function Show({
                                         {contactsErrors.buyers && <p className="mb-2 text-xs text-red-600">{contactsErrors.buyers}</p>}
                                         <div className="space-y-2">
                                             {contactsForm.buyers.map((buyer, idx) => (
-                                                <div key={idx} className="flex gap-2">
+                                                <div key={idx} className="gap-2 flex">
                                                     <div className="flex-1">
                                                         <input
                                                             type="text"
                                                             value={buyer.name}
                                                             onChange={(e) => updateBuyer(idx, 'name', e.target.value)}
                                                             placeholder="Name"
-                                                            className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`buyers.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${contactsErrors[`buyers.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                         />
                                                     </div>
                                                     <div className="flex-1">
@@ -2404,7 +2552,7 @@ export default function Show({
                                                             value={buyer.email}
                                                             onChange={(e) => updateBuyer(idx, 'email', e.target.value)}
                                                             placeholder="Email"
-                                                            className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`buyers.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                            className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${contactsErrors[`buyers.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                                         />
                                                     </div>
                                                     {contactsForm.buyers.length > 1 && (
@@ -2430,13 +2578,13 @@ export default function Show({
                                         {/* AP Method Selection */}
                                         <div className="mb-3">
                                             <p className="text-xs text-gray-500 mb-2">Does customer use an AP portal?</p>
-                                            <div className="flex gap-4">
+                                            <div className="gap-4 flex">
                                                 <label className="flex items-center">
                                                     <input
                                                         type="radio"
                                                         name="ap_method_edit"
                                                         checked={contactsForm.ap_method === 'inbox'}
-                                                        onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'inbox' }))}
+                                                        onChange={() => setContactsForm((prev) => ({ ...prev, ap_method: 'inbox' }))}
                                                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                                     />
                                                     <span className="ml-2 text-sm text-gray-700">No - Email only</span>
@@ -2446,7 +2594,7 @@ export default function Show({
                                                         type="radio"
                                                         name="ap_method_edit"
                                                         checked={contactsForm.ap_method === 'portal'}
-                                                        onChange={() => setContactsForm(prev => ({ ...prev, ap_method: 'portal' }))}
+                                                        onChange={() => setContactsForm((prev) => ({ ...prev, ap_method: 'portal' }))}
                                                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                                     />
                                                     <span className="ml-2 text-sm text-gray-700">Yes - Uses web portal</span>
@@ -2457,15 +2605,15 @@ export default function Show({
                                         {/* Portal URL (when portal selected) */}
                                         {contactsForm.ap_method === 'portal' && (
                                             <div className="mb-3 p-3 bg-gray-50 rounded-md">
-                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                <label className="text-xs font-medium text-gray-700 mb-1 block">
                                                     Portal URL <span className="text-red-500">*</span>
                                                 </label>
                                                 <input
                                                     type="url"
                                                     value={contactsForm.ap_portal_url}
-                                                    onChange={(e) => setContactsForm(prev => ({ ...prev, ap_portal_url: e.target.value }))}
+                                                    onChange={(e) => setContactsForm((prev) => ({ ...prev, ap_portal_url: e.target.value }))}
                                                     placeholder="https://vendor-portal.example.com"
-                                                    className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors.ap_portal_url ? 'border-red-300' : 'border-gray-300'}`}
+                                                    className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${contactsErrors.ap_portal_url ? 'border-red-300' : 'border-gray-300'}`}
                                                 />
                                                 {contactsErrors.ap_portal_url && (
                                                     <p className="mt-1 text-sm text-red-600">{contactsErrors.ap_portal_url}</p>
@@ -2477,12 +2625,13 @@ export default function Show({
                                         <div>
                                             <div className="mb-2 flex items-center justify-between">
                                                 <span className="text-xs text-gray-500">
-                                                    At least one AP contact required{contactsForm.ap_method === 'portal' ? ' (in addition to portal)' : ''}
+                                                    At least one AP contact required
+                                                    {contactsForm.ap_method === 'portal' ? ' (in addition to portal)' : ''}
                                                 </span>
                                                 <button
                                                     type="button"
                                                     onClick={addAP}
-                                                    className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                    className="gap-1 text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
                                                 >
                                                     <PlusIcon className="h-3 w-3" /> Add Contact
                                                 </button>
@@ -2492,14 +2641,14 @@ export default function Show({
                                             )}
                                             <div className="space-y-2">
                                                 {contactsForm.accounts_payable.map((ap, idx) => (
-                                                    <div key={idx} className="flex gap-2">
+                                                    <div key={idx} className="gap-2 flex">
                                                         <div className="flex-1">
                                                             <input
                                                                 type="text"
                                                                 value={ap.name}
                                                                 onChange={(e) => updateAP(idx, 'name', e.target.value)}
                                                                 placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${contactsErrors[`accounts_payable.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <div className="flex-1">
@@ -2508,7 +2657,7 @@ export default function Show({
                                                                 value={ap.value}
                                                                 onChange={(e) => updateAP(idx, 'value', e.target.value)}
                                                                 placeholder="Email"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${contactsErrors[`accounts_payable.${idx}.value`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         {contactsForm.accounts_payable.length > 1 && (
@@ -2533,7 +2682,7 @@ export default function Show({
                                             <button
                                                 type="button"
                                                 onClick={addOther}
-                                                className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                                className="gap-1 text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
                                             >
                                                 <PlusIcon className="h-3 w-3" /> Add
                                             </button>
@@ -2543,14 +2692,14 @@ export default function Show({
                                         ) : (
                                             <div className="space-y-2">
                                                 {contactsForm.other.map((other, idx) => (
-                                                    <div key={idx} className="flex gap-2">
+                                                    <div key={idx} className="gap-2 flex">
                                                         <div className="flex-1">
                                                             <input
                                                                 type="text"
                                                                 value={other.name}
                                                                 onChange={(e) => updateOther(idx, 'name', e.target.value)}
                                                                 placeholder="Name"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${contactsErrors[`other.${idx}.name`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <div className="w-28">
@@ -2559,7 +2708,7 @@ export default function Show({
                                                                 value={other.function || ''}
                                                                 onChange={(e) => updateOther(idx, 'function', e.target.value)}
                                                                 placeholder="Function"
-                                                                className="block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300"
+                                                                className="rounded-md text-sm shadow-sm focus:ring-indigo-500 border-gray-300 block w-full"
                                                             />
                                                         </div>
                                                         <div className="flex-1">
@@ -2568,7 +2717,7 @@ export default function Show({
                                                                 value={other.email}
                                                                 onChange={(e) => updateOther(idx, 'email', e.target.value)}
                                                                 placeholder="Email"
-                                                                className={`block w-full rounded-md text-sm shadow-sm focus:ring-indigo-500 ${contactsErrors[`other.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
+                                                                className={`rounded-md text-sm shadow-sm focus:ring-indigo-500 block w-full ${contactsErrors[`other.${idx}.email`] ? 'border-red-300' : 'border-gray-300'}`}
                                                             />
                                                         </div>
                                                         <button
@@ -2589,7 +2738,7 @@ export default function Show({
                     </div>
 
                     {/* Company URLs (for Gmail matching) */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <div>
@@ -2597,18 +2746,14 @@ export default function Show({
                                     <p className="text-sm text-gray-500">Email domains used for Gmail sync matching</p>
                                 </div>
                                 {!editingCompanyUrls ? (
-                                    <button
-                                        onClick={() => setEditingCompanyUrls(true)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                        title="Edit"
-                                    >
+                                    <button onClick={() => setEditingCompanyUrls(true)} className="text-gray-400 hover:text-gray-600" title="Edit">
                                         <PencilIcon />
                                     </button>
                                 ) : (
-                                    <div className="flex gap-2">
+                                    <div className="gap-2 flex">
                                         <button
                                             onClick={cancelCompanyUrlsEdit}
-                                            className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                                            className="rounded border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 border"
                                             disabled={saving}
                                         >
                                             Cancel
@@ -2627,11 +2772,11 @@ export default function Show({
                             {!editingCompanyUrls ? (
                                 <div>
                                     {customer.company_urls && customer.company_urls.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="gap-2 flex flex-wrap">
                                             {customer.company_urls.map((url, idx) => (
                                                 <span
                                                     key={idx}
-                                                    className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+                                                    className="bg-gray-100 px-3 py-1 text-sm text-gray-700 inline-flex items-center rounded-full"
                                                 >
                                                     {url}
                                                 </span>
@@ -2644,19 +2789,15 @@ export default function Show({
                             ) : (
                                 <div className="space-y-2">
                                     {companyUrlsForm.map((url, idx) => (
-                                        <div key={idx} className="flex gap-2">
+                                        <div key={idx} className="gap-2 flex">
                                             <input
                                                 type="text"
                                                 value={url}
                                                 onChange={(e) => updateCompanyUrl(idx, e.target.value)}
                                                 placeholder="e.g., example.com"
-                                                className="block flex-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                className="rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block flex-1"
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeCompanyUrl(idx)}
-                                                className="text-red-400 hover:text-red-600"
-                                            >
+                                            <button type="button" onClick={() => removeCompanyUrl(idx)} className="text-red-400 hover:text-red-600">
                                                 <XIcon />
                                             </button>
                                         </div>
@@ -2664,7 +2805,7 @@ export default function Show({
                                     <button
                                         type="button"
                                         onClick={addCompanyUrl}
-                                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                                        className="gap-1 text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
                                     >
                                         <PlusIcon className="h-3 w-3" /> Add Domain
                                     </button>
@@ -2674,17 +2815,14 @@ export default function Show({
                     </div>
 
                     {/* Email Activity */}
-                    <EmailActivityPanel
-                        entityType="customer"
-                        entityId={customer.id}
-                    />
+                    <EmailActivityPanel entityType="customer" entityId={customer.id} />
 
                     {/* Revenue Chart */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="text-lg font-medium text-gray-900">Revenue</h3>
-                                <div className="flex gap-6 text-right">
+                                <div className="gap-6 flex text-right">
                                     <div>
                                         <span className="text-sm text-gray-500">T12M: </span>
                                         <span className="font-semibold text-gray-900">{formatCurrency(t12mTotal)}</span>
@@ -2696,115 +2834,107 @@ export default function Show({
                                     <div>
                                         <span className="text-sm text-gray-500">YoY: </span>
                                         <span className={`font-semibold ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {revenueChange >= 0 ? '+ ' : '- '}{formatCurrency(Math.abs(revenueChange))}
+                                            {revenueChange >= 0 ? '+ ' : '- '}
+                                            {formatCurrency(Math.abs(revenueChange))}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                            {(() => {
-                                const maxRevenue = Math.max(
-                                    ...monthlyRevenue.map(m => Math.max(m.revenue, m.prior_year_revenue)),
-                                    10000
-                                );
-                                const yAxisSteps = 4;
-                                const yAxisValues = Array.from({ length: yAxisSteps + 1 }, (_, i) =>
-                                    Math.round((maxRevenue / yAxisSteps) * (yAxisSteps - i))
-                                );
+                            {/* Legend */}
+                            <div className="mb-2 gap-4 flex justify-end">
+                                <div className="gap-1 flex items-center">
+                                    <div className="h-3 w-3 rounded bg-indigo-500"></div>
+                                    <span className="text-xs text-gray-500">Current Year</span>
+                                </div>
+                                <div className="gap-1 flex items-center">
+                                    <div className="h-3 w-3 rounded bg-gray-300"></div>
+                                    <span className="text-xs text-gray-500">Prior Year</span>
+                                </div>
+                            </div>
+                            <div className="flex" style={{ height: '220px' }}>
+                                {/* Y-Axis */}
+                                <div className="pr-2 flex flex-col justify-between text-right" style={{ width: '60px' }}>
+                                    {yAxisValues.map((value, idx) => (
+                                        <span key={idx} className="text-xs text-gray-500">
+                                            {formatCompactCurrency(value)}
+                                        </span>
+                                    ))}
+                                </div>
 
-                                return (
-                                    <>
-                                        {/* Legend */}
-                                        <div className="mb-2 flex justify-end gap-4">
-                                            <div className="flex items-center gap-1">
-                                                <div className="h-3 w-3 rounded bg-indigo-500"></div>
-                                                <span className="text-xs text-gray-500">Current Year</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <div className="h-3 w-3 rounded bg-gray-300"></div>
-                                                <span className="text-xs text-gray-500">Prior Year</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex" style={{ height: '220px' }}>
-                                            {/* Y-Axis */}
-                                            <div className="flex flex-col justify-between pr-2 text-right" style={{ width: '60px' }}>
-                                                {yAxisValues.map((value, idx) => (
-                                                    <span key={idx} className="text-xs text-gray-500">
-                                                        {formatCompactCurrency(value)}
-                                                    </span>
-                                                ))}
-                                            </div>
+                                {/* Chart Area */}
+                                <div className="flex flex-1 flex-col">
+                                    <div className="gap-2 border-gray-200 relative flex flex-1 items-end border-b border-l">
+                                        {/* Horizontal grid lines */}
+                                        {yAxisValues.slice(1, -1).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="left-0 right-0 border-gray-100 absolute border-t"
+                                                style={{ bottom: `${((idx + 1) / yAxisSteps) * 100}%` }}
+                                            />
+                                        ))}
 
-                                            {/* Chart Area */}
-                                            <div className="flex flex-1 flex-col">
-                                                <div className="relative flex flex-1 items-end gap-2 border-b border-l border-gray-200">
-                                                    {/* Horizontal grid lines */}
-                                                    {yAxisValues.slice(1, -1).map((_, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            className="absolute left-0 right-0 border-t border-gray-100"
-                                                            style={{ bottom: `${((idx + 1) / yAxisSteps) * 100}%` }}
-                                                        />
-                                                    ))}
-
-                                                    {/* Bars - grouped by month */}
-                                                    {monthlyRevenue.map((month, idx) => {
-                                                        const currentHeightPercent = (month.revenue / maxRevenue) * 100;
-                                                        const priorHeightPercent = (month.prior_year_revenue / maxRevenue) * 100;
-                                                        return (
-                                                            <div key={idx} className="relative z-10 flex flex-1 items-end justify-center gap-0.5 h-full">
-                                                                {/* Prior Year Bar */}
-                                                                <div
-                                                                    className="w-2/5 bg-gray-300 rounded-t"
-                                                                    style={{ height: `${priorHeightPercent}%`, minHeight: month.prior_year_revenue > 0 ? '4px' : '0' }}
-                                                                    title={`${month.prior_year_month}: ${formatCurrency(month.prior_year_revenue)}`}
-                                                                />
-                                                                {/* Current Year Bar */}
-                                                                <div
-                                                                    className="w-2/5 bg-indigo-500 rounded-t"
-                                                                    style={{ height: `${currentHeightPercent}%`, minHeight: month.revenue > 0 ? '4px' : '0' }}
-                                                                    title={`${month.month}: ${formatCurrency(month.revenue)}`}
-                                                                />
-                                                            </div>
-                                                        );
-                                                    })}
+                                        {/* Bars - grouped by month */}
+                                        {monthlyRevenue.map((month, idx) => {
+                                            const currentHeightPercent = (month.revenue / maxRevenue) * 100;
+                                            const priorHeightPercent = (month.prior_year_revenue / maxRevenue) * 100;
+                                            return (
+                                                <div key={idx} className="gap-0.5 relative z-10 flex h-full flex-1 items-end justify-center">
+                                                    {/* Prior Year Bar */}
+                                                    <div
+                                                        className="bg-gray-300 rounded-t w-2/5"
+                                                        style={{
+                                                            height: `${priorHeightPercent}%`,
+                                                            minHeight: month.prior_year_revenue > 0 ? '4px' : '0',
+                                                        }}
+                                                        title={`${month.prior_year_month}: ${formatCurrency(month.prior_year_revenue)}`}
+                                                    />
+                                                    {/* Current Year Bar */}
+                                                    <div
+                                                        className="bg-indigo-500 rounded-t w-2/5"
+                                                        style={{
+                                                            height: `${currentHeightPercent}%`,
+                                                            minHeight: month.revenue > 0 ? '4px' : '0',
+                                                        }}
+                                                        title={`${month.month}: ${formatCurrency(month.revenue)}`}
+                                                    />
                                                 </div>
+                                            );
+                                        })}
+                                    </div>
 
-                                                {/* X-Axis Labels */}
-                                                <div className="flex gap-2 pt-1">
-                                                    {monthlyRevenue.map((month, idx) => (
-                                                        <div key={idx} className="flex-1 text-center">
-                                                            <span className="text-xs text-gray-500">{month.month_name}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                    {/* X-Axis Labels */}
+                                    <div className="gap-2 pt-1 flex">
+                                        {monthlyRevenue.map((month, idx) => (
+                                            <div key={idx} className="flex-1 text-center">
+                                                <span className="text-xs text-gray-500">{month.month_name}</span>
                                             </div>
-                                        </div>
-                                    </>
-                                );
-                            })()}
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="gap-6 lg:grid-cols-2 grid">
                         {/* Top Products */}
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                             <div className="p-6">
                                 <h3 className="mb-4 text-lg font-medium text-gray-900">Top Products (T12M)</h3>
                                 {topProducts.length > 0 ? (
-                                    <table className="min-w-full divide-y divide-gray-200">
+                                    <table className="divide-gray-200 min-w-full divide-y">
                                         <thead>
                                             <tr>
-                                                <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">SKU</th>
-                                                <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Units</th>
-                                                <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Revenue</th>
+                                                <th className="pb-2 text-xs font-medium text-gray-500 text-left uppercase">SKU</th>
+                                                <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Units</th>
+                                                <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Revenue</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-200">
+                                        <tbody className="divide-gray-200 divide-y">
                                             {topProducts.map((product, idx) => (
                                                 <tr key={idx}>
                                                     <td className="py-2 text-sm text-gray-900">{product.sku}</td>
-                                                    <td className="py-2 text-right text-sm text-gray-500">{product.units_sold}</td>
-                                                    <td className="py-2 text-right text-sm text-gray-900">{formatCurrency(product.revenue)}</td>
+                                                    <td className="py-2 text-sm text-gray-500 text-right">{product.units_sold}</td>
+                                                    <td className="py-2 text-sm text-gray-900 text-right">{formatCurrency(product.revenue)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -2816,7 +2946,7 @@ export default function Show({
                         </div>
 
                         {/* Upcoming Orders */}
-                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                        <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                             <div className="p-6">
                                 <div className="mb-4 flex items-center justify-between">
                                     <h3 className="text-lg font-medium text-gray-900">Upcoming Orders</h3>
@@ -2830,26 +2960,26 @@ export default function Show({
                                     )}
                                 </div>
                                 {upcomingOrders.length > 0 ? (
-                                    <table className="min-w-full divide-y divide-gray-200">
+                                    <table className="divide-gray-200 min-w-full divide-y">
                                         <thead>
                                             <tr>
-                                                <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">PO #</th>
-                                                <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">Ship Date</th>
-                                                <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Amount</th>
-                                                <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Status</th>
+                                                <th className="pb-2 text-xs font-medium text-gray-500 text-left uppercase">PO #</th>
+                                                <th className="pb-2 text-xs font-medium text-gray-500 text-left uppercase">Ship Date</th>
+                                                <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Amount</th>
+                                                <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Status</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-200">
+                                        <tbody className="divide-gray-200 divide-y">
                                             {upcomingOrders.map((order) => {
                                                 const shipStatus = getShipmentStatus(order.shipping_end_date);
                                                 return (
                                                     <tr key={order.id}>
                                                         <td className="py-2 text-sm text-gray-900">{order.reference || '-'}</td>
                                                         <td className="py-2 text-sm text-gray-500">{formatDate(order.shipping_end_date)}</td>
-                                                        <td className="py-2 text-right text-sm text-gray-900">{formatCurrency(order.total_amount)}</td>
-                                                        <td className={`py-2 text-right text-sm ${shipStatus.className}`}>
-                                                            {shipStatus.text}
+                                                        <td className="py-2 text-sm text-gray-900 text-right">
+                                                            {formatCurrency(order.total_amount)}
                                                         </td>
+                                                        <td className={`py-2 text-sm text-right ${shipStatus.className}`}>{shipStatus.text}</td>
                                                     </tr>
                                                 );
                                             })}
@@ -2863,12 +2993,12 @@ export default function Show({
                     </div>
 
                     {/* Outstanding Invoices */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="text-lg font-medium text-gray-900">Outstanding Invoices</h3>
                                 {outstandingInvoices.length > 0 && (
-                                    <div className="flex gap-6 text-right">
+                                    <div className="gap-6 flex text-right">
                                         <div>
                                             <span className="text-sm text-gray-500">Total Outstanding: </span>
                                             <span className="font-semibold text-gray-900">
@@ -2878,51 +3008,58 @@ export default function Show({
                                         <div>
                                             <span className="text-sm text-gray-500">Overdue: </span>
                                             <span className="font-semibold text-orange-600">
-                                                {formatCurrency(outstandingInvoices.filter(i => i.days_overdue > 0).reduce((sum, i) => sum + i.balance, 0))}
+                                                {formatCurrency(
+                                                    outstandingInvoices.filter((i) => i.days_overdue > 0).reduce((sum, i) => sum + i.balance, 0),
+                                                )}
                                             </span>
                                         </div>
                                         <div>
                                             <span className="text-sm text-gray-500">30+ Days: </span>
                                             <span className="font-semibold text-red-600">
-                                                {formatCurrency(outstandingInvoices.filter(i => i.days_overdue > 30).reduce((sum, i) => sum + i.balance, 0))}
+                                                {formatCurrency(
+                                                    outstandingInvoices.filter((i) => i.days_overdue > 30).reduce((sum, i) => sum + i.balance, 0),
+                                                )}
                                             </span>
                                         </div>
                                     </div>
                                 )}
                             </div>
                             {outstandingInvoices.length > 0 ? (
-                                <table className="min-w-full divide-y divide-gray-200">
+                                <table className="divide-gray-200 min-w-full divide-y">
                                     <thead>
                                         <tr>
-                                            <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">Invoice #</th>
-                                            <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">Due Date</th>
-                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Total</th>
-                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Balance</th>
-                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Status</th>
-                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-left uppercase">Invoice #</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-left uppercase">Due Date</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Total</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Balance</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Status</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
+                                    <tbody className="divide-gray-200 divide-y">
                                         {outstandingInvoices.map((invoice) => {
                                             const status = getInvoiceStatus(invoice.days_overdue);
                                             return (
                                                 <tr key={invoice.id}>
                                                     <td className="py-2 text-sm text-gray-900">{invoice.number || '-'}</td>
                                                     <td className="py-2 text-sm text-gray-500">{formatDate(invoice.due_date)}</td>
-                                                    <td className="py-2 text-right text-sm text-gray-500">{formatCurrency(invoice.total_amount)}</td>
-                                                    <td className="py-2 text-right text-sm text-gray-900">{formatCurrency(invoice.balance)}</td>
-                                                    <td className={`py-2 text-right text-sm ${status.className}`}>
-                                                        {status.text}
-                                                    </td>
+                                                    <td className="py-2 text-sm text-gray-500 text-right">{formatCurrency(invoice.total_amount)}</td>
+                                                    <td className="py-2 text-sm text-gray-900 text-right">{formatCurrency(invoice.balance)}</td>
+                                                    <td className={`py-2 text-sm text-right ${status.className}`}>{status.text}</td>
                                                     <td className="py-2 text-right">
-                                                        <div className="flex justify-end gap-2">
+                                                        <div className="gap-2 flex justify-end">
                                                             <button
-                                                                onClick={() => handleDownloadPdf(invoice.id, invoice.number)}
+                                                                onClick={() => handleDownloadPdf(invoice.id)}
                                                                 className="text-indigo-600 hover:text-indigo-900 text-sm"
                                                                 title="Download PDF"
                                                             >
                                                                 <svg className="h-4 w-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                    <path
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        strokeWidth={2}
+                                                                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                                                    />
                                                                 </svg>
                                                             </button>
                                                             <button
@@ -2931,7 +3068,12 @@ export default function Show({
                                                                 title="Regenerate PDF"
                                                             >
                                                                 <svg className="h-4 w-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                                    <path
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        strokeWidth={2}
+                                                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                                                    />
                                                                 </svg>
                                                             </button>
                                                         </div>
@@ -2948,26 +3090,24 @@ export default function Show({
                     </div>
 
                     {/* Customer SKU Mapping */}
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                         <div className="p-6">
                             <div className="mb-4">
                                 <h3 className="text-lg font-medium text-gray-900">Customer SKU Mapping</h3>
-                                <p className="text-sm text-gray-500">
-                                    Map Yums SKUs to this customer's internal SKUs for invoices
-                                </p>
+                                <p className="text-sm text-gray-500">Map Yums SKUs to this customer's internal SKUs for invoices</p>
                             </div>
 
                             {/* Add new mapping */}
-                            <div className="mb-4 flex gap-4 items-end p-4 bg-gray-50 rounded-md">
+                            <div className="mb-4 gap-4 p-4 bg-gray-50 rounded-md flex items-end">
                                 <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Yums SKU</label>
+                                    <label className="text-sm font-medium text-gray-700 mb-1 block">Yums SKU</label>
                                     <select
                                         value={newSkuYums}
                                         onChange={(e) => setNewSkuYums(e.target.value)}
-                                        className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block w-full"
                                     >
                                         <option value="">Select a product...</option>
-                                        {availableProducts.map(p => (
+                                        {availableProducts.map((p) => (
                                             <option key={p.id} value={p.sku}>
                                                 {p.sku} - {p.name}
                                             </option>
@@ -2975,13 +3115,13 @@ export default function Show({
                                     </select>
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer SKU</label>
+                                    <label className="text-sm font-medium text-gray-700 mb-1 block">Customer SKU</label>
                                     <input
                                         type="text"
                                         value={newSkuCustomer}
                                         onChange={(e) => setNewSkuCustomer(e.target.value)}
                                         placeholder="Enter customer's SKU"
-                                        className="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 block w-full"
                                     />
                                 </div>
                                 <button
@@ -2995,15 +3135,15 @@ export default function Show({
 
                             {/* Existing mappings */}
                             {customerSkus.length > 0 ? (
-                                <table className="min-w-full divide-y divide-gray-200">
+                                <table className="divide-gray-200 min-w-full divide-y">
                                     <thead>
                                         <tr>
-                                            <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">Yums SKU</th>
-                                            <th className="pb-2 text-left text-xs font-medium uppercase text-gray-500">Customer SKU</th>
-                                            <th className="pb-2 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-left uppercase">Yums SKU</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-left uppercase">Customer SKU</th>
+                                            <th className="pb-2 text-xs font-medium text-gray-500 text-right uppercase">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
+                                    <tbody className="divide-gray-200 divide-y">
                                         {customerSkus.map((sku) => (
                                             <tr key={sku.id}>
                                                 <td className="py-2 text-sm text-gray-900">{sku.yums_sku}</td>
@@ -3027,9 +3167,7 @@ export default function Show({
                     </div>
 
                     {/* Last updated */}
-                    <div className="text-right text-xs text-gray-400">
-                        Last updated: {new Date(lastUpdated).toLocaleString()}
-                    </div>
+                    <div className="text-xs text-gray-400 text-right">Last updated: {new Date(lastUpdated).toLocaleString()}</div>
                 </div>
             </div>
         </AuthenticatedLayout>

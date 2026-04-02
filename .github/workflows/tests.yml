@@ -52,4 +52,4 @@ jobs:
         run: php artisan migrate --force
 
       - name: Tests
-        run: ./vendor/bin/pest
+        run: php artisan test --parallel

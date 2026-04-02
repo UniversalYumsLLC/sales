@@ -4,12 +4,20 @@
     "type": "module",
     "scripts": {
         "build": "tsc && vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "format": "prettier --write resources/",
+        "format:check": "prettier --check resources/",
+        "lint": "eslint . --fix",
+        "lint:check": "eslint .",
+        "types": "tsc --noEmit",
+        "prepare": "husky"
     },
     "devDependencies": {
         "@babel/generator": "^7.29.1",
         "@babel/template": "^7.28.6",
         "@babel/traverse": "^7.29.0",
+        "@eslint-react/eslint-plugin": "^3.0.0",
+        "@eslint/js": "^10.0.1",
         "@headlessui/react": "^2.0.0",
         "@inertiajs/react": "^3.0.1",
         "@tailwindcss/forms": "^0.5.3",
@@ -23,16 +31,32 @@
         "@types/prop-types": "^15.7.15",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
-        "@vitejs/plugin-react": "^4.2.0",
+        "@vitejs/plugin-react": "^6.0.1",
         "autoprefixer": "^10.4.12",
         "concurrently": "^9.0.1",
-        "laravel-vite-plugin": "^2.0.0",
+        "eslint": "^10.0.3",
+        "eslint-config-prettier": "^10.1.8",
+        "globals": "^17.4.0",
+        "husky": "^9.1.7",
+        "laravel-vite-plugin": "^3.0.1",
+        "lint-staged": "^16.4.0",
         "postcss": "^8.4.31",
+        "prettier": "^3.4.2",
+        "prettier-plugin-organize-imports": "^4.1.0",
+        "prettier-plugin-tailwindcss": "^0.7.2",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
         "tailwindcss": "^3.2.1",
         "typescript": "^5.0.2",
-        "vite": "^7.0.7"
+        "typescript-eslint": "^8.57.1",
+        "vite": "^8.0.3"
+    },
+    "lint-staged": {
+        "*.php": "vendor/bin/pint",
+        "resources/**/*.{ts,tsx,js,jsx}": [
+            "eslint --fix",
+            "prettier --write"
+        ]
     },
     "dependencies": {
         "@radix-ui/react-collapsible": "^1.1.12",
