@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\Invoice\InvoicePdfDto;
 use App\Exceptions\InvoicePdfException;
 use App\Models\CustomerSku;
+use App\Models\LocalCustomerMetadata;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -47,11 +48,13 @@ class InvoicePdfService
             return $pdfPath;
         }
 
-        // Check customer AR settings (SKU requirements, discount)
+        // Check customer AR settings (SKU requirements from local DB, discount from Fulfil)
+        $localMetadata = LocalCustomerMetadata::find($dto->customerId);
+        $requiresCustomerSkus = $localMetadata?->ar_requires_customer_skus ?? false;
         $arSettings = $this->fulfil->getCustomerArSettings($dto->customerId);
         $hasCustomerSkus = false;
 
-        if ($arSettings['requires_customer_skus']) {
+        if ($requiresCustomerSkus) {
             // Validate that all SKUs are mapped
             $productCodes = $dto->getProductCodes();
             $unmappedSkus = CustomerSku::getUnmappedSkus($dto->customerId, $productCodes);
