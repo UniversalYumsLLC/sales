@@ -1,3 +1,4 @@
+# CI lint workflow with caching
 name: linter
 
 on:
