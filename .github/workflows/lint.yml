@@ -43,7 +43,7 @@ jobs:
           wait
 
       - name: Run Pint
-        run: vendor/bin/pint --test
+        run: vendor/bin/pint --test --parallel
 
       - name: Format Check
         run: npm run format:check
