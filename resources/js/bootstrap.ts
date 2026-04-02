@@ -1,4 +1,1 @@
-import axios from 'axios';
-window.axios = axios;
-
-window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+// Inertia v3 uses a built-in XHR client — no axios setup needed.

@@ -1,6 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import axios from 'axios';
+import { Head, Link, router, useHttp, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 interface Prospect {
@@ -27,6 +26,8 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
     const [prospects, setProspects] = useState(initialProspects);
     const [updatingId, setUpdatingId] = useState<number | null>(null);
 
+    const statusHttp = useHttp<{ status: string }>({ status: '' });
+
     // Auto-hide flash message after 5 seconds
     useEffect(() => {
         if (flash?.success) {
@@ -36,20 +37,21 @@ export default function Index({ prospects: initialProspects, statuses }: Props) 
         }
     }, [flash?.success]);
 
-    const handleStatusChange = async (prospectId: number, newStatus: string) => {
+    const handleStatusChange = (prospectId: number, newStatus: string) => {
         setUpdatingId(prospectId);
-        try {
-            await axios.patch(route('prospects.update-status', prospectId), {
-                status: newStatus,
-            });
+        statusHttp.setData({ status: newStatus });
 
-            // Update local state
-            setProspects((prev) => prev.map((p) => (p.id === prospectId ? { ...p, status: newStatus } : p)));
-        } catch (error) {
-            console.error('Failed to update status:', error);
-        } finally {
-            setUpdatingId(null);
-        }
+        statusHttp.patch(route('prospects.update-status', prospectId), {
+            onSuccess: () => {
+                setProspects((prev) => prev.map((p) => (p.id === prospectId ? { ...p, status: newStatus } : p)));
+            },
+            onError: (errors) => {
+                console.error('Failed to update status:', errors);
+            },
+            onFinish: () => {
+                setUpdatingId(null);
+            },
+        });
     };
 
     return (

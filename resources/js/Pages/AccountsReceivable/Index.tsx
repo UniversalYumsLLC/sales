@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Menu, Transition } from '@headlessui/react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, useHttp } from '@inertiajs/react';
 import { Fragment, useState } from 'react';
 
 interface Invoice {
@@ -92,6 +92,9 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
     const [regeneratingPdf, setRegeneratingPdf] = useState<number | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoiceHttp = useHttp<Record<string, any>, any>({});
+
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         router.get(route('ar.index'), { search: searchTerm }, { preserveState: true });
@@ -105,66 +108,45 @@ export default function Index({ customers, totals, search, lastUpdated, fulfilSu
         setExpandedCustomer(expandedCustomer === customerId ? null : customerId);
     };
 
-    const handleRegeneratePdf = async (invoiceId: number, e: React.MouseEvent) => {
+    const handleRegeneratePdf = (invoiceId: number, e: React.MouseEvent) => {
         e.stopPropagation();
         setRegeneratingPdf(invoiceId);
         setMessage(null);
 
-        try {
-            const response = await fetch(route('invoices.pdf.regenerate', { id: invoiceId }), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
+        invoiceHttp.post(route('invoices.pdf.regenerate', { id: invoiceId }), {
+            onSuccess: () => {
                 setMessage({ type: 'success', text: 'PDF regenerated successfully' });
-                // Open the newly generated PDF
                 window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
-            } else {
-                setMessage({ type: 'error', text: data.message || 'Failed to regenerate PDF' });
-            }
-        } catch {
-            setMessage({ type: 'error', text: 'Failed to regenerate PDF' });
-        } finally {
-            setRegeneratingPdf(null);
-            setTimeout(() => setMessage(null), 5000);
-        }
+            },
+            onError: (errors) => {
+                setMessage({ type: 'error', text: errors.message || 'Failed to regenerate PDF' });
+            },
+            onFinish: () => {
+                setRegeneratingPdf(null);
+                setTimeout(() => setMessage(null), 5000);
+            },
+        });
     };
 
-    const handleResendEmail = async (invoiceId: number, emailType: string, e: React.MouseEvent) => {
+    const handleResendEmail = (invoiceId: number, emailType: string, e: React.MouseEvent) => {
         e.stopPropagation();
         const key = `${invoiceId}_${emailType}`;
         setSendingEmail(key);
         setMessage(null);
+        invoiceHttp.setData({ email_type: emailType });
 
-        try {
-            const response = await fetch(route('invoices.resend-email', { id: invoiceId }), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ email_type: emailType }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setMessage({ type: 'success', text: `Email sent successfully` });
-            } else {
-                setMessage({ type: 'error', text: data.message || 'Failed to send email' });
-            }
-        } catch {
-            setMessage({ type: 'error', text: 'Failed to send email' });
-        } finally {
-            setSendingEmail(null);
-            setTimeout(() => setMessage(null), 5000);
-        }
+        invoiceHttp.post(route('invoices.resend-email', { id: invoiceId }), {
+            onSuccess: () => {
+                setMessage({ type: 'success', text: 'Email sent successfully' });
+            },
+            onError: (errors) => {
+                setMessage({ type: 'error', text: errors.message || 'Failed to send email' });
+            },
+            onFinish: () => {
+                setSendingEmail(null);
+                setTimeout(() => setMessage(null), 5000);
+            },
+        });
     };
 
     const renderApContacts = (apContacts: Customer['ap_contacts']) => {

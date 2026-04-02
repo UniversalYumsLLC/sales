@@ -1,6 +1,6 @@
 import EmailActivityPanel from '@/Components/EmailActivityPanel';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useHttp } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 interface Contact {
@@ -199,6 +199,12 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     const [editingProducts, setEditingProducts] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    // HTTP instances for Inertia useHttp
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const detailsHttp = useHttp<Record<string, any>, any>({});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const contactsHttp = useHttp<Record<string, any>, any>({});
+
     // Form states - map stored values to dropdown IDs
     const [detailsForm, setDetailsForm] = useState<DetailsForm>({
         company_name: prospect.company_name,
@@ -374,57 +380,39 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         setEditingCompanyUrls(false);
     };
 
-    const saveCompanyUrls = async () => {
+    const saveCompanyUrls = () => {
         setSaving(true);
-        try {
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    company_urls: companyUrlsForm.filter((url) => url.trim() !== ''),
-                }),
-            });
-
-            if (response.ok) {
+        detailsHttp.setData({
+            company_urls: companyUrlsForm.filter((url) => url.trim() !== ''),
+        });
+        detailsHttp.put(route('prospects.update', prospect.id), {
+            onSuccess: () => {
                 setEditingCompanyUrls(false);
                 router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
-            }
-        } catch {
-            alert('An error occurred while saving.');
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                alert(errors.message || 'Failed to save changes');
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
-    const handleStatusChange = async (newStatus: string) => {
+    const handleStatusChange = (newStatus: string) => {
         setSaving(true);
-        try {
-            const response = await fetch(`/prospects/${prospect.id}/status`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ status: newStatus }),
-            });
-
-            if (response.ok) {
+        detailsHttp.setData({ status: newStatus });
+        detailsHttp.patch(route('prospects.update-status', prospect.id), {
+            onSuccess: () => {
                 router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to update status');
-            }
-        } catch {
-            alert('An error occurred while updating status.');
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                alert(errors.message || 'Failed to update status');
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
     const cancelContactsEdit = () => {
@@ -451,7 +439,7 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         setShowProductDropdown(false);
     };
 
-    const saveDetails = async () => {
+    const saveDetails = () => {
         if (Object.keys(detailsErrors).length > 0) return;
 
         // Convert dropdown IDs back to stored values
@@ -460,123 +448,96 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         const selectedShippingTerm = shippingTerms.find((st) => st.id.toString() === detailsForm.shipping_terms);
 
         setSaving(true);
-        try {
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    company_name: detailsForm.company_name,
-                    discount_percent: selectedPriceList?.discount_percent ?? null,
-                    payment_terms: selectedPaymentTerm?.name || null,
-                    shipping_terms: selectedShippingTerm?.name || null,
-                    shelf_life_requirement: detailsForm.shelf_life_requirement ? parseInt(detailsForm.shelf_life_requirement) : null,
-                    vendor_guide: detailsForm.vendor_guide || null,
-                    broker: detailsForm.broker === 'true',
-                    customer_type: detailsForm.customer_type || null,
-                    ar_edi: detailsForm.ar_edi,
-                    ar_consolidated_invoicing: detailsForm.ar_consolidated_invoicing,
-                    ar_requires_customer_skus: detailsForm.ar_requires_customer_skus,
-                    ar_invoice_discount: detailsForm.ar_invoice_discount ? parseFloat(detailsForm.ar_invoice_discount) : null,
-                }),
-            });
-
-            if (response.ok) {
+        detailsHttp.setData({
+            company_name: detailsForm.company_name,
+            discount_percent: selectedPriceList?.discount_percent ?? null,
+            payment_terms: selectedPaymentTerm?.name || null,
+            shipping_terms: selectedShippingTerm?.name || null,
+            shelf_life_requirement: detailsForm.shelf_life_requirement ? parseInt(detailsForm.shelf_life_requirement) : null,
+            vendor_guide: detailsForm.vendor_guide || null,
+            broker: detailsForm.broker === 'true',
+            customer_type: detailsForm.customer_type || null,
+            ar_edi: detailsForm.ar_edi,
+            ar_consolidated_invoicing: detailsForm.ar_consolidated_invoicing,
+            ar_requires_customer_skus: detailsForm.ar_requires_customer_skus,
+            ar_invoice_discount: detailsForm.ar_invoice_discount ? parseFloat(detailsForm.ar_invoice_discount) : null,
+        });
+        detailsHttp.put(route('prospects.update', prospect.id), {
+            onSuccess: () => {
                 setEditingDetails(false);
                 router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
-            }
-        } catch {
-            alert('Failed to save changes');
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                alert(errors.message || 'Failed to save changes');
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
-    const saveContacts = async () => {
+    const saveContacts = () => {
         if (Object.keys(contactsErrors).length > 0) return;
 
         setSaving(true);
-        try {
-            // Only send name and value fields (not id, last_emailed_at, last_received_at)
-            const cleanContacts = (contacts: Contact[]) => contacts.filter((c) => c.name).map((c) => ({ name: c.name, value: c.value || '' }));
+        // Only send name and value fields (not id, last_emailed_at, last_received_at)
+        const cleanContacts = (contacts: Contact[]) => contacts.filter((c) => c.name).map((c) => ({ name: c.name, value: c.value || '' }));
 
-            // Transform AP data based on method
-            let accountsPayable: { name: string; value: string }[] = [];
-            if (contactsForm.ap_method === 'portal' && contactsForm.ap_portal_url) {
-                accountsPayable = [{ name: 'AP Portal', value: contactsForm.ap_portal_url }];
-            } else if (contactsForm.ap_method === 'inbox') {
-                accountsPayable = cleanContacts(contactsForm.accounts_payable);
-            }
-            // If ap_method is '', send empty array
+        // Transform AP data based on method
+        let accountsPayable: { name: string; value: string }[] = [];
+        if (contactsForm.ap_method === 'portal' && contactsForm.ap_portal_url) {
+            accountsPayable = [{ name: 'AP Portal', value: contactsForm.ap_portal_url }];
+        } else if (contactsForm.ap_method === 'inbox') {
+            accountsPayable = cleanContacts(contactsForm.accounts_payable);
+        }
+        // If ap_method is '', send empty array
 
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    buyers: cleanContacts(contactsForm.buyers),
-                    accounts_payable: accountsPayable,
-                    other: contactsForm.other
-                        .filter((c) => c.name.trim())
-                        .map((c) => ({
-                            name: c.name.trim(),
-                            value: c.value?.trim() || '',
-                            function: c.function?.trim() || '',
-                        })),
-                    uncategorized: cleanContacts(contactsForm.uncategorized),
-                }),
-            });
-
-            if (response.ok) {
+        detailsHttp.setData({
+            buyers: cleanContacts(contactsForm.buyers),
+            accounts_payable: accountsPayable,
+            other: contactsForm.other
+                .filter((c) => c.name.trim())
+                .map((c) => ({
+                    name: c.name.trim(),
+                    value: c.value?.trim() || '',
+                    function: c.function?.trim() || '',
+                })),
+            uncategorized: cleanContacts(contactsForm.uncategorized),
+        });
+        detailsHttp.put(route('prospects.update', prospect.id), {
+            onSuccess: () => {
                 setEditingContacts(false);
                 setCategorizingContacts({});
                 router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
-            }
-        } catch {
-            alert('Failed to save changes');
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                alert(errors.message || 'Failed to save changes');
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
-    const saveProducts = async () => {
+    const saveProducts = () => {
         setSaving(true);
-        try {
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    product_ids: productsForm.product_ids,
-                }),
-            });
-
-            if (response.ok) {
+        detailsHttp.setData({
+            product_ids: productsForm.product_ids,
+        });
+        detailsHttp.put(route('prospects.update', prospect.id), {
+            onSuccess: () => {
                 setEditingProducts(false);
                 setProductSearch('');
                 setShowProductDropdown(false);
                 router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save changes');
-            }
-        } catch {
-            alert('Failed to save changes');
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                alert(errors.message || 'Failed to save changes');
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
     // Contact management - Buyers
@@ -668,29 +629,19 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
     };
 
     // Categorize a contact (move from uncategorized to a specific type)
-    const categorizeContact = async (contactId: number, newType: string) => {
+    const categorizeContact = (contactId: number, newType: string) => {
         if (!contactId || !newType) return;
 
-        try {
-            const response = await fetch(route('prospects.contacts.categorize', { prospectId: prospect.id, contactId }), {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ type: newType }),
-            });
-
-            if (response.ok) {
+        contactsHttp.setData({ type: newType });
+        contactsHttp.patch(route('prospects.contacts.categorize', { prospectId: prospect.id, contactId }), {
+            onSuccess: () => {
                 setCategorizingContacts({});
                 router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to categorize contact');
-            }
-        } catch {
-            alert('Failed to categorize contact');
-        }
+            },
+            onError: (errors) => {
+                alert(errors.message || 'Failed to categorize contact');
+            },
+        });
     };
 
     // Broker contact management
@@ -723,39 +674,30 @@ export default function Show({ prospect, statuses, allProducts, priceLists, paym
         setBrokerContactsErrors({});
     };
 
-    const saveBroker = async () => {
+    const saveBroker = () => {
         if (Object.keys(brokerContactsErrors).length > 0) return;
 
         setSaving(true);
-        try {
-            const cleanContacts = (contacts: BrokerContact[]) => contacts.filter((c) => c.name).map((c) => ({ name: c.name, value: c.value || '' }));
+        const cleanContacts = (contacts: BrokerContact[]) => contacts.filter((c) => c.name).map((c) => ({ name: c.name, value: c.value || '' }));
 
-            const response = await fetch(route('prospects.update', prospect.id), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    broker: detailsForm.broker === 'true',
-                    broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
-                    broker_company_name: detailsForm.broker_company_name || null,
-                    broker_contacts: cleanContacts(brokerContactsForm.broker_contacts),
-                }),
-            });
-
-            if (response.ok) {
+        detailsHttp.setData({
+            broker: detailsForm.broker === 'true',
+            broker_commission: detailsForm.broker_commission ? parseFloat(detailsForm.broker_commission) : null,
+            broker_company_name: detailsForm.broker_company_name || null,
+            broker_contacts: cleanContacts(brokerContactsForm.broker_contacts),
+        });
+        detailsHttp.put(route('prospects.update', prospect.id), {
+            onSuccess: () => {
                 setEditingBroker(false);
                 router.reload({ only: ['prospect'] });
-            } else {
-                const data = await response.json();
-                alert(data.message || 'Failed to save broker settings');
-            }
-        } catch {
-            alert('Failed to save broker settings');
-        } finally {
-            setSaving(false);
-        }
+            },
+            onError: (errors) => {
+                alert(errors.message || 'Failed to save broker settings');
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
     };
 
     // Validate broker contacts

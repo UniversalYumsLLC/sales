@@ -1,6 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
-import axios from 'axios';
+import { Head, useHttp } from '@inertiajs/react';
 import DOMPurify from 'dompurify';
 import { useEffect, useRef, useState } from 'react';
 
@@ -19,16 +18,17 @@ interface Props {
 }
 
 export default function EmailTemplates({ templates }: Props) {
-    const [localTemplates, setLocalTemplates] = useState<Template[]>(templates);
+    const [localTemplates] = useState<Template[]>(templates);
     const [selectedKey, setSelectedKey] = useState<string>(templates[0]?.key || '');
-    const [subject, setSubject] = useState(templates[0]?.subject || '');
-    const [body, setBody] = useState(templates[0]?.body || '');
-    const [saving, setSaving] = useState(false);
+    const [subject, setSubject] = useState('');
+    const [body, setBody] = useState('');
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [showPreview, setShowPreview] = useState(false);
     const editorRef = useRef<HTMLDivElement>(null);
 
-    const selectedTemplate = localTemplates.find((t) => t.key === selectedKey);
+    const http = useHttp<{ subject: string; body: string }>({ subject: '', body: '' });
+
+    const selectedTemplate = templates.find((t) => t.key === selectedKey);
 
     const handleTemplateChange = (key: string) => {
         const template = localTemplates.find((t) => t.key === key);
@@ -52,28 +52,21 @@ export default function EmailTemplates({ templates }: Props) {
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!selectedKey) return;
 
-        setSaving(true);
         setNotification(null);
+        http.setData({ subject, body });
 
-        try {
-            await axios.put(route('admin.email-templates.update', { key: selectedKey }), { subject, body });
-
-            setLocalTemplates((prev) => prev.map((t) => (t.key === selectedKey ? { ...t, subject, body } : t)));
-            setNotification({ type: 'success', message: 'Template saved successfully' });
-        } catch (error) {
-            if (axios.isAxiosError(error) && error.response?.data?.errors) {
-                const firstError = Object.values(error.response.data.errors).flat()[0] as string;
-                setNotification({ type: 'error', message: firstError || 'Validation failed' });
-            } else {
-                const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-                setNotification({ type: 'error', message: message || 'An error occurred while saving' });
-            }
-        } finally {
-            setSaving(false);
-        }
+        http.put(route('admin.email-templates.update', { key: selectedKey }), {
+            onSuccess: () => {
+                setNotification({ type: 'success', message: 'Template saved successfully' });
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors).flat()[0] as string;
+                setNotification({ type: 'error', message: firstError || 'Failed to save template' });
+            },
+        });
     };
 
     const insertPlaceholder = (placeholder: string) => {
@@ -336,12 +329,12 @@ export default function EmailTemplates({ templates }: Props) {
                                         <button
                                             type="button"
                                             onClick={handleSave}
-                                            disabled={saving}
+                                            disabled={http.processing}
                                             className={`px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:ring-indigo-500 inline-flex items-center focus:ring-2 focus:ring-offset-2 focus:outline-none ${
-                                                saving ? 'cursor-not-allowed opacity-50' : ''
+                                                http.processing ? 'cursor-not-allowed opacity-50' : ''
                                             }`}
                                         >
-                                            {saving ? (
+                                            {http.processing ? (
                                                 <>
                                                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                                         <circle
