@@ -50,7 +50,7 @@ export default function Settings({ settings, testModeInfo, environment }: Props)
                     message: data.message || 'Failed to update settings',
                 });
             }
-        } catch (error) {
+        } catch {
             setNotification({
                 type: 'error',
                 message: 'An error occurred while updating settings',

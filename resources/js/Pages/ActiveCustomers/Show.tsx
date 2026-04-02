@@ -407,7 +407,7 @@ export default function Show({
     const [localDistributorCustomers, setLocalDistributorCustomers] = useState<DistributorCustomer[]>(distributorCustomers || []);
     const [newDistributorCustomerName, setNewDistributorCustomerName] = useState('');
     const [addingDistributorCustomer, setAddingDistributorCustomer] = useState(false);
-    const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(new Set());
+    const [expandedDistributorCustomers, setExpandedDistributorCustomers] = useState<Set<number>>(() => new Set());
     const [deleteConfirmDC, setDeleteConfirmDC] = useState<DistributorCustomer | null>(null);
     const [deletingDC, setDeletingDC] = useState(false);
     // Distributor customer editing state
@@ -633,7 +633,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
@@ -677,7 +677,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
@@ -716,7 +716,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to add SKU mapping' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to add SKU mapping. Please try again.' });
         } finally {
             setAddingSku(false);
@@ -741,7 +741,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete SKU mapping' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete SKU mapping. Please try again.' });
         }
     };
@@ -750,7 +750,7 @@ export default function Show({
     const availableProducts = products.filter((p) => !customerSkus.some((s) => s.yums_sku === p.sku));
 
     // Invoice PDF handlers
-    const handleDownloadPdf = (invoiceId: number, invoiceNumber: string | null) => {
+    const handleDownloadPdf = (invoiceId: number) => {
         // Open the download URL in a new window/tab to trigger the download
         window.open(route('invoices.pdf.download', { id: invoiceId }), '_blank');
     };
@@ -792,8 +792,7 @@ export default function Show({
             document.body.removeChild(a);
 
             setNotification({ type: 'success', message: `PDF regenerated for invoice ${invoiceNumber || invoiceId}` });
-        } catch (error) {
-            console.error('Error regenerating PDF:', error);
+        } catch {
             setNotification({ type: 'error', message: 'Failed to regenerate PDF. Please try again.' });
         }
     };
@@ -889,7 +888,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to categorize contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to categorize contact. Please try again.' });
         }
     };
@@ -913,7 +912,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete contact. Please try again.' });
         }
     };
@@ -998,7 +997,7 @@ export default function Show({
                 const data = await brokerResponse.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save broker settings' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save broker settings. Please try again.' });
         } finally {
             setSaving(false);
@@ -1028,7 +1027,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to update customer type' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to update customer type' });
         } finally {
             setChangingCustomerType(false);
@@ -1071,7 +1070,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to add distributor customer' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to add distributor customer' });
         } finally {
             setAddingDistributorCustomer(false);
@@ -1101,36 +1100,10 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete distributor customer' });
         } finally {
             setDeletingDC(false);
-        }
-    };
-
-    const updateDistributorCustomerUrls = async (dcId: number, urls: string[]) => {
-        try {
-            const response = await fetch(route('customers.distributor-customers.update', { customerId: customer.id, distributorCustomerId: dcId }), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ company_urls: urls.filter((u) => u.trim()) }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLocalDistributorCustomers((prev) =>
-                    prev.map((dc) => (dc.id === dcId ? { ...dc, company_urls: data.distributor_customer.company_urls } : dc)),
-                );
-                setNotification({ type: 'success', message: 'Domains updated' });
-            } else {
-                const data = await response.json();
-                setNotification({ type: 'error', message: data.message || 'Failed to update domains' });
-            }
-        } catch (error) {
-            setNotification({ type: 'error', message: 'Failed to update domains' });
         }
     };
 
@@ -1182,7 +1155,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to update' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to update distributor customer' });
         } finally {
             setSavingDC(false);
@@ -1227,7 +1200,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to add contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to add contact' });
         } finally {
             setAddingDCContact(false);
@@ -1284,7 +1257,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to update contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to update contact' });
         } finally {
             setSavingDCContact(false);
@@ -1310,7 +1283,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to delete contact' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to delete contact' });
         } finally {
             setDeletingDCContactId(null);
@@ -1361,7 +1334,7 @@ export default function Show({
                 const data = await response.json();
                 setNotification({ type: 'error', message: data.message || 'Failed to save changes' });
             }
-        } catch (error) {
+        } catch {
             setNotification({ type: 'error', message: 'Failed to save changes. Please try again.' });
         } finally {
             setSaving(false);
@@ -1387,6 +1360,9 @@ export default function Show({
     const t12mTotal = monthlyRevenue.reduce((sum, m) => sum + m.revenue, 0);
     const priorYearTotal = monthlyRevenue.reduce((sum, m) => sum + m.prior_year_revenue, 0);
     const revenueChange = t12mTotal - priorYearTotal;
+    const maxRevenue = Math.max(...monthlyRevenue.map((m) => Math.max(m.revenue, m.prior_year_revenue)), 10000);
+    const yAxisSteps = 4;
+    const yAxisValues = Array.from({ length: yAxisSteps + 1 }, (_, i) => Math.round((maxRevenue / yAxisSteps) * (yAxisSteps - i)));
 
     const detailsValid = Object.keys(detailsErrors).length === 0;
     const contactsValid = Object.keys(contactsErrors).length === 0;
@@ -3005,93 +2981,78 @@ export default function Show({
                                     </div>
                                 </div>
                             </div>
-                            {(() => {
-                                const maxRevenue = Math.max(...monthlyRevenue.map((m) => Math.max(m.revenue, m.prior_year_revenue)), 10000);
-                                const yAxisSteps = 4;
-                                const yAxisValues = Array.from({ length: yAxisSteps + 1 }, (_, i) =>
-                                    Math.round((maxRevenue / yAxisSteps) * (yAxisSteps - i)),
-                                );
+                            {/* Legend */}
+                            <div className="mb-2 gap-4 flex justify-end">
+                                <div className="gap-1 flex items-center">
+                                    <div className="h-3 w-3 rounded bg-indigo-500"></div>
+                                    <span className="text-xs text-gray-500">Current Year</span>
+                                </div>
+                                <div className="gap-1 flex items-center">
+                                    <div className="h-3 w-3 rounded bg-gray-300"></div>
+                                    <span className="text-xs text-gray-500">Prior Year</span>
+                                </div>
+                            </div>
+                            <div className="flex" style={{ height: '220px' }}>
+                                {/* Y-Axis */}
+                                <div className="pr-2 flex flex-col justify-between text-right" style={{ width: '60px' }}>
+                                    {yAxisValues.map((value, idx) => (
+                                        <span key={idx} className="text-xs text-gray-500">
+                                            {formatCompactCurrency(value)}
+                                        </span>
+                                    ))}
+                                </div>
 
-                                return (
-                                    <>
-                                        {/* Legend */}
-                                        <div className="mb-2 gap-4 flex justify-end">
-                                            <div className="gap-1 flex items-center">
-                                                <div className="h-3 w-3 rounded bg-indigo-500"></div>
-                                                <span className="text-xs text-gray-500">Current Year</span>
-                                            </div>
-                                            <div className="gap-1 flex items-center">
-                                                <div className="h-3 w-3 rounded bg-gray-300"></div>
-                                                <span className="text-xs text-gray-500">Prior Year</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex" style={{ height: '220px' }}>
-                                            {/* Y-Axis */}
-                                            <div className="pr-2 flex flex-col justify-between text-right" style={{ width: '60px' }}>
-                                                {yAxisValues.map((value, idx) => (
-                                                    <span key={idx} className="text-xs text-gray-500">
-                                                        {formatCompactCurrency(value)}
-                                                    </span>
-                                                ))}
-                                            </div>
+                                {/* Chart Area */}
+                                <div className="flex flex-1 flex-col">
+                                    <div className="gap-2 border-gray-200 relative flex flex-1 items-end border-b border-l">
+                                        {/* Horizontal grid lines */}
+                                        {yAxisValues.slice(1, -1).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="left-0 right-0 border-gray-100 absolute border-t"
+                                                style={{ bottom: `${((idx + 1) / yAxisSteps) * 100}%` }}
+                                            />
+                                        ))}
 
-                                            {/* Chart Area */}
-                                            <div className="flex flex-1 flex-col">
-                                                <div className="gap-2 border-gray-200 relative flex flex-1 items-end border-b border-l">
-                                                    {/* Horizontal grid lines */}
-                                                    {yAxisValues.slice(1, -1).map((_, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            className="left-0 right-0 border-gray-100 absolute border-t"
-                                                            style={{ bottom: `${((idx + 1) / yAxisSteps) * 100}%` }}
-                                                        />
-                                                    ))}
-
-                                                    {/* Bars - grouped by month */}
-                                                    {monthlyRevenue.map((month, idx) => {
-                                                        const currentHeightPercent = (month.revenue / maxRevenue) * 100;
-                                                        const priorHeightPercent = (month.prior_year_revenue / maxRevenue) * 100;
-                                                        return (
-                                                            <div
-                                                                key={idx}
-                                                                className="gap-0.5 relative z-10 flex h-full flex-1 items-end justify-center"
-                                                            >
-                                                                {/* Prior Year Bar */}
-                                                                <div
-                                                                    className="bg-gray-300 rounded-t w-2/5"
-                                                                    style={{
-                                                                        height: `${priorHeightPercent}%`,
-                                                                        minHeight: month.prior_year_revenue > 0 ? '4px' : '0',
-                                                                    }}
-                                                                    title={`${month.prior_year_month}: ${formatCurrency(month.prior_year_revenue)}`}
-                                                                />
-                                                                {/* Current Year Bar */}
-                                                                <div
-                                                                    className="bg-indigo-500 rounded-t w-2/5"
-                                                                    style={{
-                                                                        height: `${currentHeightPercent}%`,
-                                                                        minHeight: month.revenue > 0 ? '4px' : '0',
-                                                                    }}
-                                                                    title={`${month.month}: ${formatCurrency(month.revenue)}`}
-                                                                />
-                                                            </div>
-                                                        );
-                                                    })}
+                                        {/* Bars - grouped by month */}
+                                        {monthlyRevenue.map((month, idx) => {
+                                            const currentHeightPercent = (month.revenue / maxRevenue) * 100;
+                                            const priorHeightPercent = (month.prior_year_revenue / maxRevenue) * 100;
+                                            return (
+                                                <div key={idx} className="gap-0.5 relative z-10 flex h-full flex-1 items-end justify-center">
+                                                    {/* Prior Year Bar */}
+                                                    <div
+                                                        className="bg-gray-300 rounded-t w-2/5"
+                                                        style={{
+                                                            height: `${priorHeightPercent}%`,
+                                                            minHeight: month.prior_year_revenue > 0 ? '4px' : '0',
+                                                        }}
+                                                        title={`${month.prior_year_month}: ${formatCurrency(month.prior_year_revenue)}`}
+                                                    />
+                                                    {/* Current Year Bar */}
+                                                    <div
+                                                        className="bg-indigo-500 rounded-t w-2/5"
+                                                        style={{
+                                                            height: `${currentHeightPercent}%`,
+                                                            minHeight: month.revenue > 0 ? '4px' : '0',
+                                                        }}
+                                                        title={`${month.month}: ${formatCurrency(month.revenue)}`}
+                                                    />
                                                 </div>
+                                            );
+                                        })}
+                                    </div>
 
-                                                {/* X-Axis Labels */}
-                                                <div className="gap-2 pt-1 flex">
-                                                    {monthlyRevenue.map((month, idx) => (
-                                                        <div key={idx} className="flex-1 text-center">
-                                                            <span className="text-xs text-gray-500">{month.month_name}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                    {/* X-Axis Labels */}
+                                    <div className="gap-2 pt-1 flex">
+                                        {monthlyRevenue.map((month, idx) => (
+                                            <div key={idx} className="flex-1 text-center">
+                                                <span className="text-xs text-gray-500">{month.month_name}</span>
                                             </div>
-                                        </div>
-                                    </>
-                                );
-                            })()}
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -3229,7 +3190,7 @@ export default function Show({
                                                     <td className="py-2 text-right">
                                                         <div className="gap-2 flex justify-end">
                                                             <button
-                                                                onClick={() => handleDownloadPdf(invoice.id, invoice.number)}
+                                                                onClick={() => handleDownloadPdf(invoice.id)}
                                                                 className="text-indigo-600 hover:text-indigo-900 text-sm"
                                                                 title="Download PDF"
                                                             >
