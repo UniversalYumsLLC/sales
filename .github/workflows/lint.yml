@@ -36,6 +36,15 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Restore Lint Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .eslintcache
+            .prettiercache
+          key: lint-cache-${{ github.sha }}
+          restore-keys: lint-cache-
+
       - name: Install Dependencies
         run: |
           composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist &
@@ -46,10 +55,10 @@ jobs:
         run: vendor/bin/pint --test --parallel
 
       - name: Format Check
-        run: npm run format:check
+        run: npx prettier --check --cache --cache-location .prettiercache resources/
 
       - name: Lint Frontend
-        run: npm run lint:check
+        run: npx eslint --cache --cache-location .eslintcache .
 
       - name: TypeScript Check
         run: npm run types
